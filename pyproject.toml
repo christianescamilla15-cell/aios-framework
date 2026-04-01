@@ -3,8 +3,8 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aios"
-version = "0.9.0"
+name = "aios-kiro"
+version = "1.0.0"
 description = "AIOS — AI Engineering Operating System. Spec-driven development with agent orchestration."
 readme = "README.md"
 license = {text = "MIT"}

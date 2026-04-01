@@ -1,0 +1,23 @@
+{
+  "plugins": [
+    {
+      "id": "aios-kiro",
+      "name": "AIOS — AI Engineering OS",
+      "version": "1.0.0",
+      "description": "Spec-driven development framework with agent orchestration. 18 CLI commands, 17 engines, 6 stacks. Kiro-compatible.",
+      "skills": [
+        "spec-driven-development",
+        "requirements-ears",
+        "design-documentation",
+        "task-breakdown",
+        "steering-management",
+        "release-gate",
+        "dependency-analysis",
+        "troubleshooting",
+        "onboarding",
+        "hook-management",
+        "mcp-configuration"
+      ]
+    }
+  ]
+}

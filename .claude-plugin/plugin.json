@@ -1,0 +1,27 @@
+{
+  "name": "aios-kiro",
+  "version": "1.0.0",
+  "description": "AIOS — AI Engineering Operating System. Spec-driven development with agent orchestration, Kiro-compatible steering, EARS requirements, dependency analysis, and enterprise release gates.",
+  "author": {
+    "name": "Christian Hernandez Escamilla",
+    "url": "https://github.com/christianescamilla15-cell"
+  },
+  "homepage": "https://github.com/christianescamilla15-cell/aios-framework",
+  "repository": "https://github.com/christianescamilla15-cell/aios-framework",
+  "license": "MIT",
+  "keywords": [
+    "spec-driven-development",
+    "agent-orchestration",
+    "kiro",
+    "EARS",
+    "requirements",
+    "design",
+    "steering",
+    "hooks",
+    "mcp",
+    "enterprise",
+    "release-gate",
+    "dependency-graph",
+    "monorepo"
+  ]
+}

@@ -32,7 +32,42 @@ def file_template(filename: str, mode: str, task: str, context: str | None = Non
 
     templates = {
         "bugfix.md": f"# {title}\n\n## Problem Statement\n\n## Symptoms\n\n## Expected Behavior\n\n## Actual Behavior\n\n## Reproduction Steps\n1.\n2.\n\n## Likely Root Cause\n\n## Acceptance Criteria\n- [ ] Bug resolved\n- [ ] No regressions\n- [ ] Tests added\n{ctx}",
-        "requirements.md": f"# {title}\n\n## Objective\n\n## User Impact\n\n## Functional Requirements\n\n## Non-Functional Requirements\n\n## Acceptance Criteria\n- [ ]\n\n## Out of Scope\n{ctx}",
+        "requirements.md": f"""# {title}
+
+## Objective
+
+## User Impact
+
+## Requirements (EARS Format)
+
+### Ubiquitous (always true)
+<!-- The system SHALL [action] -->
+
+### Event-Driven (when something happens)
+<!-- WHEN [event], the system SHALL [action] -->
+
+### State-Driven (while in a state)
+<!-- WHILE [state], the system SHALL [action] -->
+
+### Unwanted Behavior (handling failures)
+<!-- IF [condition], THEN the system SHALL [action] -->
+
+### Optional (conditional features)
+<!-- WHERE [feature is enabled], the system SHALL [action] -->
+
+## Non-Functional Requirements
+- Performance:
+- Security:
+- Reliability:
+- Scalability:
+
+## Acceptance Criteria
+- [ ]
+- [ ]
+- [ ]
+
+## Out of Scope
+{ctx}""",
         "design.md": f"# {title}\n\n## Current State\n\n## Proposed Design\n\n## Architecture Impact\n\n## Tradeoffs\n\n## Risks\n{ctx}",
         "tasks.md": f"# {title}\n\n## Tasks\n\n### T1\n- Description:\n- Owner Agent:\n- Dependencies:\n- Validation:\n- Risk: low/medium/high\n\n### T2\n- Description:\n- Owner Agent:\n- Dependencies:\n- Validation:\n- Risk: low/medium/high\n{ctx}",
         "validation.md": f"# {title}\n\n## Checklist\n- [ ] Scope correct\n- [ ] Tests identified\n- [ ] Edge cases reviewed\n\n## Test Matrix\n- Unit:\n- Integration:\n- Regression:\n{ctx}",

@@ -29,6 +29,10 @@ from aios.core.guide import get_guide, get_topics
 from aios.core.onboard import run_onboard
 from aios.core.hooks import install_git_hook, list_hooks
 from aios.core.mcp import write_mcp_config, list_available_servers
+from aios.core.lockfile import acquire_lock, release_lock, check_lock
+from aios.core.test_runner import find_affected_tests, run_tests
+from aios.core.progress import track_progress
+from aios.core.cache import invalidate_cache
 
 
 def get_root(args) -> Path:
@@ -485,6 +489,92 @@ def cmd_impact(args):
         print(f"{'='*60}\n")
 
 
+def cmd_test(args):
+    """Smart test runner — finds and runs affected tests."""
+    root = get_root(args)
+    if args.run:
+        result = run_tests(root)
+        print(f"\n{'='*60}")
+        print(f"  TEST RESULTS")
+        print(f"{'='*60}")
+        print(f"  Framework: {result['framework']}")
+        print(f"  Affected: {len(result.get('affected_tests', []))}")
+        print(f"  Passed: {'YES' if result['passed'] else 'NO'}")
+        if result.get('stdout'):
+            print(f"\n  Output:\n{result['stdout'][-300:]}")
+        print(f"{'='*60}\n")
+    else:
+        info = find_affected_tests(root)
+        print(f"\n{'='*60}")
+        print(f"  AFFECTED TESTS")
+        print(f"{'='*60}")
+        print(f"  Changed files: {info['changed_files']}")
+        print(f"  Framework: {info['framework']}")
+        print(f"  Affected tests ({len(info['affected_tests'])}):")
+        for t in info["affected_tests"][:15]:
+            print(f"    {t}")
+        print(f"\n  Command: {info['command']}")
+        print(f"  Run with: aios test --run")
+        print(f"{'='*60}\n")
+
+
+def cmd_progress(args):
+    """Track migration/task progress across specs."""
+    root = get_root(args)
+    data = track_progress(root)
+
+    print(f"\n{'='*60}")
+    print(f"  PROGRESS TRACKER")
+    print(f"{'='*60}")
+    print(f"  Overall: {data['overall']}% ({data['completed_tasks']}/{data['total_tasks']} tasks)")
+
+    for spec in data["specs"]:
+        bar_len = 20
+        filled = int(bar_len * spec["completion"] / 100)
+        bar = "#" * filled + "-" * (bar_len - filled)
+        print(f"\n  [{spec['mode']:8}] {spec['name'][:40]}")
+        print(f"    {bar} {spec['completion']}% ({spec['tasks_completed']}/{spec['tasks_total']} tasks)")
+        docs = []
+        if spec["has_design"]: docs.append("design")
+        if spec["has_validation"]: docs.append("validation")
+        if spec["has_rollback"]: docs.append("rollback")
+        if docs:
+            print(f"    Docs: {', '.join(docs)}")
+    print(f"{'='*60}\n")
+
+
+def cmd_watch(args):
+    """Watch for file changes and run analysis."""
+    root = get_root(args)
+    from aios.core.watcher import watch_changes
+
+    def on_change(r, diff):
+        print(f"\n  [CHANGE DETECTED] {len(diff.splitlines())} files modified")
+        from aios.core.incremental import incremental_analyze
+        result = incremental_analyze(r)
+        print(f"  Changed: {result['total_changed']} files")
+        for cat, files in result["categories"].items():
+            print(f"    [{cat}] {len(files)}")
+
+    print(f"  Watching {root} for changes (Ctrl+C to stop)...")
+    watch_changes(root, on_change, interval=int(args.interval or 5))
+
+
+def cmd_cache(args):
+    """Manage analysis cache."""
+    root = get_root(args)
+    if args.action == "clear":
+        invalidate_cache(root)
+        print("  Cache cleared.")
+    elif args.action == "status":
+        cache_dir = root / ".aios" / "cache"
+        if cache_dir.exists():
+            files = list(cache_dir.glob("*.json"))
+            print(f"  Cache: {len(files)} entries in {cache_dir}")
+        else:
+            print("  No cache.")
+
+
 # ═══════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════
@@ -582,6 +672,25 @@ def main():
     p.add_argument("--value", help="Config value to set")
     p.add_argument("--root", default=".")
 
+    # test
+    p = sub.add_parser("test", help="Smart test runner")
+    p.add_argument("--run", action="store_true", help="Actually run the tests")
+    p.add_argument("--root", default=".")
+
+    # progress
+    p = sub.add_parser("progress", help="Track migration/task progress")
+    p.add_argument("--root", default=".")
+
+    # watch
+    p = sub.add_parser("watch", help="Watch for file changes")
+    p.add_argument("--interval", default="5", help="Check interval in seconds")
+    p.add_argument("--root", default=".")
+
+    # cache
+    p = sub.add_parser("cache", help="Manage analysis cache")
+    p.add_argument("action", choices=["clear", "status"])
+    p.add_argument("--root", default=".")
+
     # version
     p = sub.add_parser("version", help="Show AIOS version")
 
@@ -594,6 +703,7 @@ def main():
         "module": cmd_module, "config": cmd_config, "version": cmd_version,
         "diff": cmd_diff, "impact": cmd_impact,
         "onboard": cmd_onboard, "guide": cmd_guide, "hook": cmd_hook, "mcp": cmd_mcp,
+        "test": cmd_test, "progress": cmd_progress, "watch": cmd_watch, "cache": cmd_cache,
     }
 
     if args.command in commands:

@@ -5,6 +5,7 @@ aios/cli/__init__.py
 aios/cli/main.py
 aios/core/__init__.py
 aios/core/cache.py
+aios/core/changelog.py
 aios/core/config.py
 aios/core/dependency_graph.py
 aios/core/file_scanner.py

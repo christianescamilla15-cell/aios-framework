@@ -35,6 +35,7 @@ from aios.core.progress import track_progress
 from aios.core.cache import invalidate_cache
 from aios.core.refine import analyze_spec, refine_all_specs
 from aios.core.kiro_bridge import sync_to_kiro, search_codebase
+from aios.core.changelog import save_changelog, clear_changelog, get_changelog_size, generate_changelog
 
 
 def get_root(args) -> Path:
@@ -614,6 +615,70 @@ def cmd_search(args):
     print()
 
 
+def cmd_changelog(args):
+    """Generate or view changelog."""
+    root = get_root(args)
+    commits = int(args.commits or 3)
+
+    if args.action == "generate":
+        path = save_changelog(root, commits)
+        size = get_changelog_size(root)
+        print(f"\n  Changelog saved: {path} ({size}KB)")
+        print(f"  Covers last {commits} commits\n")
+
+    elif args.action == "show":
+        data = generate_changelog(root, commits)
+        print(f"\n{'='*60}")
+        print(f"  CHANGELOG (last {commits} commits)")
+        print(f"{'='*60}")
+        for e in data["entries"]:
+            added = sum(1 for f in e["files"] if f["status"] == "A")
+            modified = sum(1 for f in e["files"] if f["status"] == "M")
+            print(f"\n  [{e['sha']}] {e['message']}")
+            print(f"    {e['date']} | +{added} added, ~{modified} modified | {e['stat']}")
+            for f in e["files"][:8]:
+                icon = {"A": "+", "M": "~", "D": "-"}.get(f["status"], "?")
+                print(f"      {icon} {f['file']}")
+            if len(e["files"]) > 8:
+                print(f"      ... +{len(e['files']) - 8} more")
+        print(f"\n{'='*60}\n")
+
+
+def cmd_clean(args):
+    """Clean AIOS artifacts to free memory."""
+    root = get_root(args)
+    cleaned = []
+
+    if args.target in ("all", "changelog"):
+        if clear_changelog(root):
+            cleaned.append("changelog")
+
+    if args.target in ("all", "cache"):
+        invalidate_cache(root)
+        cleaned.append("cache")
+
+    if args.target in ("all", "specs"):
+        specs_dir = root / "specs"
+        if specs_dir.exists():
+            import shutil
+            count = len(list(specs_dir.iterdir()))
+            shutil.rmtree(specs_dir)
+            specs_dir.mkdir()
+            cleaned.append(f"specs ({count} removed)")
+
+    if args.target in ("all", "memory"):
+        # Reset memory files to defaults (keep structure)
+        from aios.core.memory_engine import MEMORY_DEFAULTS
+        for name, content in MEMORY_DEFAULTS.items():
+            (root / "ai-memory" / name).write_text(content, encoding="utf-8")
+        cleaned.append("memory (reset to defaults)")
+
+    if cleaned:
+        print(f"\n  Cleaned: {', '.join(cleaned)}\n")
+    else:
+        print(f"\n  Nothing to clean. Use: aios clean --target all/changelog/cache/specs/memory\n")
+
+
 def cmd_cache(args):
     """Manage analysis cache."""
     root = get_root(args)
@@ -759,6 +824,17 @@ def main():
     p.add_argument("query", help="Search query")
     p.add_argument("--root", default=".")
 
+    # changelog
+    p = sub.add_parser("changelog", help="Generate/view changelog")
+    p.add_argument("action", choices=["show", "generate"])
+    p.add_argument("--commits", default="3", help="Number of commits")
+    p.add_argument("--root", default=".")
+
+    # clean
+    p = sub.add_parser("clean", help="Clean AIOS artifacts")
+    p.add_argument("--target", choices=["all", "changelog", "cache", "specs", "memory"], default="cache", help="What to clean")
+    p.add_argument("--root", default=".")
+
     # version
     p = sub.add_parser("version", help="Show AIOS version")
 
@@ -773,6 +849,7 @@ def main():
         "onboard": cmd_onboard, "guide": cmd_guide, "hook": cmd_hook, "mcp": cmd_mcp,
         "test": cmd_test, "progress": cmd_progress, "watch": cmd_watch, "cache": cmd_cache,
         "refine": cmd_refine, "sync": cmd_sync, "search": cmd_search,
+        "changelog": cmd_changelog, "clean": cmd_clean,
     }
 
     if args.command in commands:

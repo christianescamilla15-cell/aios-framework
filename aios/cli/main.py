@@ -25,6 +25,10 @@ from aios.core.prompt_engine import build_execution_prompt
 from aios.core.module_loader import list_stacks, run_stack_checks, detect_relevant_stacks, run_all_relevant_checks
 from aios.core.config import load_config, init_config, save_config
 from aios.core.monorepo import detect_services, detect_active_service, is_monorepo
+from aios.core.guide import get_guide, get_topics
+from aios.core.onboard import run_onboard
+from aios.core.hooks import install_git_hook, list_hooks
+from aios.core.mcp import write_mcp_config, list_available_servers
 
 
 def get_root(args) -> Path:
@@ -369,6 +373,67 @@ def cmd_handoff(args):
     print(f"\n{'='*60}\n")
 
 
+def cmd_onboard(args):
+    """Run onboarding wizard for new project."""
+    root = get_root(args)
+    report = run_onboard(root)
+
+    print(f"\n{'='*60}")
+    print(f"  AIOS ONBOARD")
+    print(f"{'='*60}")
+    for step in report["steps"]:
+        print(f"  [OK] {step}")
+    if report["warnings"]:
+        print(f"\n  Warnings:")
+        for w in report["warnings"]:
+            print(f"  [!!] {w}")
+    print(f"\n  Next steps:")
+    for ns in report["next_steps"]:
+        print(f"    {ns}")
+    print(f"{'='*60}\n")
+
+
+def cmd_guide(args):
+    """Show troubleshooting guide."""
+    print(get_guide(args.topic if hasattr(args, 'topic') else None))
+
+
+def cmd_hook(args):
+    """Manage git hooks."""
+    root = get_root(args)
+    if args.action == "list":
+        hooks = list_hooks(root)
+        print(f"\n{'='*60}")
+        print(f"  HOOKS")
+        print(f"{'='*60}")
+        for h in hooks:
+            status = "INSTALLED" if h["installed"] else "available"
+            print(f"  {h['name']:25} [{status:10}] {h['description']}")
+        print(f"{'='*60}\n")
+    elif args.action == "install":
+        if not args.name:
+            print("  Usage: aios hook install --name pre-commit")
+            return
+        ok = install_git_hook(root, args.name, args.stack or "python")
+        print(f"  Hook '{args.name}' {'installed' if ok else 'FAILED'}")
+
+
+def cmd_mcp(args):
+    """Generate MCP config for Kiro."""
+    root = get_root(args)
+    if args.action == "list":
+        servers = list_available_servers()
+        print(f"\n  Available MCP Servers:")
+        for s in servers:
+            default = " (default)" if s["default"] else ""
+            print(f"    {s['name']:20} [{s['command']}]{default}")
+        print()
+    elif args.action == "init":
+        extra = args.servers.split(",") if args.servers else []
+        path = write_mcp_config(root, extra)
+        print(f"  MCP config created: {path}")
+
+
 def cmd_diff(args):
     """Show incremental changes since last analysis."""
     root = get_root(args)
@@ -478,6 +543,27 @@ def main():
     p = sub.add_parser("handoff", help="Generate handoff document")
     p.add_argument("--root", default=".")
 
+    # onboard
+    p = sub.add_parser("onboard", help="Onboarding wizard for new projects")
+    p.add_argument("--root", default=".")
+
+    # guide
+    p = sub.add_parser("guide", help="Troubleshooting guide and FAQ")
+    p.add_argument("--topic", choices=get_topics(), help="Specific topic")
+
+    # hook
+    p = sub.add_parser("hook", help="Manage git hooks")
+    p.add_argument("action", choices=["list", "install"])
+    p.add_argument("--name", help="Hook name to install")
+    p.add_argument("--stack", help="Stack for hook templates (python/react)")
+    p.add_argument("--root", default=".")
+
+    # mcp
+    p = sub.add_parser("mcp", help="MCP server configuration")
+    p.add_argument("action", choices=["list", "init"])
+    p.add_argument("--servers", help="Extra servers (comma-separated)")
+    p.add_argument("--root", default=".")
+
     # diff
     p = sub.add_parser("diff", help="Show incremental changes")
     p.add_argument("--root", default=".")
@@ -507,6 +593,7 @@ def main():
         "release": cmd_release, "doctor": cmd_doctor, "handoff": cmd_handoff,
         "module": cmd_module, "config": cmd_config, "version": cmd_version,
         "diff": cmd_diff, "impact": cmd_impact,
+        "onboard": cmd_onboard, "guide": cmd_guide, "hook": cmd_hook, "mcp": cmd_mcp,
     }
 
     if args.command in commands:

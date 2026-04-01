@@ -168,12 +168,14 @@ def detect_mode(task: str, context: str | None = None, root: Path | None = None)
         for mode, score in s.items():
             combined[mode] += score
 
-    if combined.get("MIGRATION", 0) >= 5:
-        return "MIGRATION", dict(combined)
-    if combined.get("LEGACY_MODERNIZATION", 0) >= 5 and combined.get("MIGRATION", 0) < 5:
-        return "LEGACY_MODERNIZATION", dict(combined)
-    if combined.get("BUGFIX", 0) >= 4 and combined.get("MIGRATION", 0) < 5:
-        return "BUGFIX", dict(combined)
+    if not combined:
+        return "FEATURE", dict(combined)
 
-    best = max(combined, key=combined.get) if combined else "FEATURE"
-    return (best if combined.get(best, 0) > 0 else "FEATURE"), dict(combined)
+    # Pick the mode with the highest score
+    best = max(combined, key=combined.get)
+
+    # Minimum thresholds to avoid noise
+    if combined[best] < 3:
+        return "FEATURE", dict(combined)
+
+    return best, dict(combined)

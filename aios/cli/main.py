@@ -33,6 +33,8 @@ from aios.core.lockfile import acquire_lock, release_lock, check_lock
 from aios.core.test_runner import find_affected_tests, run_tests
 from aios.core.progress import track_progress
 from aios.core.cache import invalidate_cache
+from aios.core.refine import analyze_spec, refine_all_specs
+from aios.core.kiro_bridge import sync_to_kiro, search_codebase
 
 
 def get_root(args) -> Path:
@@ -560,6 +562,58 @@ def cmd_watch(args):
     watch_changes(root, on_change, interval=int(args.interval or 5))
 
 
+def cmd_refine(args):
+    """Analyze spec completeness and suggest improvements."""
+    root = get_root(args)
+    if args.spec:
+        spec_dir = root / "specs" / args.spec
+        result = analyze_spec(spec_dir)
+        print(f"\n{'='*60}")
+        print(f"  SPEC REFINEMENT: {result.get('spec', '?')}")
+        print(f"{'='*60}")
+        print(f"  Readiness: {result['average']}%")
+        for name, score in result.get("scores", {}).items():
+            bar = "#" * (score // 5) + "-" * (20 - score // 5)
+            print(f"    {name:30} {bar} {score}%")
+        if result.get("issues"):
+            print(f"\n  Issues:")
+            for i in result["issues"]:
+                print(f"    [!!] {i['file']}: {i['issue']}")
+        if result.get("suggestions"):
+            print(f"\n  Suggestions:")
+            for s in result["suggestions"]:
+                print(f"    -> {s}")
+        print(f"{'='*60}\n")
+    else:
+        results = refine_all_specs(root)
+        print(f"\n{'='*60}")
+        print(f"  SPEC REFINEMENT — ALL SPECS")
+        print(f"{'='*60}")
+        for r in results:
+            bar = "#" * (r["average"] // 5) + "-" * (20 - r["average"] // 5)
+            print(f"  {r['spec'][:40]:42} {bar} {r['average']}%")
+        print(f"{'='*60}\n")
+
+
+def cmd_sync(args):
+    """Sync AIOS structure to Kiro IDE format."""
+    root = get_root(args)
+    result = sync_to_kiro(root)
+    print(f"\n  Synced to Kiro:")
+    print(f"    Steering: {result['steering_files']} files -> {result['steering_path']}")
+    print(f"    Specs: {result['specs_count']} specs -> {result['specs_path']}\n")
+
+
+def cmd_search(args):
+    """Search codebase for a query."""
+    root = get_root(args)
+    results = search_codebase(root, args.query)
+    print(f"\n  Search: '{args.query}' ({len(results)} results)\n")
+    for r in results:
+        print(f"  {r['file']}:{r['line']}  {r['content']}")
+    print()
+
+
 def cmd_cache(args):
     """Manage analysis cache."""
     root = get_root(args)
@@ -691,6 +745,20 @@ def main():
     p.add_argument("action", choices=["clear", "status"])
     p.add_argument("--root", default=".")
 
+    # refine
+    p = sub.add_parser("refine", help="Analyze spec completeness")
+    p.add_argument("--spec", help="Specific spec to refine")
+    p.add_argument("--root", default=".")
+
+    # sync
+    p = sub.add_parser("sync", help="Sync AIOS to Kiro IDE format")
+    p.add_argument("--root", default=".")
+
+    # search
+    p = sub.add_parser("search", help="Search codebase")
+    p.add_argument("query", help="Search query")
+    p.add_argument("--root", default=".")
+
     # version
     p = sub.add_parser("version", help="Show AIOS version")
 
@@ -704,6 +772,7 @@ def main():
         "diff": cmd_diff, "impact": cmd_impact,
         "onboard": cmd_onboard, "guide": cmd_guide, "hook": cmd_hook, "mcp": cmd_mcp,
         "test": cmd_test, "progress": cmd_progress, "watch": cmd_watch, "cache": cmd_cache,
+        "refine": cmd_refine, "sync": cmd_sync, "search": cmd_search,
     }
 
     if args.command in commands:

@@ -100,3 +100,38 @@ def find_impact(root: Path, changed_file: str) -> List[str]:
                 break
 
     return affected
+
+
+def build_cross_service_deps(root: Path) -> Dict:
+    """Build dependency graph across monorepo services."""
+    from .monorepo import detect_services
+
+    services = detect_services(root)
+    if len(services) < 2:
+        return {"services": [], "cross_deps": []}
+
+    cross_deps = []
+    service_graphs = {}
+
+    for svc in services:
+        svc_root = root / svc["path"]
+        graph = build_dependency_graph(svc_root)
+        service_graphs[svc["name"]] = graph
+
+        # Find imports that reference other services
+        for file, deps in graph["graph"].items():
+            for dep in deps:
+                for other_svc in services:
+                    if other_svc["name"] != svc["name"] and other_svc["name"] in dep:
+                        cross_deps.append({
+                            "from_service": svc["name"],
+                            "from_file": file,
+                            "to_service": other_svc["name"],
+                            "import": dep,
+                        })
+
+    return {
+        "services": [s["name"] for s in services],
+        "cross_deps": cross_deps,
+        "service_graphs": {k: {"files": v["total_files"], "edges": v["total_edges"]} for k, v in service_graphs.items()},
+    }

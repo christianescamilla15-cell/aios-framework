@@ -11,6 +11,7 @@ aios/core/file_scanner.py
 aios/core/guide.py
 aios/core/hooks.py
 aios/core/incremental.py
+aios/core/kiro_bridge.py
 aios/core/lockfile.py
 aios/core/mcp.py
 aios/core/memory_engine.py
@@ -19,6 +20,7 @@ aios/core/monorepo.py
 aios/core/onboard.py
 aios/core/progress.py
 aios/core/prompt_engine.py
+aios/core/refine.py
 aios/core/release_gate.py
 aios/core/repo_analyzer.py
 aios/core/router.py

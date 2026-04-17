@@ -1,2 +1,2 @@
-"""AIOS — AI Engineering Operating System v0.9"""
-__version__ = "1.4.0"
+"""AIOS — AI Engineering Operating System v1.5.0"""
+__version__ = "1.5.0"

@@ -41,10 +41,30 @@ def map_modules(files: List[str]) -> Dict[str, int]:
 
 
 def detect_hotspots(root: Path, files: List[str]) -> List[Dict]:
+    """v1.5.0 · expanded extensions (.cs · .vb · .php · .cbl) + ignore noise paths.
+
+    Excludes: gen_*.py, analysis_output/, _archive/, bin/obj, node_modules, etc.
+    """
     hotspots = []
-    code_exts = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".kt", ".go"}
+    code_exts = {
+        ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".kt", ".go",
+        ".cs", ".vb",  # v1.5.0 · .NET
+        ".php",
+        ".cbl", ".cob", ".cobol", ".cpy",  # COBOL
+    }
+    noise_substrings = (
+        "gen_", "analysis_output/", "noshow_analysis/", "_archive/",
+        "__pycache__/", "node_modules/", "/bin/", "/obj/", "/packages/",
+        "/.vs/", "/dist/", "/build/", ".egg-info/",
+    )
     for f in files:
         if not any(f.endswith(e) for e in code_exts):
+            continue
+        f_norm = f.replace("\\", "/").lower()
+        if any(noise in f_norm for noise in noise_substrings):
+            continue
+        basename = f.replace("\\", "/").rsplit("/", 1)[-1]
+        if basename.startswith("gen_"):
             continue
         path = root / f
         try:

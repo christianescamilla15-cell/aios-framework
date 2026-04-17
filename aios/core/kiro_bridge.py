@@ -42,20 +42,78 @@ def generate_kiro_specs(root: Path) -> Path:
     return dst
 
 
+def generate_kiro_app_memory(root: Path, apps_dir: str = "apps_code") -> Path:
+    """v1.5.0 NEW · sync per-app .memory/ folders to .kiro/app-memory/."""
+    apps_root = root / apps_dir
+    dst = root / ".kiro" / "app-memory"
+    if not apps_root.exists():
+        return dst
+    dst.mkdir(parents=True, exist_ok=True)
+
+    for app_dir in apps_root.iterdir():
+        if not app_dir.is_dir() or app_dir.name.startswith("."):
+            continue
+        memory_src = app_dir / ".memory"
+        if not memory_src.exists():
+            continue
+        memory_dst = dst / app_dir.name
+        memory_dst.mkdir(exist_ok=True)
+        for f in memory_src.glob("*.md"):
+            target = memory_dst / f.name
+            target.write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
+    return dst
+
+
+def generate_kiro_app_agents(root: Path, apps_dir: str = "apps_code") -> Path:
+    """v1.5.0 NEW · sync per-app .agents/ folders to .kiro/app-agents/."""
+    apps_root = root / apps_dir
+    dst = root / ".kiro" / "app-agents"
+    if not apps_root.exists():
+        return dst
+    dst.mkdir(parents=True, exist_ok=True)
+
+    for app_dir in apps_root.iterdir():
+        if not app_dir.is_dir() or app_dir.name.startswith("."):
+            continue
+        agents_src = app_dir / ".agents"
+        if not agents_src.exists():
+            continue
+        agents_dst = dst / app_dir.name
+        agents_dst.mkdir(exist_ok=True)
+        for f in agents_src.glob("*.md"):
+            target = agents_dst / f.name
+            target.write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
+    return dst
+
+
 def sync_to_kiro(root: Path) -> Dict:
-    """Full sync AIOS → Kiro directory structure."""
+    """Full sync AIOS → Kiro directory structure.
+
+    v1.5.0 · also syncs per-app .memory/ and .agents/ from apps_code/.
+    """
     steering = generate_kiro_steering(root)
     specs = generate_kiro_specs(root)
+    app_memory = generate_kiro_app_memory(root)  # v1.5.0
+    app_agents = generate_kiro_app_agents(root)  # v1.5.0
 
-    # Count
     steering_count = len(list(steering.glob("*.md"))) if steering.exists() else 0
     specs_count = len(list(specs.iterdir())) if specs.exists() else 0
+    app_memory_count = sum(
+        len(list(d.glob("*.md"))) for d in app_memory.iterdir() if d.is_dir()
+    ) if app_memory.exists() else 0
+    app_agents_count = sum(
+        len(list(d.glob("*.md"))) for d in app_agents.iterdir() if d.is_dir()
+    ) if app_agents.exists() else 0
 
     return {
         "steering_path": str(steering),
         "steering_files": steering_count,
         "specs_path": str(specs),
         "specs_count": specs_count,
+        "app_memory_path": str(app_memory),
+        "app_memory_files": app_memory_count,
+        "app_agents_path": str(app_agents),
+        "app_agents_files": app_agents_count,
     }
 
 

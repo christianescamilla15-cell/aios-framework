@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AIOS CLI — AI Engineering Operating System v0.9"""
+"""AIOS CLI — AI Engineering Operating System v1.5.0"""
 from __future__ import annotations
 
 import argparse
@@ -7,6 +7,15 @@ import json
 import shutil
 import sys
 from pathlib import Path
+
+# v1.5.0 · Force UTF-8 on Windows console (fixes ·, →, ⭐ rendering as ?)
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except (AttributeError, Exception):
+        # Older Python or non-reconfigurable streams · fallback silent
+        pass
 
 # Support both installed (pip) and development mode
 try:
@@ -601,8 +610,14 @@ def cmd_sync(args):
     root = get_root(args)
     result = sync_to_kiro(root)
     print(f"\n  Synced to Kiro:")
-    print(f"    Steering: {result['steering_files']} files -> {result['steering_path']}")
-    print(f"    Specs: {result['specs_count']} specs -> {result['specs_path']}\n")
+    print(f"    Steering:    {result['steering_files']} files -> {result['steering_path']}")
+    print(f"    Specs:       {result['specs_count']} specs -> {result['specs_path']}")
+    # v1.5.0 · per-app sync info
+    if result.get('app_memory_files', 0) > 0:
+        print(f"    App memory:  {result['app_memory_files']} files -> {result['app_memory_path']}")
+    if result.get('app_agents_files', 0) > 0:
+        print(f"    App agents:  {result['app_agents_files']} files -> {result['app_agents_path']}")
+    print()
 
 
 def cmd_search(args):

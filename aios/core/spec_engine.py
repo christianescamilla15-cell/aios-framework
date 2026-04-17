@@ -6,10 +6,22 @@ from pathlib import Path
 from typing import List
 
 
-def slugify(text: str) -> str:
+def slugify(text: str, max_len: int = 40) -> str:
+    """v1.5.0 · max_len reduced from 90 to 40 chars (avoids unwieldy folder names).
+
+    For long task titles, append short hash for uniqueness.
+    """
     text = text.strip().lower()
     text = re.sub(r"[^a-z0-9]+", "-", text)
-    return re.sub(r"-{2,}", "-", text).strip("-")[:90] or "untitled"
+    text = re.sub(r"-{2,}", "-", text).strip("-")
+    if not text:
+        return "untitled"
+    if len(text) > max_len:
+        # Truncate + append short hash for uniqueness
+        import hashlib
+        h = hashlib.sha1(text.encode()).hexdigest()[:6]
+        text = text[:max_len].rstrip("-") + "-" + h
+    return text
 
 
 def get_prefix(mode: str) -> str:

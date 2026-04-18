@@ -1,0 +1,93 @@
+{
+  "name": "aios-vscode",
+  "displayName": "AIOS · AI Engineering Operating System",
+  "description": "Spec-driven development with multi-agent orchestration · wraps AIOS CLI for VS Code",
+  "version": "0.1.0",
+  "publisher": "christianescamilla15-cell",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christianescamilla15-cell/aios-framework"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Snippets",
+    "Testing"
+  ],
+  "keywords": [
+    "aios",
+    "kiro",
+    "spec-driven",
+    "agents",
+    "ai-engineering"
+  ],
+  "activationEvents": [
+    "workspaceContains:ai-system",
+    "workspaceContains:.aios"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "aios.status", "title": "AIOS: Status", "category": "AIOS" },
+      { "command": "aios.boot", "title": "AIOS: Boot Session", "category": "AIOS" },
+      { "command": "aios.task", "title": "AIOS: Create Task", "category": "AIOS" },
+      { "command": "aios.refresh", "title": "AIOS: Refresh Session (Handoff)", "category": "AIOS" },
+      { "command": "aios.analyze", "title": "AIOS: Analyze Repo", "category": "AIOS" },
+      { "command": "aios.refine", "title": "AIOS: Refine Active Spec", "category": "AIOS" },
+      { "command": "aios.release", "title": "AIOS: Release Gate Check", "category": "AIOS" },
+      { "command": "aios.sync", "title": "AIOS: Sync to Kiro", "category": "AIOS" },
+      { "command": "aios.test", "title": "AIOS: Smart Test Runner", "category": "AIOS" },
+      { "command": "aios.handoff", "title": "AIOS: Generate Handoff Doc", "category": "AIOS" },
+      { "command": "aios.doctor", "title": "AIOS: Doctor (Health Check)", "category": "AIOS" },
+      { "command": "aios.openSpec", "title": "AIOS: Open Active Spec", "category": "AIOS" }
+    ],
+    "menus": {
+      "commandPalette": [
+        { "command": "aios.status", "when": "true" },
+        { "command": "aios.boot", "when": "true" },
+        { "command": "aios.task", "when": "true" }
+      ]
+    },
+    "configuration": {
+      "title": "AIOS",
+      "properties": {
+        "aios.cliPath": {
+          "type": "string",
+          "default": "aios",
+          "description": "Path to AIOS CLI executable"
+        },
+        "aios.autoSync": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-run 'aios sync' after task creation"
+        },
+        "aios.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show AIOS status in VS Code status bar"
+        }
+      }
+    },
+    "snippets": [
+      {
+        "language": "markdown",
+        "path": "./snippets/spec.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.20.0",
+    "typescript": "^5.2.0"
+  }
+}

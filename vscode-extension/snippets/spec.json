@@ -1,0 +1,54 @@
+{
+  "AIOS · EARS Ubiquitous": {
+    "prefix": "aios-ears-ubiq",
+    "body": [
+      "- The system SHALL ${1:action}"
+    ],
+    "description": "EARS · Ubiquitous (always true)"
+  },
+  "AIOS · EARS Event-Driven": {
+    "prefix": "aios-ears-event",
+    "body": [
+      "- WHEN ${1:event}, the system SHALL ${2:action}"
+    ],
+    "description": "EARS · Event-driven"
+  },
+  "AIOS · EARS State-Driven": {
+    "prefix": "aios-ears-state",
+    "body": [
+      "- WHILE ${1:state}, the system SHALL ${2:action}"
+    ],
+    "description": "EARS · State-driven"
+  },
+  "AIOS · EARS Unwanted": {
+    "prefix": "aios-ears-unwanted",
+    "body": [
+      "- IF ${1:condition}, THEN the system SHALL ${2:action}"
+    ],
+    "description": "EARS · Unwanted behavior"
+  },
+  "AIOS · Risk Entry": {
+    "prefix": "aios-risk",
+    "body": [
+      "| ${1:R-001} | ${2:Risk description} | ${3|Low,Medium,High,Cierta|} | ${4|Low,Medium,High,Crítico|} | ${5:Mitigation} | ${6:Owner} |"
+    ],
+    "description": "Risk register row"
+  },
+  "AIOS · Acceptance Criterion": {
+    "prefix": "aios-ac",
+    "body": [
+      "- [ ] ${1:Acceptance criterion}"
+    ],
+    "description": "Acceptance criterion checkbox"
+  },
+  "AIOS · Spec Section": {
+    "prefix": "aios-section",
+    "body": [
+      "## ${1:Section Name}",
+      "",
+      "${2:Description}",
+      ""
+    ],
+    "description": "Spec section header"
+  }
+}

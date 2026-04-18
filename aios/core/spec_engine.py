@@ -91,16 +91,128 @@ def file_template(filename: str, mode: str, task: str, context: str | None = Non
     return templates.get(filename, f"# {title}\n{ctx}")
 
 
-def create_spec(root: Path, mode: str, task: str, context: str | None = None) -> Path:
-    """Create a full spec folder with all required files."""
+def find_app_memory(root: Path, task: str) -> str:
+    """v1.6.0 NEW · search apps_code/<app>/.memory/ for files matching task tokens.
+
+    Returns concatenated memory content (max 10K chars) used to autofill spec.
+    """
+    apps_root = root / "apps_code"
+    if not apps_root.exists():
+        return ""
+
+    # v1.6.0 fix · use [a-z0-9]+ (NOT \w+) so underscore separates tokens
+    # ("01_sicofav" → {01, sicofav}, not {01_sicofav})
+    task_tokens = set(re.findall(r"[a-z0-9]+", task.lower()))
+    if not task_tokens:
+        return ""
+
+    candidates = []
+    for app_dir in apps_root.iterdir():
+        if not app_dir.is_dir() or app_dir.name.startswith("."):
+            continue
+        # Match app folder name to task tokens (e.g. "01_sicofav" matches task "sicofav refactor")
+        app_tokens = set(re.findall(r"[a-z0-9]+", app_dir.name.lower()))
+        score = len(task_tokens & app_tokens) / len(task_tokens) if task_tokens else 0
+        if score < 0.1:
+            continue
+        memory_dir = app_dir / ".memory"
+        if not memory_dir.exists():
+            continue
+        for f in memory_dir.glob("*.md"):
+            try:
+                candidates.append((score, f.read_text(encoding="utf-8")))
+            except: pass
+
+    if not candidates:
+        return ""
+
+    # Best matching app · concatenate its memory (max 10K chars)
+    candidates.sort(key=lambda x: -x[0])
+    combined = ""
+    for _, content in candidates[:3]:
+        combined += content + "\n\n---\n\n"
+        if len(combined) > 10000:
+            break
+    return combined[:10000]
+
+
+def autofill_section(memory: str, section_keyword: str) -> str | None:
+    """v1.6.0 · extract section content from memory by keyword."""
+    if not memory:
+        return None
+    pattern = rf"##\s*{section_keyword}[^\n]*\n(.*?)(?=\n##\s|\Z)"
+    m = re.search(pattern, memory, re.DOTALL | re.IGNORECASE)
+    if m:
+        content = m.group(1).strip()
+        if len(content) > 30:
+            return content[:1500]  # cap
+    return None
+
+
+def file_template_with_memory(filename: str, mode: str, task: str,
+                               context: str | None, memory: str) -> str:
+    """v1.6.0 · enhanced template that autofills sections from app memory."""
+    base = file_template(filename, mode, task, context)
+    if not memory:
+        return base
+
+    # Try to extract relevant sections from memory
+    if filename == "requirements.md":
+        # Inject Objective if memory has stack/identity info
+        identity = autofill_section(memory, "Identidad") or autofill_section(memory, "Stack")
+        if identity:
+            objective = (
+                f"Estabilizar y modernizar este aplicativo según el plan AMX. "
+                f"Cerrar hallazgos del assessment + scan deep. "
+                f"Cumplir constraints AMX (ECS prohibido · Akamai mandatorio · 4 escaneos pre-prod · KMS AMX · "
+                f"Vault para credenciales). Migrar a stack target moderno preservando funcionalidad operativa.\n\n"
+                f"Contexto AS-IS:\n{identity[:600]}"
+            )
+            base = re.sub(r"(##\s*Objective\s*\n)\s*\n", rf"\1\n{objective}\n\n", base, count=1)
+
+    elif filename == "risks.md":
+        # Try to inject hallazgos from memory
+        hallazgos = autofill_section(memory, "hallazgos") or autofill_section(memory, "CRITICAL")
+        if hallazgos:
+            base = re.sub(
+                r"(##\s*Known Risks\s*\n)\s*\n",
+                rf"\1\nHallazgos detectados (de memoria app):\n\n{hallazgos[:1200]}\n\n",
+                base, count=1
+            )
+
+    elif filename == "design.md":
+        # Inject Current State from memory
+        stack_info = autofill_section(memory, "Stack") or autofill_section(memory, "Identidad")
+        if stack_info:
+            base = re.sub(
+                r"(##\s*Current State\s*\n)\s*\n",
+                rf"\1\n{stack_info[:1000]}\n\n",
+                base, count=1
+            )
+
+    return base
+
+
+def create_spec(root: Path, mode: str, task: str, context: str | None = None,
+                autofill_from_memory: bool = True) -> Path:
+    """Create a full spec folder with all required files.
+
+    v1.6.0 · autofill_from_memory (default True) loads apps_code/<app>/.memory/
+    and pre-fills Objective, Current State, Known Risks sections.
+    """
     prefix = get_prefix(mode)
     slug = f"{prefix}-{slugify(task)}"
     spec_dir = root / "specs" / slug
+
+    # v1.6.0 · load app memory if available
+    memory = find_app_memory(root, task) if autofill_from_memory else ""
 
     spec_dir.mkdir(parents=True, exist_ok=True)
     for filename in get_spec_files(mode):
         path = spec_dir / filename
         if not path.exists():
-            path.write_text(file_template(filename, mode, task, context), encoding="utf-8")
+            content = file_template_with_memory(filename, mode, task, context, memory) if memory \
+                      else file_template(filename, mode, task, context)
+            path.write_text(content, encoding="utf-8")
 
     return spec_dir

@@ -799,7 +799,7 @@ def main():
 
     # config
     p = sub.add_parser("config", help="Project configuration")
-    p.add_argument("action", choices=["init", "show", "set"], help="init, show, or set")
+    p.add_argument("action", nargs="?", choices=["init", "show", "set"], default="show", help="init, show, or set (default: show)")
     p.add_argument("--project-name", help="Project name")
     p.add_argument("--policy", choices=["default", "enterprise"], help="Policy tier")
     p.add_argument("--key", help="Config key to set")
@@ -841,7 +841,7 @@ def main():
 
     # changelog
     p = sub.add_parser("changelog", help="Generate/view changelog")
-    p.add_argument("action", choices=["show", "generate"])
+    p.add_argument("action", nargs="?", choices=["show", "generate"], default="show", help="show or generate (default: show)")
     p.add_argument("--commits", default="3", help="Number of commits")
     p.add_argument("--root", default=".")
 

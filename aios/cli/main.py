@@ -37,6 +37,7 @@ from aios.core.arena_runner import (
     read_last_arena_run,
 )
 from aios.core.engagement_scaffold import run_scaffold as run_engagement_scaffold
+from aios.core.report_aggregator import build_report, write_report
 from aios.core.prompt_engine import build_execution_prompt
 from aios.core.module_loader import list_stacks, run_stack_checks, detect_relevant_stacks, run_all_relevant_checks
 from aios.core.config import load_config, init_config, save_config
@@ -405,6 +406,25 @@ def cmd_arena(args):
     )
     if written:
         print(f"       Memory           : {written.relative_to(root)}")
+    print(f"{'='*60}\n")
+
+
+def cmd_report(args):
+    """Agrega release gate + last arena + SARIF findings + engagements
+    en un markdown consolidado bajo `reports/aios_report_<ts>.md`."""
+    root = get_root(args)
+    report = build_report(root)
+    dest = write_report(root, report)
+
+    print(f"\n{'='*60}")
+    print(f"  AIOS AGGREGATE REPORT")
+    print(f"{'='*60}")
+    print(f"  Generated : {report.generated_at}")
+    print(f"  Sections  : {len(report.sections)}")
+    for s in report.sections:
+        icon = {"pass": "OK", "warn": "!!", "fail": "XX", "info": "--"}.get(s.status, "??")
+        print(f"  [{icon}] {s.title}")
+    print(f"\n  Written   : {dest.relative_to(root)}")
     print(f"{'='*60}\n")
 
 
@@ -895,6 +915,10 @@ def main():
     p = sub.add_parser("release", help="Check release readiness")
     p.add_argument("--root", default=".")
 
+    # report · agregador
+    p = sub.add_parser("report", help="Aggregate release + arena + SARIF + engagements")
+    p.add_argument("--root", default=".")
+
     # engagement · invoca Nemesis scaffold
     p = sub.add_parser("engagement", help="Scaffold Nemesis engagement (AMX scope)")
     p.add_argument("--list", action="store_true", help="lista apps del catalogo")
@@ -1023,7 +1047,7 @@ def main():
         "init": cmd_init, "task": cmd_task, "boot": cmd_boot,
         "refresh": cmd_refresh, "status": cmd_status, "analyze": cmd_analyze,
         "release": cmd_release, "arena": cmd_arena, "engagement": cmd_engagement,
-        "doctor": cmd_doctor, "handoff": cmd_handoff,
+        "report": cmd_report, "doctor": cmd_doctor, "handoff": cmd_handoff,
         "module": cmd_module, "config": cmd_config, "version": cmd_version,
         "diff": cmd_diff, "impact": cmd_impact,
         "onboard": cmd_onboard, "guide": cmd_guide, "hook": cmd_hook, "mcp": cmd_mcp,

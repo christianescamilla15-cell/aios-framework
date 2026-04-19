@@ -18,7 +18,9 @@ def test_security_hook_template_registered():
 
 def test_security_hook_script_has_expected_commands():
     script = HOOK_TEMPLATES["security"]["script"]
-    assert "aios release" in script
+    # v2 · hook invoca security-scan-staged con stdin · mas rapido que
+    # el scan completo previo.
+    assert "aios security-scan-staged" in script
     assert "git diff --cached --name-only" in script
     assert "--no-verify" in script
     assert "CRITICAL" in script
@@ -32,8 +34,8 @@ def test_install_security_hook_creates_file(tmp_path):
     hook = tmp_path / ".git" / "hooks" / "pre-commit"
     assert hook.exists()
     content = hook.read_text()
-    assert "aios release" in content
-    # Verifica ejecutable bit (en sistemas POSIX · skipeable si Windows)
+    assert "aios security-scan-staged" in content
+    # Verifica ejecutable bit
     if hasattr(hook, "stat"):
         import stat
         assert hook.stat().st_mode & stat.S_IXUSR

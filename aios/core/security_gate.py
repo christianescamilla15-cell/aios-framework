@@ -416,6 +416,68 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
     return findings
 
 
+def scan_files(
+    root: Path,
+    files: list[str],
+    config: Optional[dict] = None,
+) -> list[Finding]:
+    """Escanea una lista especifica de archivos (relativos a `root`).
+
+    Util para pre-commit hooks que solo quieren analizar staged files.
+    Aplica los mismos detectores + forbidden_literals que scan_directory
+    pero sin recorrer el filesystem completo.
+    """
+    cfg = config or _load_config(root)
+    findings: list[Finding] = []
+    forbidden = [lit for lit in cfg.get("forbidden_literals", []) if lit]
+    skip_exts = set(cfg.get("exclude_exts", []))
+    skip_files = set(cfg.get("exclude_files", []))
+
+    for file_rel in files:
+        file_rel = file_rel.strip()
+        if not file_rel:
+            continue
+        fp = (root / file_rel).resolve()
+        # Safety · no salir del root
+        try:
+            fp.relative_to(root.resolve())
+        except ValueError:
+            continue
+        if not fp.is_file():
+            continue
+        if fp.suffix.lower() in skip_exts:
+            continue
+        if fp.name in skip_files:
+            continue
+        try:
+            content = fp.read_text(encoding="utf-8", errors="ignore")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        for cwe, pattern, rule_id, severity, desc in _DETECTORS:
+            for m in pattern.finditer(content):
+                line_no = content.count("\n", 0, m.start()) + 1
+                lines = content.splitlines()
+                snippet = (
+                    lines[line_no - 1].strip()[:160]
+                    if line_no - 1 < len(lines) else ""
+                )
+                findings.append(Finding(
+                    cwe=cwe, severity=severity, rule_id=rule_id,
+                    file=file_rel, line=line_no, snippet=snippet,
+                ))
+
+        for literal in forbidden:
+            for m in re.finditer(re.escape(literal), content):
+                line_no = content.count("\n", 0, m.start()) + 1
+                findings.append(Finding(
+                    cwe="CWE-798", severity="CRITICAL",
+                    rule_id=f"FORBIDDEN-LITERAL-{literal[:20]}",
+                    file=file_rel, line=line_no, snippet=literal,
+                ))
+    return findings
+
+
 def _run_mythos_cli(root: Path, cfg: dict) -> Optional[list[Finding]]:
     """Opt-in · delega al CLI mythos si el usuario lo tiene instalado.
 

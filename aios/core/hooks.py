@@ -132,35 +132,39 @@ fi
 """,
     },
     "security": {
-        "description": "Security gate on staged files · usa embedded scanner (34 detectores · 9 CWEs)",
+        "description": "Security gate sobre staged files solamente · mas rapido que scan completo",
         "script": """#!/bin/sh
-# AIOS security pre-commit hook
-# Corre security_gate sobre TODO el repo (scanner es rapido · ~1s)
-# Bypass con: git commit --no-verify
-echo "[AIOS/security] Running security gate..."
+# AIOS security pre-commit hook · staged files only
+# Escaneo delta · solo archivos en git stage · mucho mas rapido que
+# scanear repo completo en proyectos grandes.
+# Bypass · git commit --no-verify
+echo "[AIOS/security] Scanning staged files only..."
 
-# Check staged files count · skip si solo docs
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -Ev '\\.(md|txt|rst|png|jpg|svg|pdf)$' | wc -l)
-if [ "$STAGED" -eq "0" ]; then
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACM)
+STAGED_CODE=$(echo "$STAGED_ALL" | grep -Ev '\\.(md|txt|rst|png|jpg|svg|pdf|lock|json)$' | grep -v '^$')
+
+if [ -z "$STAGED_CODE" ]; then
     echo "[AIOS/security] No code files staged · skip"
     exit 0
 fi
 
-# Corre `aios release` SOLO para el security check (exit code no-cero
-# si CRITICAL excede max_critical configured)
-aios release 2>&1 | tee /tmp/aios-sec-gate.log
+COUNT=$(echo "$STAGED_CODE" | wc -l)
+echo "[AIOS/security] Scanning $COUNT staged file(s)..."
 
-if grep -q "Security static scan -- .*CRITICAL" /tmp/aios-sec-gate.log; then
+# Corre aios security-scan-staged con la lista · comando expone
+# scan_files() · retorna exit 1 si hay CRITICAL findings.
+echo "$STAGED_CODE" | aios security-scan-staged --stdin
+RC=$?
+
+if [ $RC -ne 0 ]; then
     echo ""
-    echo "[AIOS/security] CRITICAL findings detectados · commit BLOQUEADO"
-    echo "  · fix el codigo o agrega suppression · 'aios suppress add ...'"
+    echo "[AIOS/security] CRITICAL findings en staged files · commit BLOQUEADO"
+    echo "  · fix · o agrega suppression con 'aios suppress add ...'"
     echo "  · bypass emergencia con 'git commit --no-verify'"
-    rm -f /tmp/aios-sec-gate.log
     exit 1
 fi
 
-rm -f /tmp/aios-sec-gate.log
-echo "[AIOS/security] OK"
+echo "[AIOS/security] OK · no CRITICAL"
 """,
     },
 }

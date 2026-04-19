@@ -386,6 +386,162 @@ async function cmdArenaDashboard() {
     panel.onDidDispose(() => clearInterval(timer));
 }
 
+// ── Suppressions Dashboard ──────────────────────────────────────────
+
+interface Suppression {
+    rule_id: string;
+    file: string;
+    line: number;
+    cwe: string;
+    reason: string;
+    approver: string;
+    approved_at: string;
+    expires_at: string;
+}
+
+function loadSuppressions(cwd: string): Suppression[] {
+    const fs = require("fs");
+    const path = require("path");
+    const file = path.join(cwd, "aios-suppressions.json");
+    if (!fs.existsSync(file)) return [];
+    try {
+        const raw = JSON.parse(fs.readFileSync(file, "utf-8"));
+        return Array.isArray(raw) ? raw : [];
+    } catch { return []; }
+}
+
+function writeSuppressions(cwd: string, sups: Suppression[]): void {
+    const fs = require("fs");
+    const path = require("path");
+    fs.writeFileSync(path.join(cwd, "aios-suppressions.json"),
+        JSON.stringify(sups, null, 2), "utf-8");
+}
+
+function isExpired(s: Suppression): boolean {
+    if (!s.expires_at) return false;
+    try { return new Date(s.expires_at) < new Date(); } catch { return false; }
+}
+
+function suppressionsHtml(sups: Suppression[]): string {
+    const rows = sups.map((s, i) => {
+        const expired = isExpired(s);
+        const badge = expired
+            ? `<span class="badge bad">EXPIRED</span>`
+            : (s.expires_at ? `<span class="badge warn">${s.expires_at}</span>` : `<span class="badge ok">active</span>`);
+        return `<tr>
+          <td><code>${s.rule_id || "-"}</code></td>
+          <td><code>${s.file || "-"}:${s.line || 0}</code></td>
+          <td>${s.cwe || "-"}</td>
+          <td>${(s.reason || "").slice(0, 80)}</td>
+          <td>${s.approver || "-"}</td>
+          <td>${s.approved_at || "-"}</td>
+          <td>${badge}</td>
+          <td>
+            <button onclick="removeSup(${i})">delete</button>
+            ${expired ? "" : `<button onclick="expireSup(${i})">expire</button>`}
+          </td>
+        </tr>`;
+    }).join("");
+    const expiredCount = sups.filter(isExpired).length;
+    return `<!doctype html><html><head><meta charset="utf-8"><style>
+  body { font-family: -apple-system, "Segoe UI", sans-serif; padding: 16px; color: var(--vscode-foreground); }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: var(--vscode-descriptionForeground); font-size: 12px; margin-bottom: 16px; }
+  .toolbar { margin-bottom: 12px; display: flex; gap: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--vscode-panel-border); vertical-align: top; }
+  th { color: var(--vscode-descriptionForeground); font-weight: 600; }
+  code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11px; }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+  .badge.ok { background: #10b981; color: #fff; }
+  .badge.warn { background: #f59e0b; color: #000; }
+  .badge.bad { background: #ef4444; color: #fff; }
+  button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; margin-right: 3px; }
+  button:hover { background: var(--vscode-button-hoverBackground); }
+  button.primary { background: #10b981; color: #fff; padding: 6px 12px; font-size: 12px; }
+  .empty { padding: 40px; text-align: center; color: var(--vscode-descriptionForeground); }
+  .alert { background: var(--vscode-inputValidation-warningBackground); border: 1px solid var(--vscode-inputValidation-warningBorder); padding: 8px; border-radius: 4px; margin-bottom: 12px; }
+</style></head><body>
+  <h1>Suppressions & Waivers</h1>
+  <div class="sub">${sups.length} waivers en aios-suppressions.json · refresh ${new Date().toLocaleString()}</div>
+  ${expiredCount > 0 ? `<div class="alert">⚠ ${expiredCount} waiver(s) expirado(s) · findings ya NO se suprimen · revisa.</div>` : ""}
+  <div class="toolbar">
+    <button class="primary" onclick="addSup()">+ Add waiver</button>
+    <button onclick="refresh()">refresh</button>
+    <button onclick="clearExpired()" ${expiredCount === 0 ? 'disabled' : ''}>clear ${expiredCount} expired</button>
+  </div>
+  ${sups.length === 0 ? `<div class="empty">Sin waivers. Click "+ Add" arriba.</div>` : `
+  <table><thead><tr>
+    <th>Rule ID</th><th>File:Line</th><th>CWE</th><th>Reason</th>
+    <th>Approver</th><th>Approved</th><th>Status</th><th></th>
+  </tr></thead><tbody>${rows}</tbody></table>`}
+<script>
+  const vscode = acquireVsCodeApi();
+  function refresh() { vscode.postMessage({ type: 'refresh' }); }
+  function removeSup(i) { if (confirm('Eliminar waiver?')) vscode.postMessage({ type: 'remove', index: i }); }
+  function expireSup(i) { vscode.postMessage({ type: 'expire', index: i }); }
+  function addSup() { vscode.postMessage({ type: 'add' }); }
+  function clearExpired() { if (confirm('Eliminar todos los expirados?')) vscode.postMessage({ type: 'clearExpired' }); }
+</script></body></html>`;
+}
+
+async function cmdSuppressionsDashboard() {
+    const cwd = getWorkspaceRoot();
+    if (!cwd) return;
+    const panel = vscode.window.createWebviewPanel(
+        "suppressionsDashboard", "Suppressions & Waivers",
+        vscode.ViewColumn.One,
+        { enableScripts: true, retainContextWhenHidden: true },
+    );
+    const render = () => { panel.webview.html = suppressionsHtml(loadSuppressions(cwd)); };
+    panel.webview.onDidReceiveMessage(async (msg) => {
+        const sups = loadSuppressions(cwd);
+        if (msg.type === "refresh") {
+            render();
+        } else if (msg.type === "remove" && typeof msg.index === "number") {
+            sups.splice(msg.index, 1); writeSuppressions(cwd, sups); render();
+        } else if (msg.type === "expire" && typeof msg.index === "number") {
+            const y = new Date(); y.setDate(y.getDate() - 1);
+            sups[msg.index].expires_at = y.toISOString().slice(0, 10);
+            writeSuppressions(cwd, sups); render();
+        } else if (msg.type === "clearExpired") {
+            writeSuppressions(cwd, sups.filter((s) => !isExpired(s))); render();
+        } else if (msg.type === "add") {
+            const ruleId = await vscode.window.showInputBox({ prompt: "rule_id (ej. STATIC-SQL-FSTRING)" });
+            if (!ruleId) return;
+            const file = await vscode.window.showInputBox({ prompt: "file (path relativo al root)" });
+            if (!file) return;
+            const lineStr = await vscode.window.showInputBox({
+                prompt: "line (0 = wildcard toda la file)", value: "0",
+                validateInput: (v) => /^\d+$/.test(v) ? undefined : "Solo numero",
+            });
+            if (lineStr === undefined) return;
+            const reason = await vscode.window.showInputBox({ prompt: "reason (obligatoria)" });
+            if (!reason) return;
+            const approver = await vscode.window.showInputBox({ prompt: "approver" });
+            if (!approver) return;
+            const expires = await vscode.window.showInputBox({
+                prompt: "expires_at (YYYY-MM-DD · vacio = no expira)",
+                placeHolder: "2026-10-01",
+            });
+            sups.push({
+                rule_id: ruleId, file, line: parseInt(lineStr, 10), cwe: "",
+                reason, approver,
+                approved_at: new Date().toISOString().slice(0, 10),
+                expires_at: expires || "",
+            });
+            writeSuppressions(cwd, sups);
+            render();
+            vscode.window.showInformationMessage(`Waiver agregado para ${ruleId}`);
+        }
+    });
+    render();
+}
+
+async function cmdCompliance() {
+    await runAios("compliance-report");
+}
+
 async function cmdReport() {
     await runAios("report");
     // Abre el reporte mas reciente si se genero
@@ -468,6 +624,8 @@ export function activate(context: vscode.ExtensionContext) {
         ["aios.engagementList",  cmdEngagementList],
         ["aios.report",          cmdReport],
         ["aios.arenaDashboard",  cmdArenaDashboard],
+        ["aios.suppressionsDashboard", cmdSuppressionsDashboard],
+        ["aios.compliance",            cmdCompliance],
     ];
 
     for (const [id, handler] of commands) {

@@ -120,6 +120,16 @@
         "command": "aios.arenaDashboard",
         "title": "AIOS: Arena Runs Dashboard",
         "category": "AIOS · Security"
+      },
+      {
+        "command": "aios.suppressionsDashboard",
+        "title": "AIOS: Suppressions & Waivers",
+        "category": "AIOS · Security"
+      },
+      {
+        "command": "aios.compliance",
+        "title": "AIOS: Compliance Report (LFPDPPP · PCI · SOX)",
+        "category": "AIOS · Security"
       }
     ],
     "menus": {

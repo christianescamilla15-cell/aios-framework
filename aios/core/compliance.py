@@ -114,6 +114,110 @@ def group_findings_by_framework(
     return groups
 
 
+def render_compliance_report_html(
+    findings: Iterable[Finding],
+    project_name: str = "project",
+) -> str:
+    """HTML printable con tabla por marco · convertible a PDF."""
+    findings_list = list(findings)
+    groups = group_findings_by_framework(findings_list)
+    from datetime import datetime, timezone
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    head = (
+        '<!doctype html><html><head><meta charset="utf-8">'
+        f'<title>Compliance · {project_name}</title>'
+        '<style>'
+        '@page{margin:2cm;size:A4}'
+        'body{font-family:-apple-system,"Segoe UI",Arial,sans-serif;color:#111;max-width:900px;margin:20px auto;padding:20px}'
+        'h1{color:#0b4f6c;border-bottom:2px solid #0b4f6c;padding-bottom:8px}'
+        'h2{color:#0b4f6c;margin-top:28px}'
+        '.meta{color:#555;font-size:13px;margin-bottom:24px}'
+        '.summary-box{background:#f5f9fb;border-left:4px solid #0b4f6c;padding:12px;margin-bottom:24px}'
+        'table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px;page-break-inside:avoid}'
+        'th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;vertical-align:top}'
+        'th{background:#e9eef2;font-weight:600;font-size:11px;text-transform:uppercase}'
+        '.sev-CRITICAL{color:#c00;font-weight:700}'
+        '.sev-HIGH{color:#e67e22;font-weight:600}'
+        '.sev-MEDIUM{color:#b58900}'
+        '.sev-LOW{color:#555}'
+        'code{font-family:Consolas,Monaco,monospace;font-size:11px;background:#f0f0f0;padding:1px 4px;border-radius:2px}'
+        '.footer{margin-top:48px;padding-top:16px;border-top:1px solid #ccc;font-size:11px;color:#777}'
+        '</style></head><body>'
+        f'<h1>Compliance Report · {project_name}</h1>'
+        f'<div class="meta">Generado · {ts} · AIOS compliance module</div>'
+        '<div class="summary-box">'
+        f'<strong>Total findings:</strong> {len(findings_list)}<br>'
+        f'<strong>Frameworks impactados:</strong> {len(groups)}'
+        '</div>'
+    )
+    if not groups:
+        return head + "<p><em>Sin findings mapeados.</em></p></body></html>"
+
+    parts: list[str] = [head]
+    for framework in sorted(groups.keys()):
+        items = groups[framework]
+        parts.append(f"<h2>{framework}</h2>")
+        parts.append(f"<p><strong>{len(items)} findings</strong> afectan este marco.</p>")
+        parts.append("<table><thead><tr><th>Requirement</th><th>Description</th><th>Sev</th><th>CWE</th><th>File:Line</th></tr></thead><tbody>")
+        for finding, tag in items[:50]:
+            parts.append(
+                f'<tr><td>{tag.requirement}</td><td>{tag.description}</td>'
+                f'<td class="sev-{finding.severity}">{finding.severity}</td>'
+                f'<td>{finding.cwe}</td>'
+                f'<td><code>{finding.file}:{finding.line}</code></td></tr>'
+            )
+        if len(items) > 50:
+            parts.append(f'<tr><td colspan="5"><em>... y {len(items) - 50} mas ...</em></td></tr>')
+        parts.append("</tbody></table>")
+
+    parts.append("<h2>Resumen</h2>")
+    parts.append("<table><thead><tr><th>Framework</th><th>Findings</th><th>Severidad top</th></tr></thead><tbody>")
+    for framework in sorted(groups.keys()):
+        items = groups[framework]
+        severities = [f.severity for f, _ in items]
+        top_sev = next((s for s in ("CRITICAL", "HIGH", "MEDIUM", "LOW") if s in severities), "INFO")
+        parts.append(
+            f'<tr><td>{framework}</td><td>{len(items)}</td>'
+            f'<td class="sev-{top_sev}">{top_sev}</td></tr>'
+        )
+    parts.append("</tbody></table>")
+    parts.append(
+        '<div class="footer">'
+        'Generado por AIOS compliance module · marcos AMX · LFPDPPP · '
+        'LGPDP · PCI-DSS v4.0 · SOX · CFF art. 30 · OWASP Top 10 2021. '
+        'Requirements son referencias orientativas · validar con compliance '
+        'officer antes de auditoria.</div></body></html>'
+    )
+    return "".join(parts)
+
+
+def render_compliance_report_pdf(
+    findings: Iterable[Finding],
+    output_path: Path,
+    project_name: str = "project",
+) -> tuple[bool, str]:
+    """Convierte a PDF via weasyprint · fallback a HTML si no esta
+    instalado. Retorna (ok, mensaje)."""
+    html = render_compliance_report_html(findings, project_name)
+    try:
+        from weasyprint import HTML  # type: ignore
+        HTML(string=html).write_pdf(str(output_path))
+        return True, f"PDF generado · {output_path}"
+    except ImportError:
+        html_path = output_path.with_suffix(".html")
+        html_path.write_text(html, encoding="utf-8")
+        return False, (
+            f"weasyprint no disponible · HTML en {html_path}. "
+            "Instala con `pip install weasyprint` o print-to-PDF "
+            "desde el browser."
+        )
+    except Exception as exc:  # noqa: BLE001
+        html_path = output_path.with_suffix(".html")
+        html_path.write_text(html, encoding="utf-8")
+        return False, f"weasyprint fallo: {exc} · HTML en {html_path}"
+
+
 def render_compliance_report(
     findings: Iterable[Finding],
     project_name: str = "project",

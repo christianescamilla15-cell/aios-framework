@@ -38,11 +38,19 @@ from aios.core.arena_runner import (
 )
 from aios.core.engagement_scaffold import run_scaffold as run_engagement_scaffold
 from aios.core.report_aggregator import build_report, write_report
-from aios.core.compliance import render_compliance_report
-from aios.core.security_gate import scan_directory as _scan_directory
+from aios.core.compliance import (
+    render_compliance_report,
+    render_compliance_report_html,
+    render_compliance_report_pdf,
+)
+from aios.core.security_gate import (
+    scan_directory as _scan_directory,
+    scan_files as _scan_files,
+)
 from aios.core.suppressions import (
     Suppression, add_suppression, load_suppressions, list_expired,
 )
+from aios.core.trending import build_trending, render_trending_markdown
 from aios.core.prompt_engine import build_execution_prompt
 from aios.core.module_loader import list_stacks, run_stack_checks, detect_relevant_stacks, run_all_relevant_checks
 from aios.core.config import load_config, init_config, save_config
@@ -351,6 +359,21 @@ def cmd_release(args):
     print(f"  Ready for release: {'YES' if result['ready'] else 'NO'}")
     print(f"{'='*60}\n")
 
+    # Notifica Slack si se bloqueo (opt-in via config.notifications)
+    if not result["ready"]:
+        try:
+            from aios.core.notifications import notify_release_blocked
+            notif = notify_release_blocked(
+                root,
+                result.get("security", {}).get("findings_summary", {}),
+                result.get("security", {}).get("top_findings", []),
+                project_name=root.name,
+            )
+            if notif and notif.sent:
+                print(f"[notify] Slack alert enviado · {notif.detail}")
+        except Exception:  # noqa: BLE001
+            pass
+
 
 def cmd_arena(args):
     """Ejecuta Arena self-play contra un TUT bajo demanda.
@@ -433,6 +456,60 @@ def cmd_report(args):
     print(f"{'='*60}\n")
 
 
+def cmd_security_scan_staged(args):
+    """Scan solo los archivos provistos (stdin o --files). Exit 1 si
+    hay CRITICAL findings · usado por el pre-commit hook."""
+    root = get_root(args)
+
+    if args.stdin:
+        files = [line.strip() for line in sys.stdin if line.strip()]
+    elif args.files:
+        files = args.files
+    else:
+        print("[XX] pasa --stdin o --files <path1> <path2>")
+        sys.exit(2)
+
+    if not files:
+        print("[AIOS/scan-staged] No files to scan")
+        return
+
+    findings = _scan_files(root, files)
+    critical = [f for f in findings if f.severity == "CRITICAL"]
+    high = [f for f in findings if f.severity == "HIGH"]
+
+    print(f"[AIOS/scan-staged] {len(files)} files · "
+          f"{len(findings)} findings ({len(critical)} CRITICAL, {len(high)} HIGH)")
+    for f in critical[:10]:
+        print(f"  [CRITICAL] {f.cwe} · {f.rule_id} · {f.file}:{f.line}")
+    for f in high[:10]:
+        print(f"  [HIGH]     {f.cwe} · {f.rule_id} · {f.file}:{f.line}")
+
+    if critical:
+        sys.exit(1)
+
+
+def cmd_trending(args):
+    """Chart ASCII/markdown de findings historicos."""
+    root = get_root(args)
+    data = build_trending(root)
+
+    if args.json:
+        import json as _json
+        print(_json.dumps(data, indent=2, default=str))
+        return
+
+    md = render_trending_markdown(data)
+    if args.output:
+        dest = Path(args.output)
+        if not dest.is_absolute():
+            dest = root / dest
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(md, encoding="utf-8")
+        print(f"Written: {dest.relative_to(root) if dest.is_relative_to(root) else dest}")
+    else:
+        print(md)
+
+
 def cmd_suppress(args):
     """Crea/lista/expira suppressions (waivers) de findings."""
     root = get_root(args)
@@ -504,17 +581,39 @@ def cmd_compliance_report(args):
         return
 
     project_name = root.name
-    md = render_compliance_report(findings, project_name=project_name)
+    fmt = (args.format or "md").lower()
+
+    if fmt == "html":
+        out = render_compliance_report_html(findings, project_name)
+        ext = ".html"
+    elif fmt == "pdf":
+        if not args.output:
+            print("  [!!] --format pdf requires --output <file.pdf>")
+            print(f"{'='*60}\n")
+            return
+        dest = Path(args.output)
+        if not dest.is_absolute():
+            dest = root / dest
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        ok, msg = render_compliance_report_pdf(findings, dest, project_name)
+        icon = "OK" if ok else "!!"
+        print(f"  [{icon}] {msg}")
+        print(f"{'='*60}\n")
+        return
+    else:
+        out = render_compliance_report(findings, project_name)
+        ext = ".md"
 
     if args.output:
         dest = Path(args.output)
         if not dest.is_absolute():
             dest = root / dest
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(md, encoding="utf-8")
-        print(f"  Writen: {dest.relative_to(root) if dest.is_relative_to(root) else dest}")
+        dest.write_text(out, encoding="utf-8")
+        rel = dest.relative_to(root) if dest.is_relative_to(root) else dest
+        print(f"  Written: {rel}")
     else:
-        print(md)
+        print(out)
 
     print(f"{'='*60}\n")
 
@@ -1014,7 +1113,23 @@ def main():
     p = sub.add_parser("compliance-report",
                        help="Map findings to LFPDPPP/PCI-DSS/SOX/CFF/OWASP")
     p.add_argument("--output", "-o",
-                   help="Archivo markdown destino (default: stdout)")
+                   help="Archivo destino (default stdout · requerido para pdf)")
+    p.add_argument("--format", "-f",
+                   choices=["md", "html", "pdf"], default="md",
+                   help="Formato de salida (default md · pdf requiere weasyprint)")
+    p.add_argument("--root", default=".")
+
+    # security-scan-staged · para pre-commit hook
+    p = sub.add_parser("security-scan-staged",
+                       help="Scan archivos especificos (staged) · exit 1 si CRITICAL")
+    p.add_argument("--stdin", action="store_true", help="Lee lista de archivos de stdin")
+    p.add_argument("--files", nargs="+", help="Lista de archivos relativos al root")
+    p.add_argument("--root", default=".")
+
+    # trending · historical findings chart
+    p = sub.add_parser("trending", help="ASCII chart de findings historicos (arena runs)")
+    p.add_argument("--output", "-o", help="Archivo markdown destino")
+    p.add_argument("--json", action="store_true", help="Output raw JSON en vez de markdown")
     p.add_argument("--root", default=".")
 
     # suppress · waivers file-based
@@ -1162,7 +1277,8 @@ def main():
         "refresh": cmd_refresh, "status": cmd_status, "analyze": cmd_analyze,
         "release": cmd_release, "arena": cmd_arena, "engagement": cmd_engagement,
         "report": cmd_report, "compliance-report": cmd_compliance_report,
-        "suppress": cmd_suppress,
+        "suppress": cmd_suppress, "trending": cmd_trending,
+        "security-scan-staged": cmd_security_scan_staged,
         "doctor": cmd_doctor, "handoff": cmd_handoff,
         "module": cmd_module, "config": cmd_config, "version": cmd_version,
         "diff": cmd_diff, "impact": cmd_impact,

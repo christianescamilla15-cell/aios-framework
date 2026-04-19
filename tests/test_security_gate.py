@@ -230,3 +230,45 @@ def test_release_gate_blocks_on_csharp_critical(tmp_path):
     assert result["blocking"] is True
     # CWE-502 CRITICAL
     assert result["findings_summary"].get("CRITICAL", 0) >= 1
+
+
+# ── PHP detectors · cierra 10/10 scope AMX ────────────────────────────
+
+def test_detects_php_sql_mysqli(tmp_path):
+    (tmp_path / "x.php").write_text(
+        '<?php mysqli_query($c, "SELECT * WHERE x=" . $_GET["x"]); ?>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-89" and "PHP" in f.rule_id for f in findings)
+
+
+def test_detects_php_cmd_system(tmp_path):
+    (tmp_path / "x.php").write_text('<?php system($cmd); ?>\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-78" and "PHP" in f.rule_id for f in findings)
+
+
+def test_detects_php_xss_echo_superglobal(tmp_path):
+    (tmp_path / "x.php").write_text('<?php echo $_POST["msg"]; ?>\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-79" and "PHP" in f.rule_id for f in findings)
+
+
+def test_detects_php_deser_unserialize(tmp_path):
+    (tmp_path / "x.php").write_text('<?php $o = unserialize($data); ?>\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-502" and "PHP" in f.rule_id for f in findings)
+
+
+def test_detects_php_path_traversal_include(tmp_path):
+    (tmp_path / "x.php").write_text('<?php include($_GET["p"]); ?>\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-22" and "PHP" in f.rule_id for f in findings)
+
+
+def test_detects_php_xxe_libxml_noent(tmp_path):
+    (tmp_path / "x.php").write_text(
+        '<?php simplexml_load_string($x, null, LIBXML_NOENT); ?>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-611" and "PHP" in f.rule_id for f in findings)

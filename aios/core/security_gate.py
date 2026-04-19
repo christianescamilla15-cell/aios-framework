@@ -238,6 +238,57 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "CRITICAL",
         "SQL injection COBOL · EXEC SQL con concat de host variable",
     ),
+    # ── PHP · Comisiones Indirectas ─────────────────────────────────
+    (
+        "CWE-89",
+        re.compile(
+            r"""(?:mysql_query|mysqli_query|->query)\s*\([^)]*["'][^"']*["']\s*\.\s*\$"""
+        ),
+        "STATIC-SQL-PHP-CONCAT",
+        "CRITICAL",
+        "SQL injection PHP · mysql_query/mysqli_query/->query con concat",
+    ),
+    (
+        "CWE-78",
+        re.compile(
+            r"""(?:\bexec|\bshell_exec|\bsystem|\bpassthru|\bpopen|\bproc_open)\s*\(\s*\$"""
+        ),
+        "STATIC-CMD-PHP-EXEC",
+        "CRITICAL",
+        "Command injection PHP · exec/shell_exec/system con var",
+    ),
+    (
+        "CWE-79",
+        re.compile(
+            r"""(?:echo|print)\s+\$_(?:GET|POST|REQUEST|COOKIE)\s*\["""
+        ),
+        "STATIC-XSS-PHP-ECHO-SUPERGLOBAL",
+        "HIGH",
+        "Reflected XSS PHP · echo/print sobre $_GET/_POST/_REQUEST",
+    ),
+    (
+        "CWE-502",
+        re.compile(r"""\bunserialize\s*\("""),
+        "STATIC-DESERIALIZATION-PHP-UNSERIALIZE",
+        "CRITICAL",
+        "Insecure deserialization PHP · unserialize()",
+    ),
+    (
+        "CWE-22",
+        re.compile(
+            r"""(?:file_get_contents|fopen|readfile|include|require|include_once|require_once)\s*\(\s*\$_(?:GET|POST|REQUEST)"""
+        ),
+        "STATIC-PATH-TRAVERSAL-PHP",
+        "HIGH",
+        "Path traversal PHP · file_get_contents/include sobre $_GET/_POST",
+    ),
+    (
+        "CWE-611",
+        re.compile(r"""LIBXML_NOENT|LIBXML_DTDLOAD"""),
+        "STATIC-XXE-PHP-LIBXML-NOENT",
+        "HIGH",
+        "XXE PHP · simplexml/DOMDocument con LIBXML_NOENT/LIBXML_DTDLOAD",
+    ),
 ]
 
 

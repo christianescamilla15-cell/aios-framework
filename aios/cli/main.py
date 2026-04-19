@@ -38,6 +38,11 @@ from aios.core.arena_runner import (
 )
 from aios.core.engagement_scaffold import run_scaffold as run_engagement_scaffold
 from aios.core.report_aggregator import build_report, write_report
+from aios.core.compliance import render_compliance_report
+from aios.core.security_gate import scan_directory as _scan_directory
+from aios.core.suppressions import (
+    Suppression, add_suppression, load_suppressions, list_expired,
+)
 from aios.core.prompt_engine import build_execution_prompt
 from aios.core.module_loader import list_stacks, run_stack_checks, detect_relevant_stacks, run_all_relevant_checks
 from aios.core.config import load_config, init_config, save_config
@@ -425,6 +430,92 @@ def cmd_report(args):
         icon = {"pass": "OK", "warn": "!!", "fail": "XX", "info": "--"}.get(s.status, "??")
         print(f"  [{icon}] {s.title}")
     print(f"\n  Written   : {dest.relative_to(root)}")
+    print(f"{'='*60}\n")
+
+
+def cmd_suppress(args):
+    """Crea/lista/expira suppressions (waivers) de findings."""
+    root = get_root(args)
+    print(f"\n{'='*60}")
+    print(f"  SUPPRESSIONS")
+    print(f"{'='*60}")
+
+    if args.action == "list":
+        sups = load_suppressions(root)
+        if not sups:
+            print("  (sin suppressions)")
+        else:
+            for i, s in enumerate(sups, 1):
+                expired = " · EXPIRED" if s.is_expired() else ""
+                print(
+                    f"  [{i}] {s.rule_id} · {s.file}:{s.line}{expired}\n"
+                    f"      reason:   {s.reason[:70]}\n"
+                    f"      approver: {s.approver} ({s.approved_at})"
+                )
+        print(f"{'='*60}\n")
+        return
+
+    if args.action == "check-expired":
+        expired = list_expired(load_suppressions(root))
+        if not expired:
+            print("  (todas vigentes)")
+        else:
+            print(f"  [!!] {len(expired)} waivers expirados:")
+            for s in expired:
+                print(f"      {s.rule_id} · {s.file}:{s.line} · expiro {s.expires_at}")
+        print(f"{'='*60}\n")
+        return
+
+    if args.action == "add":
+        if not (args.rule_id and args.file and args.reason and args.approver):
+            print("  [XX] add requiere --rule-id --file --reason --approver")
+            print(f"{'='*60}\n")
+            return
+        from datetime import date
+        sup = Suppression(
+            rule_id=args.rule_id,
+            file=args.file,
+            line=args.line or 0,
+            cwe=args.cwe or "",
+            reason=args.reason,
+            approver=args.approver,
+            approved_at=args.approved_at or str(date.today()),
+            expires_at=args.expires_at or "",
+        )
+        dest = add_suppression(root, sup)
+        print(f"  [OK] suppression agregada a {dest.name}")
+        print(f"       {sup.rule_id} · {sup.file}:{sup.line}")
+        print(f"{'='*60}\n")
+        return
+
+
+def cmd_compliance_report(args):
+    """Genera reporte de compliance · findings agrupados por marco
+    regulatorio (LFPDPPP · PCI-DSS · SOX · CFF art. 30 · OWASP)."""
+    root = get_root(args)
+    print(f"\n{'='*60}")
+    print(f"  COMPLIANCE REPORT")
+    print(f"{'='*60}")
+
+    findings = _scan_directory(root)
+    if not findings:
+        print("  [OK] 0 findings · sin mapeos a marcos regulatorios")
+        print(f"{'='*60}\n")
+        return
+
+    project_name = root.name
+    md = render_compliance_report(findings, project_name=project_name)
+
+    if args.output:
+        dest = Path(args.output)
+        if not dest.is_absolute():
+            dest = root / dest
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(md, encoding="utf-8")
+        print(f"  Writen: {dest.relative_to(root) if dest.is_relative_to(root) else dest}")
+    else:
+        print(md)
+
     print(f"{'='*60}\n")
 
 
@@ -919,6 +1010,29 @@ def main():
     p = sub.add_parser("report", help="Aggregate release + arena + SARIF + engagements")
     p.add_argument("--root", default=".")
 
+    # compliance-report · mapea findings a LFPDPPP/PCI/SOX/etc
+    p = sub.add_parser("compliance-report",
+                       help="Map findings to LFPDPPP/PCI-DSS/SOX/CFF/OWASP")
+    p.add_argument("--output", "-o",
+                   help="Archivo markdown destino (default: stdout)")
+    p.add_argument("--root", default=".")
+
+    # suppress · waivers file-based
+    p = sub.add_parser("suppress", help="Manage findings suppressions/waivers")
+    p.add_argument("action", choices=["list", "add", "check-expired"])
+    p.add_argument("--rule-id", dest="rule_id", help="ej. STATIC-SQL-FSTRING")
+    p.add_argument("--file", help="Path relativo al root del proyecto")
+    p.add_argument("--line", type=int, default=0,
+                   help="0 = wildcard toda la file")
+    p.add_argument("--cwe", help="CWE-XX (informativo)")
+    p.add_argument("--reason", help="Justificacion obligatoria")
+    p.add_argument("--approver", help="Nombre del aprobador")
+    p.add_argument("--approved-at", dest="approved_at",
+                   help="ISO date (default: today)")
+    p.add_argument("--expires-at", dest="expires_at",
+                   help="ISO date · vacio = no expira")
+    p.add_argument("--root", default=".")
+
     # engagement · invoca Nemesis scaffold
     p = sub.add_parser("engagement", help="Scaffold Nemesis engagement (AMX scope)")
     p.add_argument("--list", action="store_true", help="lista apps del catalogo")
@@ -1047,7 +1161,9 @@ def main():
         "init": cmd_init, "task": cmd_task, "boot": cmd_boot,
         "refresh": cmd_refresh, "status": cmd_status, "analyze": cmd_analyze,
         "release": cmd_release, "arena": cmd_arena, "engagement": cmd_engagement,
-        "report": cmd_report, "doctor": cmd_doctor, "handoff": cmd_handoff,
+        "report": cmd_report, "compliance-report": cmd_compliance_report,
+        "suppress": cmd_suppress,
+        "doctor": cmd_doctor, "handoff": cmd_handoff,
         "module": cmd_module, "config": cmd_config, "version": cmd_version,
         "diff": cmd_diff, "impact": cmd_impact,
         "onboard": cmd_onboard, "guide": cmd_guide, "hook": cmd_hook, "mcp": cmd_mcp,

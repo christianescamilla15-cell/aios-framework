@@ -131,6 +131,38 @@ if echo "$CHANGED" | grep -q ".cs$"; then
 fi
 """,
     },
+    "security": {
+        "description": "Security gate on staged files · usa embedded scanner (34 detectores · 9 CWEs)",
+        "script": """#!/bin/sh
+# AIOS security pre-commit hook
+# Corre security_gate sobre TODO el repo (scanner es rapido · ~1s)
+# Bypass con: git commit --no-verify
+echo "[AIOS/security] Running security gate..."
+
+# Check staged files count · skip si solo docs
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -Ev '\\.(md|txt|rst|png|jpg|svg|pdf)$' | wc -l)
+if [ "$STAGED" -eq "0" ]; then
+    echo "[AIOS/security] No code files staged · skip"
+    exit 0
+fi
+
+# Corre `aios release` SOLO para el security check (exit code no-cero
+# si CRITICAL excede max_critical configured)
+aios release 2>&1 | tee /tmp/aios-sec-gate.log
+
+if grep -q "Security static scan -- .*CRITICAL" /tmp/aios-sec-gate.log; then
+    echo ""
+    echo "[AIOS/security] CRITICAL findings detectados · commit BLOQUEADO"
+    echo "  · fix el codigo o agrega suppression · 'aios suppress add ...'"
+    echo "  · bypass emergencia con 'git commit --no-verify'"
+    rm -f /tmp/aios-sec-gate.log
+    exit 1
+fi
+
+rm -f /tmp/aios-sec-gate.log
+echo "[AIOS/security] OK"
+""",
+    },
 }
 
 

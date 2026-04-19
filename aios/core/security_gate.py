@@ -486,6 +486,17 @@ def run_security_gate(root: Path) -> dict:
     if findings is None:
         findings = scan_directory(root, cfg)
 
+    # Apply suppressions (file-based waivers) antes de contar severity.
+    suppressed_count = 0
+    try:
+        from .suppressions import apply_suppressions, load_suppressions
+        suppressions = load_suppressions(root)
+        if suppressions:
+            findings, suppressed = apply_suppressions(findings, suppressions)
+            suppressed_count = len(suppressed)
+    except Exception:  # noqa: BLE001
+        pass
+
     by_sev: dict[str, int] = {}
     for f in findings:
         by_sev[f.severity] = by_sev.get(f.severity, 0) + 1
@@ -525,8 +536,11 @@ def run_security_gate(root: Path) -> dict:
     return {
         "check": "Security static scan",
         "status": status,
-        "detail": detail,
+        "detail": detail + (
+            f" · {suppressed_count} suppressed" if suppressed_count else ""
+        ),
         "blocking": blocking,
         "findings_summary": by_sev,
         "top_findings": top,
+        "suppressed_count": suppressed_count,
     }

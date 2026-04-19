@@ -272,3 +272,49 @@ def test_detects_php_xxe_libxml_noent(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(f.cwe == "CWE-611" and "PHP" in f.rule_id for f in findings)
+
+
+# ── JavaScript / TypeScript · React + Node ────────────────────────────
+
+def test_detects_js_react_dangerouslyhtml(tmp_path):
+    (tmp_path / "Comp.jsx").write_text(
+        'return <div dangerouslySetInnerHTML={{ __html: msg }} />;\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-79" and "REACT" in f.rule_id for f in findings)
+
+
+def test_detects_js_dom_innerhtml(tmp_path):
+    (tmp_path / "x.ts").write_text('el.innerHTML = userInput;\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-79" and "INNERHTML" in f.rule_id for f in findings)
+
+
+def test_detects_js_open_redirect(tmp_path):
+    (tmp_path / "x.js").write_text('window.location = redirect;\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-601" for f in findings)
+
+
+def test_detects_js_node_childprocess(tmp_path):
+    (tmp_path / "srv.js").write_text(
+        'child_process.execSync("ls " + dir, {});\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-78" and "NODE" in f.rule_id for f in findings)
+
+
+def test_detects_js_node_fs_req(tmp_path):
+    (tmp_path / "srv.ts").write_text(
+        'fs.readFileSync(req.body.path);\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-22" and "NODE" in f.rule_id for f in findings)
+
+
+def test_detects_js_node_sql_concat(tmp_path):
+    (tmp_path / "srv.js").write_text(
+        'pool.query("SELECT * FROM t WHERE id=" + uid);\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-89" and "NODE" in f.rule_id for f in findings)

@@ -289,6 +289,58 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "HIGH",
         "XXE PHP · simplexml/DOMDocument con LIBXML_NOENT/LIBXML_DTDLOAD",
     ),
+    # ── JavaScript / TypeScript · React frontends + Node ─────────────
+    (
+        "CWE-79",
+        re.compile(r"""dangerouslySetInnerHTML\s*=\s*\{\s*\{\s*__html\s*:\s*\w"""),
+        "STATIC-XSS-REACT-DANGEROUSLYHTML",
+        "HIGH",
+        "React XSS · dangerouslySetInnerHTML con valor dinamico",
+    ),
+    (
+        "CWE-79",
+        re.compile(r"""\.innerHTML\s*=\s*(?!["'][^"']*["']\s*;)\w"""),
+        "STATIC-XSS-DOM-INNERHTML",
+        "HIGH",
+        "DOM XSS · element.innerHTML = variable",
+    ),
+    (
+        "CWE-601",
+        re.compile(
+            r"""window\.location(?:\.href)?\s*=\s*(?!["']https?://[^"']*["'])\w"""
+        ),
+        "STATIC-OPEN-REDIRECT-JS",
+        "HIGH",
+        "Open redirect JS · window.location = variable sin validacion",
+    ),
+    (
+        "CWE-78",
+        re.compile(
+            r"""child_process\.(?:exec|execSync|spawn|spawnSync)\s*\([^)]*\+\s*\w+"""
+        ),
+        "STATIC-CMD-NODE-CHILDPROCESS",
+        "CRITICAL",
+        "Command injection Node · child_process con concat",
+    ),
+    (
+        "CWE-22",
+        re.compile(
+            r"""fs\.(?:readFile|readFileSync|createReadStream|unlink)\s*\(\s*req\."""
+        ),
+        "STATIC-PATH-TRAVERSAL-NODE-FS",
+        "HIGH",
+        "Path traversal Node · fs.read*/unlink sobre req.*",
+    ),
+    (
+        "CWE-89",
+        re.compile(
+            r"""\.query\s*\(\s*["'][^"']*["']\s*\+|"""
+            r"""\.execute\s*\(\s*["'][^"']*["']\s*\+\s*req\."""
+        ),
+        "STATIC-SQL-NODE-CONCAT",
+        "CRITICAL",
+        "SQL injection Node · db.query/execute con concat",
+    ),
 ]
 
 

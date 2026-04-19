@@ -184,6 +184,60 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "HIGH",
         "Path traversal C# · File.Read* o Path.Combine sobre Request.*",
     ),
+    # ── Java detectors ───────────────────────────────────────────────
+    (
+        "CWE-89",
+        re.compile(
+            r"""\.(?:executeQuery|executeUpdate)\s*\(\s*["'][^"']*["']\s*\+"""
+        ),
+        "STATIC-SQL-JAVA-CONCAT",
+        "CRITICAL",
+        "SQL injection Java · Statement.executeQuery con concat",
+    ),
+    (
+        "CWE-78",
+        re.compile(r"""Runtime\.getRuntime\(\)\.exec\s*\("""),
+        "STATIC-CMD-JAVA-RUNTIME-EXEC",
+        "CRITICAL",
+        "Command injection Java · Runtime.getRuntime().exec()",
+    ),
+    (
+        "CWE-79",
+        re.compile(
+            r"""\.getWriter\(\)\.(?:print|write|println)\s*\([^)]*request\.getParameter"""
+        ),
+        "STATIC-XSS-JAVA-WRITER",
+        "HIGH",
+        "Reflected XSS Java · getWriter().print(request.getParameter)",
+    ),
+    (
+        "CWE-502",
+        re.compile(r"""ObjectInputStream\s*\([^)]*\)\.readObject"""),
+        "STATIC-DESERIALIZATION-JAVA-OIS",
+        "CRITICAL",
+        "Insecure deserialization Java · ObjectInputStream.readObject",
+    ),
+    (
+        "CWE-611",
+        re.compile(
+            r"""DocumentBuilderFactory\.newInstance\(\)"""
+            r"""(?![\s\S]{0,300}setFeature[\s\S]{0,80}disallow)"""
+        ),
+        "STATIC-XXE-JAVA-DBF",
+        "HIGH",
+        "XXE Java · DocumentBuilderFactory sin setFeature secure",
+    ),
+    # ── COBOL ────────────────────────────────────────────────────────
+    (
+        "CWE-89",
+        re.compile(
+            r"""EXEC\s+SQL[^.]*['"][^'"]*['"]\s*\|\|\s*\w+""",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        "STATIC-SQL-COBOL-CONCAT",
+        "CRITICAL",
+        "SQL injection COBOL · EXEC SQL con concat de host variable",
+    ),
 ]
 
 

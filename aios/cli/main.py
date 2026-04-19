@@ -30,6 +30,12 @@ from aios.core.memory_engine import (
 )
 from aios.core.repo_analyzer import analyze_repo
 from aios.core.release_gate import check_release_readiness
+from aios.core.arena_runner import (
+    run_arena,
+    list_targets as arena_list_targets,
+    write_arena_summary_to_memory,
+    read_last_arena_run,
+)
 from aios.core.prompt_engine import build_execution_prompt
 from aios.core.module_loader import list_stacks, run_stack_checks, detect_relevant_stacks, run_all_relevant_checks
 from aios.core.config import load_config, init_config, save_config
@@ -219,6 +225,11 @@ def cmd_status(args):
         for s in specs[-5:]:
             print(f"    - {s}")
 
+    # Last Arena run · integracion bidireccional
+    last = read_last_arena_run(root)
+    if last:
+        print(f"  Last arena: {last['target']} → {last['verdict']} ({last['timestamp']})")
+
     print(f"{'='*60}\n")
 
 
@@ -331,6 +342,68 @@ def cmd_release(args):
         summary_line += f", {skipped} skipped"
     print(f"\n{summary_line}")
     print(f"  Ready for release: {'YES' if result['ready'] else 'NO'}")
+    print(f"{'='*60}\n")
+
+
+def cmd_arena(args):
+    """Ejecuta Arena self-play contra un TUT bajo demanda.
+
+    NO se integra en `aios release` (demasiado lento) · este comando
+    es para correrlo manual y ver verdict + timeline.
+    """
+    if args.list:
+        targets = arena_list_targets()
+        if not targets:
+            print("arena CLI no disponible o sin TUTs. Ver HANDOFF.md.")
+            return
+        print("TUTs disponibles:")
+        for t in targets:
+            print(f"  · {t}")
+        return
+
+    if not args.target:
+        print("Uso: aios arena --target <tut-id> [--target-url URL] "
+              "[--max-rounds N] [--list]")
+        return
+
+    print(f"\n{'='*60}")
+    print(f"  ARENA SELF-PLAY")
+    print(f"{'='*60}")
+    print(f"  target={args.target} · max_rounds={args.max_rounds}" +
+          (f" · target-url={args.target_url}" if args.target_url else ""))
+    print(f"  (invocando arena CLI · esto tarda minutos)")
+    print()
+
+    result = run_arena(
+        target=args.target,
+        target_url=args.target_url,
+        max_rounds=args.max_rounds,
+        timeout_seconds=args.timeout,
+    )
+
+    if not result.ok:
+        print(f"  [XX] {result.detail}")
+        return
+
+    icon = {"MYTHOS_WINS": "OK", "NEMESIS_WINS": "XX",
+            "STALEMATE": "!!", "DRAW": "--", "USER_STOPPED": "--"}.get(
+        result.verdict or "", "??"
+    )
+    print(f"  [{icon}] Verdict: {result.verdict}")
+    print(f"       Rounds completed : {result.rounds_completed}")
+    print(f"       Mythos win streak: {result.mythos_win_streak}")
+    print(f"       Stalemate counter: {result.stalemate_counter}")
+    print(f"       Elapsed          : {result.elapsed_seconds:.1f}s")
+    if result.timeline_path:
+        print(f"       Timeline         : {result.timeline_path}")
+
+    # Integracion bidireccional · persiste el resumen en ai-memory/
+    root = get_root(args)
+    written = write_arena_summary_to_memory(
+        root, result, args.target, target_url=args.target_url,
+    )
+    if written:
+        print(f"       Memory           : {written.relative_to(root)}")
     print(f"{'='*60}\n")
 
 
@@ -776,6 +849,17 @@ def main():
     p = sub.add_parser("release", help="Check release readiness")
     p.add_argument("--root", default=".")
 
+    # arena · adversarial self-play on-demand
+    p = sub.add_parser("arena", help="Run Mythos vs Nemesis self-play (slow · manual)")
+    p.add_argument("--target", help="TUT id (ej. amx-mini-refund)")
+    p.add_argument("--target-url", dest="target_url",
+                   help="URL HTTP del TUT live (activa nuclei)")
+    p.add_argument("--max-rounds", dest="max_rounds", type=int, default=10)
+    p.add_argument("--timeout", type=int, default=1200,
+                   help="segundos antes de matar arena")
+    p.add_argument("--list", action="store_true", help="lista TUTs disponibles")
+    p.add_argument("--root", default=".")
+
     # doctor
     p = sub.add_parser("doctor", help="Diagnose AIOS health")
     p.add_argument("--root", default=".")
@@ -881,7 +965,7 @@ def main():
     commands = {
         "init": cmd_init, "task": cmd_task, "boot": cmd_boot,
         "refresh": cmd_refresh, "status": cmd_status, "analyze": cmd_analyze,
-        "release": cmd_release, "doctor": cmd_doctor, "handoff": cmd_handoff,
+        "release": cmd_release, "arena": cmd_arena, "doctor": cmd_doctor, "handoff": cmd_handoff,
         "module": cmd_module, "config": cmd_config, "version": cmd_version,
         "diff": cmd_diff, "impact": cmd_impact,
         "onboard": cmd_onboard, "guide": cmd_guide, "hook": cmd_hook, "mcp": cmd_mcp,

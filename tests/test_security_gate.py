@@ -318,3 +318,66 @@ def test_detects_js_node_sql_concat(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(f.cwe == "CWE-89" and "NODE" in f.rule_id for f in findings)
+
+
+# ── Detector extension filter · evita meta-FPs entre lenguajes ────────
+
+def test_csharp_detector_does_not_fire_in_python(tmp_path):
+    """Regression · scanner escaneandose a si mismo no debe disparar.
+
+    Detector C# CWE-502 busca BinaryFormatter · si un archivo Python
+    menciona ese literal (ej. pattern string del propio scanner),
+    NO debe disparar porque el detector solo aplica a `.cs`.
+    """
+    (tmp_path / "scanner_patterns.py").write_text(
+        "# patterns registry\n"
+        "PATTERNS = [\n"
+        "    (r'BinaryFormatter\\\\.Deserialize', 'C# BinaryFormatter unsafe'),\n"
+        "]\n"
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        "CSHARP" in f.rule_id for f in findings
+    ), "C# detector should not fire in .py files"
+
+
+def test_php_detector_does_not_fire_in_python(tmp_path):
+    (tmp_path / "doc.py").write_text(
+        "# La funcion unserialize de PHP es peligrosa.\n"
+        "def note(): return 'use_unserialize_carefully'\n"
+    )
+    findings = scan_directory(tmp_path)
+    assert not any("PHP" in f.rule_id for f in findings)
+
+
+def test_vendored_repos_dir_is_excluded_by_default(tmp_path):
+    """Regression · repos/ (vendored test fixtures) no se escanea."""
+    (tmp_path / "repos" / "juice-shop").mkdir(parents=True)
+    (tmp_path / "repos" / "juice-shop" / "bad.js").write_text(
+        "el.innerHTML = userInput;\n"
+    )
+    findings = scan_directory(tmp_path)
+    assert not any("bad.js" in f.file for f in findings)
+
+
+def test_sql_fstring_requires_sql_keyword(tmp_path):
+    """Regression · STATIC-SQL-FSTRING no dispara sin keyword SQL.
+
+    Motivo: FP historico sobre `self.execute(f"analizar X", app)` donde
+    execute es metodo de orquestacion · no SQL.
+    """
+    (tmp_path / "orch.py").write_text(
+        'class O:\n'
+        '    def run(self, x): return self.execute(f"analizar {x}", "app")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(f.rule_id == "STATIC-SQL-FSTRING" for f in findings)
+
+
+def test_sql_fstring_still_fires_with_keyword(tmp_path):
+    """Positive · el tightening no rompe detection de SQL real."""
+    (tmp_path / "bad.py").write_text(
+        'cursor.execute(f"SELECT * FROM users WHERE id={uid}")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.rule_id == "STATIC-SQL-FSTRING" for f in findings)

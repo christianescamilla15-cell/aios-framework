@@ -44,7 +44,13 @@ DEFAULT_CONFIG = {
     "mythos_target_id": "aios-release-gate",
     "mythos_timeout_seconds": 60,
     "exclude_dirs": [".git", ".venv", "venv", "node_modules", "__pycache__",
-                     "dist", "build", ".pytest_cache", ".mypy_cache"],
+                     "dist", "build", ".pytest_cache", ".mypy_cache",
+                     # Vendored third-party / test-fixture repos
+                     "repos", "vendor", "third_party", "third-party",
+                     # Java/Gradle/Maven build artifacts
+                     "target", ".gradle", ".idea",
+                     # Python packaging / eggs
+                     ".tox", ".eggs"],
     "exclude_exts": [".pyc", ".pyo", ".so", ".exe", ".dll", ".bin",
                      ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".min.js"],
     # Files donde el usuario declara el config del propio gate · no deben
@@ -64,14 +70,32 @@ class Finding:
     snippet: str
 
 
-# (cwe, pattern, rule_id, severity, description)
-_DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
+# Extension groups · detectores se filtran por ext para evitar meta-FPs
+# (p.ej. scanner C# haciendo match sobre su propia regex definida en Python).
+_PY = frozenset({".py"})
+_CS = frozenset({".cs"})
+_JAVA = frozenset({".java"})
+_COBOL = frozenset({".cob", ".cbl", ".cpy"})
+_PHP = frozenset({".php", ".phtml", ".php3", ".php4", ".php5"})
+_JSTS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
+_ANY: frozenset[str] | None = None  # aplica a cualquier extension
+
+# (cwe, pattern, rule_id, severity, description, file_exts)
+# file_exts=None → detector corre sobre todo archivo · usar solo para
+# patterns genuinamente language-agnostic (ej. hardcoded IPs en configs).
+_DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] = [
     (
         "CWE-89",
-        re.compile(r"""\.execute\(\s*f['"]"""),
+        re.compile(
+            r"""\.execute\(\s*f['"][^'"]{0,400}?"""
+            r"""(?i:\bSELECT\b|\bINSERT\s+INTO\b|\bUPDATE\s+\w+\s+SET\b|"""
+            r"""\bDELETE\s+FROM\b|\bFROM\s+\w|\bWHERE\s+\w|\bJOIN\s+\w|"""
+            r"""\bMERGE\s+INTO\b)"""
+        ),
         "STATIC-SQL-FSTRING",
         "CRITICAL",
-        "SQL injection · f-string en cursor.execute",
+        "SQL injection · f-string con SQL keyword en cursor.execute",
+        _PY,
     ),
     (
         "CWE-89",
@@ -79,6 +103,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-SQL-CONCAT",
         "CRITICAL",
         "SQL injection · string concat en cursor.execute",
+        _PY,
     ),
     (
         "CWE-78",
@@ -86,6 +111,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-CMD-SHELL-TRUE",
         "CRITICAL",
         "Command injection · subprocess con shell=True",
+        _PY,
     ),
     (
         "CWE-79",
@@ -96,6 +122,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XSS-FSTRING-HTML",
         "HIGH",
         "Reflected XSS · f-string HTML sin escape",
+        _PY,
     ),
     (
         "CWE-319",
@@ -103,6 +130,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-CLEARTEXT-LEGACY-IP",
         "HIGH",
         "Clear-text · HTTP (no HTTPS) a IP legacy interna",
+        _ANY,
     ),
     (
         "CWE-287",
@@ -110,6 +138,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-AUTH-BYPASS-NONE",
         "HIGH",
         "Auth bypass · header ausente retorna True",
+        _PY,
     ),
     (
         "CWE-22",
@@ -120,6 +149,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-PATH-TRAVERSAL",
         "HIGH",
         "Path traversal · user input en open() sin validacion",
+        _PY,
     ),
     (
         "CWE-502",
@@ -127,6 +157,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-PICKLE-DESERIALIZATION",
         "CRITICAL",
         "Insecure deserialization · pickle.load(s)",
+        _PY,
     ),
     (
         "CWE-611",
@@ -134,6 +165,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XXE-LXML",
         "HIGH",
         "XXE · lxml XMLParser con resolve_entities/load_dtd=True",
+        _PY,
     ),
     # ── C# / .NET (paridad con Mythos/Nemesis static runners) ────────
     (
@@ -145,6 +177,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-SQL-CSHARP-CONCAT",
         "CRITICAL",
         "SQL injection C# · concat en SqlCommand / CommandText",
+        _CS,
     ),
     (
         "CWE-78",
@@ -152,6 +185,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-CMD-CSHARP-SHELL-EXECUTE",
         "CRITICAL",
         "Command injection C# · UseShellExecute=true",
+        _CS,
     ),
     (
         "CWE-79",
@@ -159,6 +193,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XSS-CSHARP-RESPONSE-WRITE",
         "HIGH",
         "Reflected XSS C# · Response.Write sobre Request.*",
+        _CS,
     ),
     (
         "CWE-502",
@@ -166,6 +201,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-DESERIALIZATION-CSHARP",
         "CRITICAL",
         "Insecure deserialization C# · BinaryFormatter",
+        _CS,
     ),
     (
         "CWE-611",
@@ -173,6 +209,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XXE-CSHARP-XMLRESOLVER",
         "HIGH",
         "XXE C# · XmlDocument con XmlUrlResolver",
+        _CS,
     ),
     (
         "CWE-22",
@@ -183,6 +220,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-PATH-TRAVERSAL-CSHARP",
         "HIGH",
         "Path traversal C# · File.Read* o Path.Combine sobre Request.*",
+        _CS,
     ),
     # ── Java detectors ───────────────────────────────────────────────
     (
@@ -193,6 +231,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-SQL-JAVA-CONCAT",
         "CRITICAL",
         "SQL injection Java · Statement.executeQuery con concat",
+        _JAVA,
     ),
     (
         "CWE-78",
@@ -200,6 +239,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-CMD-JAVA-RUNTIME-EXEC",
         "CRITICAL",
         "Command injection Java · Runtime.getRuntime().exec()",
+        _JAVA,
     ),
     (
         "CWE-79",
@@ -209,6 +249,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XSS-JAVA-WRITER",
         "HIGH",
         "Reflected XSS Java · getWriter().print(request.getParameter)",
+        _JAVA,
     ),
     (
         "CWE-502",
@@ -216,6 +257,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-DESERIALIZATION-JAVA-OIS",
         "CRITICAL",
         "Insecure deserialization Java · ObjectInputStream.readObject",
+        _JAVA,
     ),
     (
         "CWE-611",
@@ -226,6 +268,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XXE-JAVA-DBF",
         "HIGH",
         "XXE Java · DocumentBuilderFactory sin setFeature secure",
+        _JAVA,
     ),
     # ── COBOL ────────────────────────────────────────────────────────
     (
@@ -237,6 +280,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-SQL-COBOL-CONCAT",
         "CRITICAL",
         "SQL injection COBOL · EXEC SQL con concat de host variable",
+        _COBOL,
     ),
     # ── PHP · Comisiones Indirectas ─────────────────────────────────
     (
@@ -247,6 +291,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-SQL-PHP-CONCAT",
         "CRITICAL",
         "SQL injection PHP · mysql_query/mysqli_query/->query con concat",
+        _PHP,
     ),
     (
         "CWE-78",
@@ -256,6 +301,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-CMD-PHP-EXEC",
         "CRITICAL",
         "Command injection PHP · exec/shell_exec/system con var",
+        _PHP,
     ),
     (
         "CWE-79",
@@ -265,6 +311,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XSS-PHP-ECHO-SUPERGLOBAL",
         "HIGH",
         "Reflected XSS PHP · echo/print sobre $_GET/_POST/_REQUEST",
+        _PHP,
     ),
     (
         "CWE-502",
@@ -272,6 +319,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-DESERIALIZATION-PHP-UNSERIALIZE",
         "CRITICAL",
         "Insecure deserialization PHP · unserialize()",
+        _PHP,
     ),
     (
         "CWE-22",
@@ -281,6 +329,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-PATH-TRAVERSAL-PHP",
         "HIGH",
         "Path traversal PHP · file_get_contents/include sobre $_GET/_POST",
+        _PHP,
     ),
     (
         "CWE-611",
@@ -288,6 +337,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XXE-PHP-LIBXML-NOENT",
         "HIGH",
         "XXE PHP · simplexml/DOMDocument con LIBXML_NOENT/LIBXML_DTDLOAD",
+        _PHP,
     ),
     # ── JavaScript / TypeScript · React frontends + Node ─────────────
     (
@@ -296,6 +346,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XSS-REACT-DANGEROUSLYHTML",
         "HIGH",
         "React XSS · dangerouslySetInnerHTML con valor dinamico",
+        _JSTS,
     ),
     (
         "CWE-79",
@@ -303,6 +354,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-XSS-DOM-INNERHTML",
         "HIGH",
         "DOM XSS · element.innerHTML = variable",
+        _JSTS,
     ),
     (
         "CWE-601",
@@ -312,6 +364,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-OPEN-REDIRECT-JS",
         "HIGH",
         "Open redirect JS · window.location = variable sin validacion",
+        _JSTS,
     ),
     (
         "CWE-78",
@@ -321,6 +374,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-CMD-NODE-CHILDPROCESS",
         "CRITICAL",
         "Command injection Node · child_process con concat",
+        _JSTS,
     ),
     (
         "CWE-22",
@@ -330,6 +384,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-PATH-TRAVERSAL-NODE-FS",
         "HIGH",
         "Path traversal Node · fs.read*/unlink sobre req.*",
+        _JSTS,
     ),
     (
         "CWE-89",
@@ -340,6 +395,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "STATIC-SQL-NODE-CONCAT",
         "CRITICAL",
         "SQL injection Node · db.query/execute con concat",
+        _JSTS,
     ),
 ]
 
@@ -393,8 +449,11 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
         except (OSError, UnicodeDecodeError):
             continue
         rel = str(fp.relative_to(root))
+        fp_ext = fp.suffix.lower()
 
-        for cwe, pattern, rule_id, severity, desc in _DETECTORS:
+        for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
+            if file_exts is not None and fp_ext not in file_exts:
+                continue
             for m in pattern.finditer(content):
                 line_no = content.count("\n", 0, m.start()) + 1
                 lines = content.splitlines()
@@ -453,8 +512,11 @@ def scan_files(
             content = fp.read_text(encoding="utf-8", errors="ignore")
         except (OSError, UnicodeDecodeError):
             continue
+        fp_ext = fp.suffix.lower()
 
-        for cwe, pattern, rule_id, severity, desc in _DETECTORS:
+        for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
+            if file_exts is not None and fp_ext not in file_exts:
+                continue
             for m in pattern.finditer(content):
                 line_no = content.count("\n", 0, m.start()) + 1
                 lines = content.splitlines()

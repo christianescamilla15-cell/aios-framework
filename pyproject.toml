@@ -27,6 +27,7 @@ classifiers = [
 
 [project.scripts]
 aios = "aios.cli.main:main"
+aios-mcp = "aios.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/christianescamilla15-cell"

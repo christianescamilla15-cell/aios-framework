@@ -66,3 +66,6 @@ env/
 .netlify/
 .firebase/
 .serverless/
+# VSCode extension build outputs
+vscode-extension/node_modules/
+vscode-extension/out/

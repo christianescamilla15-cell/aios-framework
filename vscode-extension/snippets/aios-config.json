@@ -1,0 +1,60 @@
+{
+  "AIOS · Config Full": {
+    "prefix": "aios-config-full",
+    "body": [
+      "{",
+      "  \"security_gate\": {",
+      "    \"enabled\": true,",
+      "    \"strict\": false,",
+      "    \"max_critical\": 0,",
+      "    \"max_high\": 5,",
+      "    \"forbidden_literals\": [${1}],",
+      "    \"use_mythos_cli\": false,",
+      "    \"exclude_files\": [\"aios-config.json\"]",
+      "  },",
+      "  \"engagement\": {",
+      "    \"scaffold_script\": \"${2:/path/absoluta/a/scaffold.py}\",",
+      "    \"quarter_default\": \"${3:2026-Q2}\"",
+      "  }",
+      "}"
+    ],
+    "description": "aios-config.json · seccion security_gate + engagement"
+  },
+  "AIOS · Security Gate Only": {
+    "prefix": "aios-config-security",
+    "body": [
+      "\"security_gate\": {",
+      "  \"enabled\": ${1|true,false|},",
+      "  \"strict\": ${2|false,true|},",
+      "  \"max_critical\": ${3:0},",
+      "  \"max_high\": ${4:5},",
+      "  \"forbidden_literals\": [${5}]",
+      "}"
+    ],
+    "description": "Seccion security_gate"
+  },
+  "AIOS · Engagement Only": {
+    "prefix": "aios-config-engagement",
+    "body": [
+      "\"engagement\": {",
+      "  \"scaffold_script\": \"${1:/path/a/scaffold.py}\",",
+      "  \"quarter_default\": \"${2:2026-Q2}\"",
+      "}"
+    ],
+    "description": "Seccion engagement para scaffold"
+  },
+  "AIOS · Strict Mode (enterprise)": {
+    "prefix": "aios-strict",
+    "body": [
+      "\"security_gate\": {",
+      "  \"enabled\": true,",
+      "  \"strict\": true,",
+      "  \"max_critical\": 0,",
+      "  \"max_high\": 0,",
+      "  \"forbidden_literals\": [${1}],",
+      "  \"use_mythos_cli\": true",
+      "}"
+    ],
+    "description": "Config mas estricta · HIGH tambien bloquea"
+  }
+}

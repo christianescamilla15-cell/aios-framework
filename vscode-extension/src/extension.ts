@@ -202,6 +202,190 @@ async function cmdEngagement() {
     await runAios("engagement", ["--app", app]);
 }
 
+// ── Arena Dashboard WebView ───────────────────────────────────────────
+
+interface ArenaRunSummary {
+    run_id: string;
+    target_id: string;
+    verdict: string;
+    rounds_completed: number;
+    mythos_win_streak: number;
+    started_at: string;
+    findings_count: number;
+    run_dir: string;
+}
+
+async function collectRuns(cwd: string): Promise<ArenaRunSummary[]> {
+    const fs = require("fs");
+    const path = require("path");
+    const runsDirs = [
+        path.join(cwd, "arena", "arena-memory", "runs"),
+        path.join(cwd, "arena-memory", "runs"),
+    ];
+    const summaries: ArenaRunSummary[] = [];
+    for (const runsDir of runsDirs) {
+        if (!fs.existsSync(runsDir)) continue;
+        const entries = fs.readdirSync(runsDir);
+        for (const entry of entries) {
+            const runDir = path.join(runsDir, entry);
+            const metaPath = path.join(runDir, "metadata.json");
+            if (!fs.existsSync(metaPath)) continue;
+            try {
+                const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+                let findingsCount = 0;
+                const sarifPath = path.join(runDir, "findings.sarif");
+                if (fs.existsSync(sarifPath)) {
+                    try {
+                        const sarif = JSON.parse(fs.readFileSync(sarifPath, "utf-8"));
+                        findingsCount = (sarif.runs?.[0]?.results?.length) || 0;
+                    } catch { /* ignore */ }
+                }
+                summaries.push({
+                    run_id: meta.run_id || entry,
+                    target_id: meta.target_id || "?",
+                    verdict: meta.verdict || "?",
+                    rounds_completed: meta.rounds_completed || 0,
+                    mythos_win_streak: meta.mythos_win_streak || 0,
+                    started_at: meta.started_at || "",
+                    findings_count: findingsCount,
+                    run_dir: runDir,
+                });
+            } catch { /* ignore */ }
+        }
+    }
+    summaries.sort((a, b) => (b.started_at || "").localeCompare(a.started_at || ""));
+    return summaries.slice(0, 20);
+}
+
+function verdictBadge(verdict: string): { bg: string; fg: string } {
+    switch (verdict) {
+        case "MYTHOS_WINS":   return { bg: "#10b981", fg: "#fff" };
+        case "NEMESIS_WINS":  return { bg: "#ef4444", fg: "#fff" };
+        case "STALEMATE":     return { bg: "#f59e0b", fg: "#000" };
+        case "DRAW":          return { bg: "#6b7280", fg: "#fff" };
+        case "USER_STOPPED":  return { bg: "#8b5cf6", fg: "#fff" };
+        default:              return { bg: "#374151", fg: "#fff" };
+    }
+}
+
+function dashboardHtml(runs: ArenaRunSummary[]): string {
+    const rows = runs.map((r) => {
+        const b = verdictBadge(r.verdict);
+        const ts = r.started_at.slice(0, 19).replace("T", " ");
+        return `
+        <tr>
+          <td><code>${r.target_id}</code></td>
+          <td><span class="badge" style="background:${b.bg};color:${b.fg}">${r.verdict}</span></td>
+          <td>${r.rounds_completed}</td>
+          <td>${r.mythos_win_streak}</td>
+          <td>${r.findings_count}</td>
+          <td><time>${ts}</time></td>
+          <td>
+            <button onclick="openTimeline('${r.run_dir.replace(/\\/g, "/")}')">timeline</button>
+            <button onclick="openSarif('${r.run_dir.replace(/\\/g, "/")}')">sarif</button>
+          </td>
+        </tr>`;
+    }).join("");
+
+    const counts = { total: runs.length };
+
+    return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 16px; color: var(--vscode-foreground); }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: var(--vscode-descriptionForeground); font-size: 12px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--vscode-panel-border); }
+  th { color: var(--vscode-descriptionForeground); font-weight: 600; }
+  code { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  time { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 11px; color: var(--vscode-descriptionForeground); }
+  button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 4px 10px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-right: 4px; }
+  button:hover { background: var(--vscode-button-hoverBackground); }
+  .toolbar { margin-bottom: 12px; }
+  .empty { padding: 40px; text-align: center; color: var(--vscode-descriptionForeground); }
+</style>
+</head>
+<body>
+  <h1>Arena runs dashboard</h1>
+  <div class="sub">${counts.total} run(s) en arena-memory · ultimo refresh ${new Date().toLocaleString()}</div>
+  <div class="toolbar">
+    <button onclick="refresh()">refresh</button>
+    <button onclick="runArena()">new run</button>
+  </div>
+  ${runs.length === 0 ? `
+    <div class="empty">
+      Sin runs registrados.<br>
+      Ejecuta <code>arena run &lt;tut&gt;</code> o AIOS: Arena Self-Play.
+    </div>
+  ` : `
+  <table>
+    <thead>
+      <tr>
+        <th>Target</th>
+        <th>Verdict</th>
+        <th>Rounds</th>
+        <th>Streak</th>
+        <th>Findings</th>
+        <th>Started</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  `}
+<script>
+  const vscode = acquireVsCodeApi();
+  function openTimeline(dir) { vscode.postMessage({ type: 'open', file: dir + '/timeline.md' }); }
+  function openSarif(dir)    { vscode.postMessage({ type: 'open', file: dir + '/findings.sarif' }); }
+  function refresh()         { vscode.postMessage({ type: 'refresh' }); }
+  function runArena()        { vscode.postMessage({ type: 'runArena' }); }
+</script>
+</body>
+</html>`;
+}
+
+async function cmdArenaDashboard() {
+    const cwd = getWorkspaceRoot();
+    if (!cwd) return;
+
+    const panel = vscode.window.createWebviewPanel(
+        "arenaDashboard",
+        "Arena Runs Dashboard",
+        vscode.ViewColumn.One,
+        { enableScripts: true, retainContextWhenHidden: true },
+    );
+
+    const render = async () => {
+        const runs = await collectRuns(cwd);
+        panel.webview.html = dashboardHtml(runs);
+    };
+
+    panel.webview.onDidReceiveMessage(async (msg) => {
+        if (msg.type === "open" && msg.file) {
+            try {
+                await vscode.window.showTextDocument(vscode.Uri.file(msg.file));
+            } catch (e) {
+                vscode.window.showWarningMessage(`No pude abrir ${msg.file}`);
+            }
+        } else if (msg.type === "refresh") {
+            await render();
+        } else if (msg.type === "runArena") {
+            await cmdArena();
+        }
+    });
+
+    await render();
+    // Auto-refresh cada 15s mientras el panel esta visible
+    const timer = setInterval(() => {
+        if (panel.visible) render();
+    }, 15000);
+    panel.onDidDispose(() => clearInterval(timer));
+}
+
 async function cmdReport() {
     await runAios("report");
     // Abre el reporte mas reciente si se genero
@@ -283,6 +467,7 @@ export function activate(context: vscode.ExtensionContext) {
         ["aios.engagement",      cmdEngagement],
         ["aios.engagementList",  cmdEngagementList],
         ["aios.report",          cmdReport],
+        ["aios.arenaDashboard",  cmdArenaDashboard],
     ];
 
     for (const [id, handler] of commands) {

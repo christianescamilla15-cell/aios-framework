@@ -1,0 +1,98 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AIOS config schema",
+  "description": "Config por proyecto de AIOS · leido por release_gate, arena_runner, engagement_scaffold, report_aggregator.",
+  "type": "object",
+  "properties": {
+    "security_gate": {
+      "type": "object",
+      "description": "Configuracion del embedded security scanner (9 CWEs · 5 lenguajes)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Si false, `aios release` skip el check de security"
+        },
+        "strict": {
+          "type": "boolean",
+          "default": false,
+          "description": "Si true, HIGH findings tambien bloquean el release"
+        },
+        "max_critical": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Cantidad maxima de findings CRITICAL tolerados (supera este valor → release bloqueado)"
+        },
+        "max_high": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 5,
+          "description": "Cantidad maxima de findings HIGH tolerados en modo non-strict"
+        },
+        "forbidden_literals": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Literales prohibidos que el scanner detecta como CWE-798 (hardcoded creds)",
+          "examples": [["YOUR_COMPANY_TOKEN", "INTERNAL_KEY"]]
+        },
+        "use_mythos_cli": {
+          "type": "boolean",
+          "default": false,
+          "description": "Si true Y `mythos` esta en PATH, delega al CLI para scan profundo con catalogos AMX"
+        },
+        "mythos_target_id": {
+          "type": "string",
+          "default": "aios-release-gate",
+          "description": "Target ID a pasar a mythos CLI cuando use_mythos_cli=true"
+        },
+        "mythos_timeout_seconds": {
+          "type": "integer",
+          "minimum": 10,
+          "default": 60
+        },
+        "exclude_dirs": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": [".git", ".venv", "venv", "node_modules", "__pycache__", "dist", "build", ".pytest_cache", ".mypy_cache"],
+          "description": "Directorios a ignorar durante el scan"
+        },
+        "exclude_exts": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Extensiones a ignorar (binarios ya estan cubiertos por default)"
+        },
+        "exclude_files": {
+          "type": "array",
+          "items": {"type": "string"},
+          "default": ["aios-config.json"],
+          "description": "Archivos especificos a skipear por nombre"
+        },
+        "max_file_size_bytes": {
+          "type": "integer",
+          "default": 2097152,
+          "description": "Max bytes por archivo (default 2MB)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "engagement": {
+      "type": "object",
+      "description": "Configuracion para `aios engagement` scaffold wrapper",
+      "properties": {
+        "scaffold_script": {
+          "type": "string",
+          "description": "Ruta absoluta a nemesis-engagements/_catalog/scaffold.py"
+        },
+        "quarter_default": {
+          "type": "string",
+          "pattern": "^\\d{4}-Q[1-4]$",
+          "default": "2026-Q2",
+          "description": "Prefijo de quarter para engagement_id (formato YYYY-QN)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

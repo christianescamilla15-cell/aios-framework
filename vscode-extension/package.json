@@ -31,29 +31,111 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
-      { "command": "aios.status", "title": "AIOS: Status", "category": "AIOS" },
-      { "command": "aios.boot", "title": "AIOS: Boot Session", "category": "AIOS" },
-      { "command": "aios.task", "title": "AIOS: Create Task", "category": "AIOS" },
-      { "command": "aios.refresh", "title": "AIOS: Refresh Session (Handoff)", "category": "AIOS" },
-      { "command": "aios.analyze", "title": "AIOS: Analyze Repo", "category": "AIOS" },
-      { "command": "aios.refine", "title": "AIOS: Refine Active Spec", "category": "AIOS" },
-      { "command": "aios.release", "title": "AIOS: Release Gate Check", "category": "AIOS" },
-      { "command": "aios.sync", "title": "AIOS: Sync to Kiro", "category": "AIOS" },
-      { "command": "aios.test", "title": "AIOS: Smart Test Runner", "category": "AIOS" },
-      { "command": "aios.handoff", "title": "AIOS: Generate Handoff Doc", "category": "AIOS" },
-      { "command": "aios.doctor", "title": "AIOS: Doctor (Health Check)", "category": "AIOS" },
-      { "command": "aios.openSpec", "title": "AIOS: Open Active Spec", "category": "AIOS" },
-      { "command": "aios.arena", "title": "AIOS: Arena Self-Play (Mythos vs Nemesis)", "category": "AIOS · Security" },
-      { "command": "aios.arenaList", "title": "AIOS: Arena List Targets", "category": "AIOS · Security" },
-      { "command": "aios.engagement", "title": "AIOS: Scaffold Nemesis Engagement", "category": "AIOS · Security" },
-      { "command": "aios.engagementList", "title": "AIOS: Engagement Catalog (10 apps)", "category": "AIOS · Security" },
-      { "command": "aios.report", "title": "AIOS: Aggregate Report", "category": "AIOS · Security" }
+      {
+        "command": "aios.status",
+        "title": "AIOS: Status",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.boot",
+        "title": "AIOS: Boot Session",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.task",
+        "title": "AIOS: Create Task",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.refresh",
+        "title": "AIOS: Refresh Session (Handoff)",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.analyze",
+        "title": "AIOS: Analyze Repo",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.refine",
+        "title": "AIOS: Refine Active Spec",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.release",
+        "title": "AIOS: Release Gate Check",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.sync",
+        "title": "AIOS: Sync to Kiro",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.test",
+        "title": "AIOS: Smart Test Runner",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.handoff",
+        "title": "AIOS: Generate Handoff Doc",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.doctor",
+        "title": "AIOS: Doctor (Health Check)",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.openSpec",
+        "title": "AIOS: Open Active Spec",
+        "category": "AIOS"
+      },
+      {
+        "command": "aios.arena",
+        "title": "AIOS: Arena Self-Play (Mythos vs Nemesis)",
+        "category": "AIOS · Security"
+      },
+      {
+        "command": "aios.arenaList",
+        "title": "AIOS: Arena List Targets",
+        "category": "AIOS · Security"
+      },
+      {
+        "command": "aios.engagement",
+        "title": "AIOS: Scaffold Nemesis Engagement",
+        "category": "AIOS · Security"
+      },
+      {
+        "command": "aios.engagementList",
+        "title": "AIOS: Engagement Catalog (10 apps)",
+        "category": "AIOS · Security"
+      },
+      {
+        "command": "aios.report",
+        "title": "AIOS: Aggregate Report",
+        "category": "AIOS · Security"
+      },
+      {
+        "command": "aios.arenaDashboard",
+        "title": "AIOS: Arena Runs Dashboard",
+        "category": "AIOS · Security"
+      }
     ],
     "menus": {
       "commandPalette": [
-        { "command": "aios.status", "when": "true" },
-        { "command": "aios.boot", "when": "true" },
-        { "command": "aios.task", "when": "true" }
+        {
+          "command": "aios.status",
+          "when": "true"
+        },
+        {
+          "command": "aios.boot",
+          "when": "true"
+        },
+        {
+          "command": "aios.task",
+          "when": "true"
+        }
       ]
     },
     "configuration": {
@@ -80,6 +162,28 @@
       {
         "language": "markdown",
         "path": "./snippets/spec.json"
+      },
+      {
+        "language": "yaml",
+        "path": "./snippets/roe-yaml.json"
+      },
+      {
+        "language": "json",
+        "path": "./snippets/aios-config.json"
+      },
+      {
+        "language": "jsonc",
+        "path": "./snippets/aios-config.json"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "aios-config.json",
+        "url": "./schemas/aios-config.schema.json"
+      },
+      {
+        "fileMatch": ".aios-config.json",
+        "url": "./schemas/aios-config.schema.json"
       }
     ]
   },
@@ -92,7 +196,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^2.20.0",
-    "typescript": "^5.2.0"
+    "@vscode/vsce": "^2.15.0",
+    "typescript": "^5.9.3"
   }
 }

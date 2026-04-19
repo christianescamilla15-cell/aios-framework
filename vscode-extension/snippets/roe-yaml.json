@@ -1,0 +1,92 @@
+{
+  "Nemesis · RoE Skeleton": {
+    "prefix": "roe-skeleton",
+    "body": [
+      "engagement_id: \"${1:2026-Q2-app-staging-dry-run}\"",
+      "title: \"${2:App} Staging · Dry-run de recon + exploit-verify\"",
+      "description: |",
+      "  ${3:Descripcion del engagement · target · owner · objetivo}",
+      "",
+      "# FROZEN por diseño · fechas 2099 hasta recolectar 3 firmas",
+      "starts_at: \"2099-01-01T00:00:00Z\"",
+      "ends_at:   \"2099-01-02T00:00:00Z\"",
+      "",
+      "scope_hosts:",
+      "  - \"${4:staging.app.amx.internal}\"",
+      "scope_cidr:",
+      "  - \"${5:10.50.10.0/24}\"",
+      "",
+      "excluded_hosts:",
+      "  - \"prod.${6:app}.amx.internal\"",
+      "  - \"${6:app}.amx.com\"",
+      "",
+      "allowed_techniques:",
+      "  - \"T1595.002\"",
+      "  - \"T1190\"",
+      "",
+      "forbidden_techniques:",
+      "  - \"T1485\"",
+      "  - \"T1486\"",
+      "  - \"T1499\"",
+      "  - \"T1561\"",
+      "  - \"T1529\"",
+      "",
+      "approvers:",
+      "  - name: \"TBD · Miatech Ciberseguridad\"",
+      "    role: \"Miatech Ciberseguridad\"",
+      "    signature: \"pending\"",
+      "  - name: \"TBD · Etrive TPM\"",
+      "    role: \"Etrive TPM\"",
+      "    signature: \"pending\"",
+      "  - name: \"TBD · AMX Legal\"",
+      "    role: \"AMX Legal\"",
+      "    signature: \"pending\"",
+      "",
+      "kill_switch_contact:",
+      "  email: \"security-redteam@amx.internal\"",
+      "  slack: \"#red-team-amx\"",
+      "",
+      "max_parallel_sessions: 2",
+      "rate_limit_requests_per_second: 10",
+      "retention_years: 7",
+      "encryption: \"age\"",
+      "",
+      "# CRITICO · false hasta verificar las 3 firmas out-of-band",
+      "approver_signatures_verified: false"
+    ],
+    "description": "Estructura completa de Nemesis RoE · empieza FROZEN"
+  },
+  "Nemesis · Approver Block": {
+    "prefix": "roe-approver",
+    "body": [
+      "  - name: \"${1:Nombre · Apellido}\"",
+      "    role: \"${2|Miatech Ciberseguridad,Etrive TPM,AMX Legal|}\"",
+      "    signature: \"${3:pending}\""
+    ],
+    "description": "Bloque de approver para roe.yaml"
+  },
+  "Nemesis · Scope Block": {
+    "prefix": "roe-scope",
+    "body": [
+      "scope_hosts:",
+      "  - \"${1:staging.app.amx.internal}\"",
+      "scope_cidr:",
+      "  - \"${2:10.50.10.0/24}\"",
+      "",
+      "excluded_hosts:",
+      "  - \"prod.${3:app}.amx.internal\""
+    ],
+    "description": "Bloque de scope"
+  },
+  "Nemesis · Allowed Techniques (minimal)": {
+    "prefix": "roe-techniques",
+    "body": [
+      "allowed_techniques:",
+      "  - \"T1595.002\"   # Active Scanning",
+      "  - \"T1190\"       # Exploit Public-Facing App",
+      "${1:  - \"T1021\"       # Remote Services}",
+      "${2:  - \"T1110.002\"   # Password Cracking (sandbox)}"
+    ],
+    "description": "Tecnicas MITRE permitidas"
+  }
+}

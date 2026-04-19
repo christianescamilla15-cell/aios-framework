@@ -1,0 +1,216 @@
+"""AIOS MCP server · expone Mythos/Nemesis/Arena como tools MCP para
+consumir desde Claude Code u otros clientes MCP-compatibles.
+
+Launch:
+    aios-mcp              # stdio transport · default · para Claude Code
+    aios-mcp --http 8765  # opcional · HTTP transport para testing
+
+Config en Claude Code (~/.claude.json o user settings):
+    {
+      "mcpServers": {
+        "aios": { "command": "aios-mcp", "args": [] }
+      }
+    }
+
+Tools expuestos:
+- `security_scan(project_path)` · corre el embedded scanner (34
+  detectores · 5 lenguajes) y retorna findings dict.
+- `release_gate_check(project_path)` · corre aios release completo.
+- `arena_run(target, max_rounds, target_url?)` · invoca arena CLI
+  via subprocess · retorna verdict.
+- `arena_list_targets()` · lista TUTs.
+- `engagement_scaffold(app_id, quarter?)` · invoca scaffold.py.
+- `engagement_list()` · lista catalogo 10 apps AMX.
+- `aggregate_report(project_path)` · retorna markdown consolidado.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Optional
+
+from mcp.server.fastmcp import FastMCP
+
+from .core.arena_runner import list_targets as _arena_list_targets
+from .core.arena_runner import run_arena as _run_arena
+from .core.engagement_scaffold import run_scaffold as _run_scaffold
+from .core.release_gate import check_release_readiness
+from .core.report_aggregator import build_report
+from .core.security_gate import scan_directory, run_security_gate
+
+
+app = FastMCP("aios")
+
+
+@app.tool()
+def security_scan(project_path: str) -> dict:
+    """Corre el embedded security scanner (34 detectores · 9 CWEs) sobre
+    un path local y retorna resumen con summary + top findings."""
+    root = Path(project_path).expanduser().resolve()
+    if not root.exists():
+        return {"error": f"path no existe: {root}"}
+    findings = scan_directory(root)
+    by_sev: dict[str, int] = {}
+    for f in findings:
+        by_sev[f.severity] = by_sev.get(f.severity, 0) + 1
+    top = [
+        {
+            "cwe": f.cwe, "severity": f.severity, "rule_id": f.rule_id,
+            "file": f.file, "line": f.line,
+        }
+        for f in sorted(
+            findings,
+            key=lambda x: (x.severity != "CRITICAL", x.severity != "HIGH"),
+        )[:10]
+    ]
+    return {
+        "path": str(root),
+        "total_findings": len(findings),
+        "by_severity": by_sev,
+        "top_findings": top,
+    }
+
+
+@app.tool()
+def release_gate_check(project_path: str) -> dict:
+    """Ejecuta el release gate completo (7 checks · incluye security
+    static scan). Util para queries tipo 'puedo desplegar?'."""
+    root = Path(project_path).expanduser().resolve()
+    if not root.exists():
+        return {"error": f"path no existe: {root}"}
+    try:
+        return check_release_readiness(root)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+
+
+@app.tool()
+def arena_list_targets() -> dict:
+    """Lista los TUTs (Target-Under-Test) disponibles para Arena
+    self-play. Requiere `arena` CLI en PATH."""
+    targets = _arena_list_targets()
+    return {"count": len(targets), "targets": targets}
+
+
+@app.tool()
+def arena_run(
+    target: str,
+    max_rounds: int = 10,
+    target_url: Optional[str] = None,
+    timeout_seconds: int = 1200,
+) -> dict:
+    """Ejecuta Arena self-play (Mythos vs Nemesis) contra un TUT.
+    Retorna verdict + metadata + path al timeline. Si target_url
+    esta seteado, activa NucleiExploitRunner contra HTTP vivo."""
+    result = _run_arena(
+        target=target,
+        target_url=target_url,
+        max_rounds=max_rounds,
+        timeout_seconds=timeout_seconds,
+    )
+    return {
+        "ok": result.ok,
+        "verdict": result.verdict,
+        "rounds_completed": result.rounds_completed,
+        "mythos_win_streak": result.mythos_win_streak,
+        "stalemate_counter": result.stalemate_counter,
+        "run_id": result.run_id,
+        "timeline_path": result.timeline_path,
+        "elapsed_seconds": result.elapsed_seconds,
+        "detail": result.detail[:400],
+    }
+
+
+@app.tool()
+def engagement_list(project_root: str = ".") -> dict:
+    """Lista el catalogo de apps para Nemesis engagement scaffolds.
+    Requiere `engagement.scaffold_script` en aios-config.json."""
+    root = Path(project_root).expanduser().resolve()
+    result = _run_scaffold(root, ["--list"], timeout=30)
+    return {
+        "ok": result.ok,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "exit_code": result.exit_code,
+    }
+
+
+@app.tool()
+def engagement_scaffold(
+    app_id: str,
+    project_root: str = ".",
+    quarter: Optional[str] = None,
+    force: bool = False,
+    dry_run: bool = False,
+) -> dict:
+    """Genera el paquete de engagement (roe.yaml + BRIEFING + PREFLIGHT
+    + RUNBOOK) para una app del catalogo. Default FROZEN."""
+    root = Path(project_root).expanduser().resolve()
+    args = ["--app", app_id]
+    if quarter:
+        args.extend(["--quarter", quarter])
+    if force:
+        args.append("--force")
+    if dry_run:
+        args.append("--dry-run")
+    result = _run_scaffold(root, args, timeout=60)
+    return {
+        "ok": result.ok,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "exit_code": result.exit_code,
+    }
+
+
+@app.tool()
+def aggregate_report(project_path: str) -> dict:
+    """Genera el reporte consolidado (release + arena + SARIF +
+    engagements) como markdown · no escribe a disco, retorna string."""
+    root = Path(project_path).expanduser().resolve()
+    if not root.exists():
+        return {"error": f"path no existe: {root}"}
+    report = build_report(root)
+    return {
+        "generated_at": report.generated_at,
+        "root": report.root,
+        "sections_count": len(report.sections),
+        "markdown": report.to_markdown(),
+    }
+
+
+@app.tool()
+def forbidden_literals_suggest() -> dict:
+    """Retorna la lista canonical de AMX forbidden literals que
+    security_scan detecta cuando se configuran en aios-config.json.
+    Informativo · el scanner NO los incluye por default (user opt-in)."""
+    return {
+        "note": "estos literales son del catalogo AMX · configurar en aios-config.json forbidden_literals",
+        "literals_info": (
+            "Los literales especificos de AMX estan documentados en el "
+            "catalogo interno del proyecto amx-hallazgos-audit. Este MCP "
+            "server NO los expone · seguridad by design. Si tu proyecto "
+            "requiere detectarlos, agrega la lista manualmente al config."
+        ),
+    }
+
+
+def main(argv: Optional[list[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description="AIOS MCP server")
+    parser.add_argument(
+        "--http", type=int, default=None,
+        help="Si se pasa un puerto, sirve MCP sobre HTTP (default: stdio)",
+    )
+    args = parser.parse_args(argv)
+
+    if args.http:
+        app.run(transport="sse", host="127.0.0.1", port=args.http)
+    else:
+        app.run(transport="stdio")
+
+
+if __name__ == "__main__":
+    main()

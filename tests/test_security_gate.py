@@ -175,3 +175,58 @@ def test_gate_returns_top_findings_sorted_by_severity(tmp_path):
     top = result["top_findings"]
     assert len(top) >= 2
     assert top[0]["severity"] == "CRITICAL"
+
+
+# ── C# / .NET detectors (paridad con Mythos/Nemesis) ──────────────────
+
+def test_detects_csharp_sql_commandtext_concat(tmp_path):
+    (tmp_path / "x.cs").write_text(
+        'cmd.CommandText = "SELECT * FROM t WHERE id=" + userId;\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-89" and "CSHARP" in f.rule_id for f in findings)
+
+
+def test_detects_csharp_use_shell_execute(tmp_path):
+    (tmp_path / "x.cs").write_text(
+        'new ProcessStartInfo { UseShellExecute = true };\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-78" and "CSHARP" in f.rule_id for f in findings)
+
+
+def test_detects_csharp_response_write_xss(tmp_path):
+    (tmp_path / "x.cs").write_text('Response.Write(Request.Params["m"]);\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-79" and "CSHARP" in f.rule_id for f in findings)
+
+
+def test_detects_csharp_binaryformatter(tmp_path):
+    (tmp_path / "x.cs").write_text('new BinaryFormatter();\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-502" and "CSHARP" in f.rule_id for f in findings)
+
+
+def test_detects_csharp_xmlurlresolver(tmp_path):
+    (tmp_path / "x.cs").write_text('doc.XmlResolver = new XmlUrlResolver();\n')
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-611" and "CSHARP" in f.rule_id for f in findings)
+
+
+def test_detects_csharp_path_combine_request(tmp_path):
+    (tmp_path / "x.cs").write_text(
+        'var p = Path.Combine("/x/", Request.Params["f"]);\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(f.cwe == "CWE-22" and "CSHARP" in f.rule_id for f in findings)
+
+
+def test_release_gate_blocks_on_csharp_critical(tmp_path):
+    (tmp_path / "bad.cs").write_text(
+        'var bf = new BinaryFormatter(); bf.Deserialize(s);\n'
+    )
+    result = run_security_gate(tmp_path)
+    assert result["status"] == "fail"
+    assert result["blocking"] is True
+    # CWE-502 CRITICAL
+    assert result["findings_summary"].get("CRITICAL", 0) >= 1

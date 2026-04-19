@@ -135,6 +135,55 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str]] = [
         "HIGH",
         "XXE · lxml XMLParser con resolve_entities/load_dtd=True",
     ),
+    # ── C# / .NET (paridad con Mythos/Nemesis static runners) ────────
+    (
+        "CWE-89",
+        re.compile(
+            r"""new\s+SqlCommand\s*\(\s*["']SELECT\b[^"']*["']\s*\+|"""
+            r"""\.CommandText\s*=\s*["'][^"']*["']\s*\+"""
+        ),
+        "STATIC-SQL-CSHARP-CONCAT",
+        "CRITICAL",
+        "SQL injection C# · concat en SqlCommand / CommandText",
+    ),
+    (
+        "CWE-78",
+        re.compile(r"""UseShellExecute\s*=\s*true""", re.IGNORECASE),
+        "STATIC-CMD-CSHARP-SHELL-EXECUTE",
+        "CRITICAL",
+        "Command injection C# · UseShellExecute=true",
+    ),
+    (
+        "CWE-79",
+        re.compile(r"""Response\.Write\s*\(\s*Request\.(?:Params|Query|Form)"""),
+        "STATIC-XSS-CSHARP-RESPONSE-WRITE",
+        "HIGH",
+        "Reflected XSS C# · Response.Write sobre Request.*",
+    ),
+    (
+        "CWE-502",
+        re.compile(r"""BinaryFormatter|NetDataContractSerializer"""),
+        "STATIC-DESERIALIZATION-CSHARP",
+        "CRITICAL",
+        "Insecure deserialization C# · BinaryFormatter",
+    ),
+    (
+        "CWE-611",
+        re.compile(r"""XmlResolver\s*=\s*new\s+XmlUrlResolver"""),
+        "STATIC-XXE-CSHARP-XMLRESOLVER",
+        "HIGH",
+        "XXE C# · XmlDocument con XmlUrlResolver",
+    ),
+    (
+        "CWE-22",
+        re.compile(
+            r"""File\.(?:ReadAllText|ReadAllBytes|Open|OpenRead)\s*\(\s*\w+\s*\)|"""
+            r"""Path\.Combine\s*\([^)]*Request\."""
+        ),
+        "STATIC-PATH-TRAVERSAL-CSHARP",
+        "HIGH",
+        "Path traversal C# · File.Read* o Path.Combine sobre Request.*",
+    ),
 ]
 
 

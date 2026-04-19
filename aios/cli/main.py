@@ -36,6 +36,7 @@ from aios.core.arena_runner import (
     write_arena_summary_to_memory,
     read_last_arena_run,
 )
+from aios.core.engagement_scaffold import run_scaffold as run_engagement_scaffold
 from aios.core.prompt_engine import build_execution_prompt
 from aios.core.module_loader import list_stacks, run_stack_checks, detect_relevant_stacks, run_all_relevant_checks
 from aios.core.config import load_config, init_config, save_config
@@ -404,6 +405,51 @@ def cmd_arena(args):
     )
     if written:
         print(f"       Memory           : {written.relative_to(root)}")
+    print(f"{'='*60}\n")
+
+
+def cmd_engagement(args):
+    """Invoca el scaffolder de Nemesis engagements (AMX Revenue
+    Accounting scope).
+
+    Requiere `nemesis-engagements/_catalog/scaffold.py` reachable ·
+    configurar `engagement.scaffold_script` en aios-config.json o
+    copiar el script a location por default.
+    """
+    root = get_root(args)
+
+    scaffold_args: list[str] = []
+    if args.list:
+        scaffold_args.append("--list")
+    elif args.all:
+        scaffold_args.append("--all")
+    elif args.app:
+        scaffold_args.extend(["--app", args.app])
+    else:
+        print("Uso: aios engagement {--list | --all | --app <app-id>} "
+              "[--quarter 2026-Q2] [--force] [--dry-run]")
+        return
+
+    if args.quarter:
+        scaffold_args.extend(["--quarter", args.quarter])
+    if args.force:
+        scaffold_args.append("--force")
+    if args.dry_run:
+        scaffold_args.append("--dry-run")
+
+    result = run_engagement_scaffold(root, scaffold_args, timeout=args.timeout)
+
+    print(f"\n{'='*60}")
+    print(f"  ENGAGEMENT SCAFFOLD")
+    print(f"{'='*60}")
+    if not result.ok:
+        print(f"  [XX] exit={result.exit_code}")
+        if result.stderr:
+            print(f"       stderr: {result.stderr.strip()[:400]}")
+        if result.stdout:
+            print(f"       stdout: {result.stdout.strip()[:400]}")
+    else:
+        print(result.stdout.rstrip())
     print(f"{'='*60}\n")
 
 
@@ -849,6 +895,17 @@ def main():
     p = sub.add_parser("release", help="Check release readiness")
     p.add_argument("--root", default=".")
 
+    # engagement · invoca Nemesis scaffold
+    p = sub.add_parser("engagement", help="Scaffold Nemesis engagement (AMX scope)")
+    p.add_argument("--list", action="store_true", help="lista apps del catalogo")
+    p.add_argument("--app", help="app_id del catalogo (ej. 02-arc)")
+    p.add_argument("--all", action="store_true", help="genera todos los pending")
+    p.add_argument("--quarter", help="quarter prefix (ej. 2026-Q2)")
+    p.add_argument("--force", action="store_true", help="sobrescribe")
+    p.add_argument("--dry-run", dest="dry_run", action="store_true")
+    p.add_argument("--timeout", type=int, default=60)
+    p.add_argument("--root", default=".")
+
     # arena · adversarial self-play on-demand
     p = sub.add_parser("arena", help="Run Mythos vs Nemesis self-play (slow · manual)")
     p.add_argument("--target", help="TUT id (ej. amx-mini-refund)")
@@ -965,7 +1022,8 @@ def main():
     commands = {
         "init": cmd_init, "task": cmd_task, "boot": cmd_boot,
         "refresh": cmd_refresh, "status": cmd_status, "analyze": cmd_analyze,
-        "release": cmd_release, "arena": cmd_arena, "doctor": cmd_doctor, "handoff": cmd_handoff,
+        "release": cmd_release, "arena": cmd_arena, "engagement": cmd_engagement,
+        "doctor": cmd_doctor, "handoff": cmd_handoff,
         "module": cmd_module, "config": cmd_config, "version": cmd_version,
         "diff": cmd_diff, "impact": cmd_impact,
         "onboard": cmd_onboard, "guide": cmd_guide, "hook": cmd_hook, "mcp": cmd_mcp,

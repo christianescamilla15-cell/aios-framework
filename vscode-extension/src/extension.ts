@@ -137,6 +137,94 @@ async function cmdTest() { await runAios("test"); }
 async function cmdHandoff() { await runAios("handoff"); }
 async function cmdDoctor() { await runAios("doctor"); }
 
+// ── Security · Arena/Nemesis/Mythos wrappers ──────────────────────────
+
+async function cmdArenaList() {
+    await runAios("arena", ["--list"]);
+}
+
+async function cmdArena() {
+    // Obtiene lista de TUTs via aios arena --list · quickpick
+    const listing = await runAios("arena", ["--list"], false);
+    const targets: string[] = [];
+    if (listing) {
+        for (const line of listing.split("\n")) {
+            const m = line.match(/^\s*·\s*(\S+)/);
+            if (m) targets.push(m[1]);
+        }
+    }
+    if (targets.length === 0) {
+        vscode.window.showWarningMessage(
+            "Arena: no TUTs detectados · verifica que `arena` este en PATH"
+        );
+        return;
+    }
+    const pick = await vscode.window.showQuickPick(targets, {
+        placeHolder: "Seleccionar TUT para self-play",
+    });
+    if (!pick) return;
+    const rounds = await vscode.window.showInputBox({
+        prompt: "Max rounds",
+        value: "10",
+        validateInput: (v) => (/^\d+$/.test(v) ? undefined : "Solo numeros"),
+    });
+    if (!rounds) return;
+    const url = await vscode.window.showInputBox({
+        prompt: "Target URL (opcional · activa nuclei si esta)",
+        placeHolder: "http://localhost:8888 o vacio",
+    });
+    const args = ["--target", pick, "--max-rounds", rounds];
+    if (url && url.trim()) args.push("--target-url", url.trim());
+    await runAios("arena", args);
+}
+
+async function cmdEngagementList() {
+    await runAios("engagement", ["--list"]);
+}
+
+async function cmdEngagement() {
+    const choice = await vscode.window.showQuickPick(
+        [
+            { label: "Scaffold UNA app", action: "single" },
+            { label: "Scaffold TODAS las pending", action: "all" },
+        ],
+        { placeHolder: "Tipo de scaffold" },
+    );
+    if (!choice) return;
+    if (choice.action === "all") {
+        await runAios("engagement", ["--all"]);
+        return;
+    }
+    const app = await vscode.window.showInputBox({
+        prompt: "app_id del catalogo (ej. 02-arc)",
+    });
+    if (!app) return;
+    await runAios("engagement", ["--app", app]);
+}
+
+async function cmdReport() {
+    await runAios("report");
+    // Abre el reporte mas reciente si se genero
+    const cwd = getWorkspaceRoot();
+    if (!cwd) return;
+    const reportsUri = vscode.Uri.file(`${cwd}/reports`);
+    try {
+        const entries = await vscode.workspace.fs.readDirectory(reportsUri);
+        const mds = entries
+            .filter(([_, t]) => t === vscode.FileType.File)
+            .map(([n]) => n)
+            .filter((n) => n.startsWith("aios_report_"))
+            .sort()
+            .reverse();
+        if (mds.length > 0) {
+            const latest = vscode.Uri.file(`${cwd}/reports/${mds[0]}`);
+            await vscode.window.showTextDocument(latest);
+        }
+    } catch {
+        // reports dir no existe · no-op
+    }
+}
+
 async function cmdOpenSpec() {
     const cwd = getWorkspaceRoot();
     if (!cwd) return;
@@ -190,6 +278,11 @@ export function activate(context: vscode.ExtensionContext) {
         ["aios.handoff",  cmdHandoff],
         ["aios.doctor",   cmdDoctor],
         ["aios.openSpec", cmdOpenSpec],
+        ["aios.arena",           cmdArena],
+        ["aios.arenaList",       cmdArenaList],
+        ["aios.engagement",      cmdEngagement],
+        ["aios.engagementList",  cmdEngagementList],
+        ["aios.report",          cmdReport],
     ];
 
     for (const [id, handler] of commands) {

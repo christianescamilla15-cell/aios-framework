@@ -301,12 +301,35 @@ def cmd_release(args):
     print(f"  RELEASE GATE")
     print(f"{'='*60}")
 
+    icons = {"pass": "OK", "warn": "!!", "fail": "XX", "skip": "--"}
     for c in result["checks"]:
-        icon = {"pass": "OK", "warn": "!!", "fail": "XX"}[c["status"]]
+        icon = icons.get(c["status"], "??")
         detail = f" -- {c.get('detail', '')}" if c.get("detail") else ""
         print(f"  [{icon}] {c['check']}{detail}")
 
-    print(f"\n  Result: {result['passed']} passed, {result['warned']} warnings, {result['failed']} failed")
+    # Security gate breakdown · solo si hay findings
+    sec = result.get("security", {})
+    summary = sec.get("findings_summary", {})
+    top = sec.get("top_findings", [])
+    if summary or top:
+        print(f"\n  Security findings breakdown:")
+        for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"):
+            n = summary.get(sev, 0)
+            if n:
+                print(f"    {sev:<8} {n}")
+        if top:
+            print(f"\n  Top findings:")
+            for f in top:
+                print(f"    [{f['severity']:<8}] {f['cwe']} · {f['rule_id']} · {f['file']}:{f['line']}")
+
+    skipped = result.get("skipped", 0)
+    summary_line = (
+        f"  Result: {result['passed']} passed, {result['warned']} warnings, "
+        f"{result['failed']} failed"
+    )
+    if skipped:
+        summary_line += f", {skipped} skipped"
+    print(f"\n{summary_line}")
     print(f"  Ready for release: {'YES' if result['ready'] else 'NO'}")
     print(f"{'='*60}\n")
 

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .memory_engine import get_active_task, read_memory
+from .security_gate import run_security_gate
 
 
 def _tokenize(text: str) -> set:
@@ -137,16 +138,34 @@ def check_release_readiness(root: Path) -> Dict:
         else:
             checks.append({"check": "Rollback plan defined", "status": "warn", "detail": "rollback.md empty"})
 
+    # 7. Security static scan · Mythos/Nemesis style (Fase AIOS + sec)
+    sec = run_security_gate(root)
+    checks.append({
+        "check": sec["check"],
+        "status": sec["status"],
+        "detail": sec.get("detail", ""),
+    })
+    if sec.get("blocking"):
+        blocking = True
+    # Pasa metadata extra en el top-level para que el CLI lo renderee
+    security_detail = {
+        "findings_summary": sec.get("findings_summary", {}),
+        "top_findings": sec.get("top_findings", []),
+    }
+
     passed = sum(1 for c in checks if c["status"] == "pass")
     warned = sum(1 for c in checks if c["status"] == "warn")
     failed = sum(1 for c in checks if c["status"] == "fail")
+    skipped = sum(1 for c in checks if c["status"] == "skip")
 
     return {
         "ready": not blocking and failed == 0,
         "passed": passed,
         "warned": warned,
         "failed": failed,
+        "skipped": skipped,
         "total": len(checks),
         "checks": checks,
         "blocking": blocking,
+        "security": security_detail,
     }

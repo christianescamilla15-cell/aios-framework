@@ -16,7 +16,7 @@ Configuracion via aios-config.json (seccion `security_gate`):
   "strict": false,
   "max_critical": 0,
   "max_high": 5,
-  "forbidden_literals": ["ATOS5246", "PERRO_ROBOTICO"],
+  "forbidden_literals": ["<YOUR_FORBIDDEN_LITERAL_1>", "<YOUR_FORBIDDEN_LITERAL_2>"],
   "use_mythos_cli": false,
   "exclude_dirs": [".git", "node_modules", ".venv"],
   "exclude_exts": [".pyc", ".min.js"]
@@ -39,7 +39,7 @@ DEFAULT_CONFIG = {
     "strict": False,
     "max_critical": 0,
     "max_high": 5,
-    "forbidden_literals": [],  # usuario agrega sus forbidden (ej. ATOS5246)
+    "forbidden_literals": [],  # usuario agrega sus propios literales forbidden
     "use_mythos_cli": False,
     "mythos_target_id": "aios-release-gate",
     "mythos_timeout_seconds": 60,

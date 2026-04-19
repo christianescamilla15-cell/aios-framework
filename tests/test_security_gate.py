@@ -57,9 +57,11 @@ def test_detects_xxe_resolve_entities(tmp_path):
 
 
 def test_detects_forbidden_literal(tmp_path):
-    (tmp_path / "config.py").write_text('PASSWORD = "ATOS5246"\n')
+    # Sample literal · no real · solo fixture de test
+    sample = "SAMPLE_SECRET_ABC123"
+    (tmp_path / "config.py").write_text(f'PASSWORD = "{sample}"\n')
     cfg = DEFAULT_CONFIG.copy()
-    cfg["forbidden_literals"] = ["ATOS5246"]
+    cfg["forbidden_literals"] = [sample]
     findings = scan_directory(tmp_path, cfg)
     assert any("FORBIDDEN-LITERAL" in f.rule_id for f in findings)
 

@@ -52,10 +52,15 @@ DEFAULT_CONFIG = {
                      # Python packaging / eggs
                      ".tox", ".eggs"],
     "exclude_exts": [".pyc", ".pyo", ".so", ".exe", ".dll", ".bin",
-                     ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".min.js"],
+                     ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".min.js",
+                     # Docs · markdown y rst no son codigo · evitar FPs
+                     # sobre fixtures citados en docs de audit.
+                     ".md", ".rst", ".txt"],
     # Files donde el usuario declara el config del propio gate · no deben
-    # escanearse por auto-match de los literales declarados.
-    "exclude_files": ["aios-config.json"],
+    # escanearse por auto-match de los literales declarados (ej. el
+    # archivo de suppressions cita hostnames/literales en el campo
+    # reason y file · se matchean a si mismos).
+    "exclude_files": ["aios-config.json", "aios-suppressions.json"],
     "max_file_size_bytes": 2 * 1024 * 1024,
 }
 
@@ -696,6 +701,44 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "HIGH",
         "Insecure bind · Node server.listen(port, '0.0.0.0')",
         _JSTS,
+    ),
+    # ── CWE-547 · Hardcoded Security-Relevant Constants (5.2 · #6) ───
+    # Referencias audit · ARC VULN-08/09 (business rules + hostname),
+    # ASR VULN-04/05/07 (reason codes · EMDs · profile routing),
+    # BSP VULN-11 (hostname), Robot V-HI-02 (SABRE endpoint).
+    # 10 ocurrencias · el CWE mas frecuente del audit.
+    # Foco heuristico · hostnames internos + URLs de environment
+    # prefixed · revelan topologia de red y atan el codigo al
+    # ambiente. STATIC-CLEARTEXT-LEGACY-IP ya cubre IPs privadas
+    # en URLs http:// · este detector complementa.
+    (
+        "CWE-547",
+        re.compile(
+            r"""["'][a-zA-Z0-9_-]+"""
+            r"""(?:\.[a-zA-Z0-9_-]+)*"""
+            r"""\.(?:corp|internal|local|intranet|lan|"""
+            r"""miatech|aeromexico|amx|praxis|sabre)"""
+            r"""(?:\.[a-zA-Z]{2,})?"""
+            r"""(?::\d+)?["']"""
+        ),
+        "HARDCODED-INTERNAL-HOSTNAME",
+        "MEDIUM",
+        "Hardcoded · hostname interno/corporativo en string literal",
+        _ANY,
+    ),
+    (
+        "CWE-547",
+        re.compile(
+            r"""["']https?://"""
+            r"""(?:staging|qa|uat|dev|stg|prod|preprod|test)"""
+            r"""[-.][a-zA-Z0-9.-]+"""
+            r"""(?::\d+)?"""
+            r"""[/"']"""
+        ),
+        "HARDCODED-ENV-URL-PREFIX",
+        "LOW",
+        "Hardcoded · URL con prefijo de environment (staging/qa/prod/dev)",
+        _ANY,
     ),
 ]
 

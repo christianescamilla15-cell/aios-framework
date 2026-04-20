@@ -1010,6 +1010,94 @@ def test_insecure_bind_node_localhost_no_fire(tmp_path):
     )
 
 
+# ── CWE-547 · Hardcoded Security Constants (Sprint 5.2 · #6) ──────────
+
+def test_detects_hardcoded_internal_hostname_corp(tmp_path):
+    (tmp_path / "config.py").write_text(
+        'SABRE_HOST = "sabre-gateway.corp.aeromexico.com"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-547" and f.rule_id == "HARDCODED-INTERNAL-HOSTNAME"
+        for f in findings
+    )
+
+
+def test_detects_hardcoded_internal_hostname_local(tmp_path):
+    (tmp_path / "config.js").write_text(
+        'const DB_HOST = "db-primary.internal.local";\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "HARDCODED-INTERNAL-HOSTNAME" for f in findings
+    )
+
+
+def test_detects_hardcoded_internal_hostname_miatech(tmp_path):
+    (tmp_path / "settings.cs").write_text(
+        'public const string PRAXIS_HOST = "praxis.miatech.com";\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "HARDCODED-INTERNAL-HOSTNAME" for f in findings
+    )
+
+
+def test_detects_hardcoded_env_url_staging(tmp_path):
+    (tmp_path / "config.py").write_text(
+        'API_URL = "https://staging-api.example.com/v1/"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "HARDCODED-ENV-URL-PREFIX" for f in findings
+    )
+
+
+def test_detects_hardcoded_env_url_qa(tmp_path):
+    (tmp_path / "settings.java").write_text(
+        'public static final String URL = "https://qa-backend.example.com/";\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "HARDCODED-ENV-URL-PREFIX" for f in findings
+    )
+
+
+def test_hardcoded_hostname_public_domain_no_fire(tmp_path):
+    """Regression · hostname publico conocido NO dispara."""
+    (tmp_path / "c.py").write_text(
+        'GOOGLE = "www.google.com"\nGITHUB = "api.github.com"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "HARDCODED-INTERNAL-HOSTNAME" for f in findings
+    )
+
+
+def test_hardcoded_env_url_prod_domain_no_fire(tmp_path):
+    """Regression · URL sin prefix env explicito NO dispara."""
+    (tmp_path / "c.py").write_text(
+        'URL = "https://api.example.com/v1/"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "HARDCODED-ENV-URL-PREFIX" for f in findings
+    )
+
+
+def test_hardcoded_hostname_short_var_no_fire(tmp_path):
+    """Regression · strings cortos o no-hostname NO disparan.
+    Ej: una palabra suelta que accidentalmente contenga '.local'
+    como sufijo no debe disparar sin forma hostname."""
+    (tmp_path / "c.py").write_text(
+        'MSG = "set to local"\nLBL = "local var"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "HARDCODED-INTERNAL-HOSTNAME" for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

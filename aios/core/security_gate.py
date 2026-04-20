@@ -529,6 +529,65 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "Info leak JS/TS · console.X con variable/template de credencial",
         _JSTS,
     ),
+    # ── CWE-306 · Missing Auth for Critical Function (Sprint 5.1 #3) ─
+    # Referencias audit · ASR VULN-03 (Endpoint sin auth explicita ·
+    # CRITICAL) · SRG CWE-306 OWASP A07 (2 apps afectadas).
+    # Estrategia · detectar rutas mutating (POST/PUT/DELETE/PATCH)
+    # donde la siguiente linea NO sea un decorator de auth. Usa
+    # re.DOTALL implicito via `\n(?!...)` · cubre Flask/FastAPI +
+    # ASP.NET controllers + Express routes.
+    (
+        "CWE-306",
+        re.compile(
+            r"""@(?:app|router|bp|api)\."""
+            r"""(?:route|post|put|delete|patch)\s*\([^)]*\)\s*\n"""
+            r"""(?!\s*@(?:login_required|jwt_required|requires_auth|"""
+            r"""auth_required|requires_scope|admin_required|"""
+            r"""token_required|require_api_key|protected|"""
+            r"""authenticated|require_role))"""
+            r"""\s*(?:async\s+)?def\s+\w+\s*\("""
+            # FastAPI idiom · Depends(get_principal|current_user|...)
+            # en los parametros cuenta como auth · no dispara.
+            r"""(?![\s\S]{0,800}?Depends\s*\(\s*\w*"""
+            r"""(?:principal|current_user|user|auth|security|"""
+            r"""verify_token|get_api_key|require_|session))""",
+            re.MULTILINE,
+        ),
+        "AUTH-MISSING-FLASK-ROUTE",
+        "HIGH",
+        "Missing auth · Flask/FastAPI route mutating sin decorator/Depends auth",
+        _PY,
+    ),
+    (
+        "CWE-306",
+        re.compile(
+            r"""\[Http(?:Post|Put|Delete|Patch)\s*(?:\(|\])[^\]]*\]\s*\n"""
+            r"""(?!\s*\[(?:Authorize|ApiKeyRequired|RequireAuthorization|"""
+            r"""AuthorizeRoles|CustomAuth))"""
+            r"""\s*(?:public|internal|protected)\s+"""
+            r"""(?:async\s+)?[A-Za-z_][\w<>,\s]*\s+\w+\s*\(""",
+            re.MULTILINE,
+        ),
+        "AUTH-MISSING-NET-CONTROLLER",
+        "HIGH",
+        "Missing auth · ASP.NET controller mutating sin [Authorize]",
+        _CS,
+    ),
+    (
+        "CWE-306",
+        re.compile(
+            r"""(?:app|router)\.(?:post|put|delete|patch)\s*\(\s*"""
+            r"""['"`][^'"`]+['"`]\s*,\s*"""
+            r"""(?!(?:[\w.]*(?:auth|jwt|authenticate|verify|protect|"""
+            r"""requireAuth|ensureAuth|checkAuth|isAuthenticated|"""
+            r"""passport\.authenticate))\s*[,(])"""
+            r"""(?:async\s*)?(?:\(|function)"""
+        ),
+        "AUTH-MISSING-EXPRESS-ROUTE",
+        "HIGH",
+        "Missing auth · Express route mutating sin middleware auth",
+        _JSTS,
+    ),
 ]
 
 

@@ -606,6 +606,183 @@ def test_sensitive_log_detectors_respect_language_filter(tmp_path):
     )
 
 
+# ── CWE-306 · Missing Auth Critical Function (Sprint 5.1 · #3) ────────
+
+def test_detects_auth_missing_flask_post(tmp_path):
+    (tmp_path / "api.py").write_text(
+        '@app.post("/refund")\n'
+        'def create_refund():\n'
+        '    return process_refund()\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-306" and f.rule_id == "AUTH-MISSING-FLASK-ROUTE"
+        for f in findings
+    )
+
+
+def test_detects_auth_missing_flask_delete(tmp_path):
+    (tmp_path / "api.py").write_text(
+        '@app.route("/admin/user/<id>", methods=["DELETE"])\n'
+        'def delete_user(id):\n'
+        '    return db.users.delete(id)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AUTH-MISSING-FLASK-ROUTE" for f in findings
+    )
+
+
+def test_detects_auth_missing_net_controller_post(tmp_path):
+    (tmp_path / "Ctrl.cs").write_text(
+        'public class RefundController : ControllerBase {\n'
+        '    [HttpPost("refund")]\n'
+        '    public async Task<IActionResult> CreateRefund() {\n'
+        '        return Ok();\n'
+        '    }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AUTH-MISSING-NET-CONTROLLER" for f in findings
+    )
+
+
+def test_detects_auth_missing_express_post(tmp_path):
+    (tmp_path / "routes.ts").write_text(
+        'import express from "express";\n'
+        'const router = express.Router();\n'
+        'router.post("/transfer", async (req, res) => {\n'
+        '    await doTransfer(req.body);\n'
+        '});\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AUTH-MISSING-EXPRESS-ROUTE" for f in findings
+    )
+
+
+def test_auth_missing_flask_no_fire_with_login_required(tmp_path):
+    """Regression · ruta POST con @login_required NO dispara."""
+    (tmp_path / "api.py").write_text(
+        '@app.post("/refund")\n'
+        '@login_required\n'
+        'def create_refund():\n'
+        '    return process_refund()\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-FLASK-ROUTE" for f in findings
+    )
+
+
+def test_auth_missing_flask_no_fire_with_jwt_required(tmp_path):
+    """Regression · FastAPI con @jwt_required NO dispara."""
+    (tmp_path / "api.py").write_text(
+        '@router.post("/users")\n'
+        '@jwt_required()\n'
+        'async def create_user():\n'
+        '    return {"ok": True}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-FLASK-ROUTE" for f in findings
+    )
+
+
+def test_auth_missing_net_no_fire_with_authorize(tmp_path):
+    """Regression · [Authorize] presente NO dispara."""
+    (tmp_path / "Ctrl.cs").write_text(
+        'public class A : ControllerBase {\n'
+        '    [HttpPost("refund")]\n'
+        '    [Authorize]\n'
+        '    public IActionResult Post() { return Ok(); }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-NET-CONTROLLER" for f in findings
+    )
+
+
+def test_auth_missing_express_no_fire_with_middleware(tmp_path):
+    """Regression · middleware auth antes del handler NO dispara."""
+    (tmp_path / "routes.ts").write_text(
+        'router.post("/transfer", authenticate, async (req, res) => {\n'
+        '    await doTransfer();\n'
+        '});\n'
+        'router.delete("/user", requireAuth, (req, res) => res.end());\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-EXPRESS-ROUTE" for f in findings
+    )
+
+
+def test_auth_missing_flask_get_does_not_fire(tmp_path):
+    """Regression · GET route sin auth NO dispara (read-only · scope
+    intencional del detector: solo POST/PUT/DELETE/PATCH)."""
+    (tmp_path / "api.py").write_text(
+        '@app.get("/status")\n'
+        'def status():\n'
+        '    return {"ok": True}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-FLASK-ROUTE" for f in findings
+    )
+
+
+def test_auth_missing_no_fire_with_fastapi_depends_principal(tmp_path):
+    """Regression · FastAPI idiom Depends(get_principal) en parametros
+    cuenta como auth · no debe disparar."""
+    (tmp_path / "api.py").write_text(
+        '@app.post("/invoice/process")\n'
+        'def process_invoice(\n'
+        '    s3_key: str,\n'
+        '    xml: bytes,\n'
+        '    principal: Principal = Depends(get_principal),\n'
+        ') -> dict:\n'
+        '    return {"ok": True}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-FLASK-ROUTE" for f in findings
+    )
+
+
+def test_auth_missing_no_fire_with_depends_current_user(tmp_path):
+    """Regression · Depends(get_current_user) tambien cuenta."""
+    (tmp_path / "api.py").write_text(
+        '@router.post("/create")\n'
+        'async def create(\n'
+        '    data: dict,\n'
+        '    user: User = Depends(get_current_user),\n'
+        '):\n'
+        '    return data\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-FLASK-ROUTE" for f in findings
+    )
+
+
+def test_auth_missing_still_fires_when_depends_is_unrelated(tmp_path):
+    """Positive · Depends(get_db) NO es auth · debe disparar."""
+    (tmp_path / "api.py").write_text(
+        '@app.post("/refund")\n'
+        'def refund(\n'
+        '    data: dict,\n'
+        '    db: Session = Depends(get_db),\n'
+        '):\n'
+        '    return data\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AUTH-MISSING-FLASK-ROUTE" for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

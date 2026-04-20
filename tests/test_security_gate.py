@@ -783,6 +783,144 @@ def test_auth_missing_still_fires_when_depends_is_unrelated(tmp_path):
     )
 
 
+# ── CWE-209 · Verbose Error Disclosure (Sprint 5.1 · #4) ──────────────
+
+def test_detects_verbose_error_traceback_py(tmp_path):
+    (tmp_path / "api.py").write_text(
+        'import traceback\n'
+        'def handler():\n'
+        '    try: x = 1/0\n'
+        '    except Exception: return {"error": traceback.format_exc()}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-209" and f.rule_id == "VERBOSE-ERROR-TRACEBACK-PY"
+        for f in findings
+    )
+
+
+def test_detects_verbose_error_str_e_in_response_py(tmp_path):
+    (tmp_path / "api.py").write_text(
+        'def handler():\n'
+        '    try: x = 1/0\n'
+        '    except Exception as e: return {"error": str(e)}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "VERBOSE-ERROR-EXCEPTION-IN-RESPONSE-PY"
+        for f in findings
+    )
+
+
+def test_detects_verbose_error_stack_jsts(tmp_path):
+    (tmp_path / "srv.js").write_text(
+        'app.get("/err", (req, res) => {\n'
+        '  try { doIt(); } catch (err) {\n'
+        '    res.json({ trace: err.stack });\n'
+        '  }\n'
+        '});\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "VERBOSE-ERROR-STACK-JSTS" for f in findings
+    )
+
+
+def test_detects_verbose_error_php_gettraceasstring(tmp_path):
+    (tmp_path / "api.php").write_text(
+        '<?php\n'
+        'try { do_it(); }\n'
+        'catch (Exception $e) { echo $e->getTraceAsString(); }\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "VERBOSE-ERROR-DISCLOSURE-PHP" for f in findings
+    )
+
+
+def test_detects_verbose_error_php_display_errors_on(tmp_path):
+    (tmp_path / "boot.php").write_text(
+        '<?php\n'
+        'ini_set("display_errors", "On");\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "VERBOSE-ERROR-DISCLOSURE-PHP" for f in findings
+    )
+
+
+def test_detects_verbose_error_java_printstacktrace(tmp_path):
+    (tmp_path / "Ctrl.java").write_text(
+        'public class C {\n'
+        '    void h(HttpServletResponse response) {\n'
+        '        try { doIt(); }\n'
+        '        catch (Exception e) {\n'
+        '            e.printStackTrace(response.getWriter());\n'
+        '        }\n'
+        '    }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "VERBOSE-ERROR-STACKTRACE-JAVA" for f in findings
+    )
+
+
+def test_detects_verbose_error_csharp_ex_tostring(tmp_path):
+    (tmp_path / "Ctrl.cs").write_text(
+        'public class C : ControllerBase {\n'
+        '    public IActionResult H() {\n'
+        '        try { D(); return Ok(); }\n'
+        '        catch (Exception ex) { return StatusCode(500, ex.ToString()); }\n'
+        '    }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "VERBOSE-ERROR-EXCEPTION-CSHARP" for f in findings
+    )
+
+
+def test_verbose_error_py_does_not_fire_on_log_only(tmp_path):
+    """Regression · traceback.format_exc() dispara siempre porque es
+    poco probable sin intencion de exposicion · pero este test asegura
+    que el detector no cruce a otras regex no relacionadas."""
+    (tmp_path / "x.py").write_text(
+        'def handler():\n'
+        '    try: do()\n'
+        '    except Exception: logger.exception("failed")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id.startswith("VERBOSE-ERROR") for f in findings
+    )
+
+
+def test_verbose_error_php_display_errors_off_no_fire(tmp_path):
+    """Regression · display_errors=Off (secure) NO dispara."""
+    (tmp_path / "boot.php").write_text(
+        '<?php\nini_set("display_errors", "Off");\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "VERBOSE-ERROR-DISCLOSURE-PHP" for f in findings
+    )
+
+
+def test_verbose_error_jsts_no_fire_on_message_log(tmp_path):
+    """Regression · logger.error(err.stack) NO dispara (es log no
+    response · el detector exige res.send/json/write)."""
+    (tmp_path / "srv.ts").write_text(
+        'function h(err: Error) {\n'
+        '  logger.error(err.stack);\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "VERBOSE-ERROR-STACK-JSTS" for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

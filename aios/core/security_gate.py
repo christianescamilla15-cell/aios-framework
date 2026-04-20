@@ -588,6 +588,78 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "Missing auth · Express route mutating sin middleware auth",
         _JSTS,
     ),
+    # ── CWE-209 · Verbose Error Disclosure (Sprint 5.1 · #4) ─────────
+    # Referencias audit · Sicofav V-HI-01 (customErrors mode=Off · ya
+    # cubierto por CWE-489) · cfdis V-HI-02 (info sensible en errores).
+    # Foco de este detector · stack traces / exception full detail
+    # propagados al response/client.
+    (
+        "CWE-209",
+        re.compile(r"""traceback\.format_exc\s*\(\s*\)|"""
+                   r"""sys\.exc_info\s*\(\s*\)"""),
+        "VERBOSE-ERROR-TRACEBACK-PY",
+        "HIGH",
+        "Info leak · traceback.format_exc/sys.exc_info expuesto (probable response)",
+        _PY,
+    ),
+    (
+        "CWE-209",
+        re.compile(
+            r"""return\s*\{[^}]*["'](?:error|detail|message|exception)["']"""
+            r"""[^}]*:\s*(?:str|repr)\s*\(\s*e\s*\)|"""
+            r"""HTTPException\s*\([^)]*detail\s*=\s*(?:str|repr)\s*\(\s*e\s*\)"""
+        ),
+        "VERBOSE-ERROR-EXCEPTION-IN-RESPONSE-PY",
+        "MEDIUM",
+        "Info leak · str(e)/repr(e) en response body de handler",
+        _PY,
+    ),
+    (
+        "CWE-209",
+        re.compile(
+            r"""res\.(?:send|json|write|end)\s*\([^)]*"""
+            r"""(?:err|error|e|exception|ex)\.(?:stack|toString\s*\(\s*\))"""
+        ),
+        "VERBOSE-ERROR-STACK-JSTS",
+        "HIGH",
+        "Info leak JS/TS · res.send/json con err.stack o err.toString",
+        _JSTS,
+    ),
+    (
+        "CWE-209",
+        re.compile(
+            r"""->(?:getTraceAsString|getTrace)\s*\(\s*\)|"""
+            r"""ini_set\s*\(\s*['"]display_errors['"]\s*,\s*['"]?(?:1|On|true)"""
+        ),
+        "VERBOSE-ERROR-DISCLOSURE-PHP",
+        "HIGH",
+        "Info leak PHP · getTraceAsString/display_errors=On",
+        _PHP,
+    ),
+    (
+        "CWE-209",
+        re.compile(
+            r"""e\.printStackTrace\s*\(\s*(?:response\.|resp\.|writer)|"""
+            r"""(?:response|resp)\.getWriter\s*\(\s*\)\.(?:print|println|write)"""
+            r"""\s*\([^)]*\be\.(?:toString|getMessage)\s*\(\s*\)"""
+        ),
+        "VERBOSE-ERROR-STACKTRACE-JAVA",
+        "HIGH",
+        "Info leak Java · printStackTrace/getMessage sobre response writer",
+        _JAVA,
+    ),
+    (
+        "CWE-209",
+        re.compile(
+            r"""StatusCode\s*\(\s*\d+\s*,\s*ex\.(?:ToString|StackTrace|Message)|"""
+            r"""Response\.Write\s*\(\s*ex\.(?:ToString|StackTrace)|"""
+            r"""return\s+(?:BadRequest|Ok|Problem|Content)\s*\(\s*ex\.(?:ToString|StackTrace)"""
+        ),
+        "VERBOSE-ERROR-EXCEPTION-CSHARP",
+        "HIGH",
+        "Info leak C# · Response/StatusCode con ex.ToString/StackTrace",
+        _CS,
+    ),
 ]
 
 

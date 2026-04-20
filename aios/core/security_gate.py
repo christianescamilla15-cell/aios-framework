@@ -78,6 +78,7 @@ _JAVA = frozenset({".java"})
 _COBOL = frozenset({".cob", ".cbl", ".cpy"})
 _PHP = frozenset({".php", ".phtml", ".php3", ".php4", ".php5"})
 _JSTS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
+_NETCFG = frozenset({".config"})  # web.config / app.config de ASP.NET
 _ANY: frozenset[str] | None = None  # aplica a cualquier extension
 
 # (cwe, pattern, rule_id, severity, description, file_exts)
@@ -396,6 +397,52 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "CRITICAL",
         "SQL injection Node · db.query/execute con concat",
         _JSTS,
+    ),
+    # ── CWE-489 · Active Debug Code (Sprint 5.1 · #1) ────────────────
+    # Referencias audit: BSP VULN-01 (Flask debug=True · 9.8 CRITICAL ·
+    # Werkzeug RCE), Sicofav V-HI-01 (customErrors mode="Off" · HIGH
+    # info disclosure).
+    (
+        "CWE-489",
+        re.compile(
+            r"""\.run\(\s*[^)]*\bdebug\s*=\s*True|"""
+            r"""app\.config\[\s*['"]DEBUG['"]\s*\]\s*=\s*True|"""
+            r"""app\.debug\s*=\s*True"""
+        ),
+        "DEBUG-CODE-FLASK-ACTIVE",
+        "CRITICAL",
+        "Active debug · Flask debug=True (Werkzeug RCE via PIN bypass)",
+        _PY,
+    ),
+    (
+        "CWE-489",
+        re.compile(r"""(?m)^\s*DEBUG\s*=\s*True\b"""),
+        "DEBUG-CODE-DJANGO-SETTING",
+        "HIGH",
+        "Active debug · Django settings DEBUG=True (info disclosure)",
+        _PY,
+    ),
+    (
+        "CWE-489",
+        re.compile(
+            r"""<customErrors\s+[^>]*\bmode\s*=\s*["']Off["']""",
+            re.IGNORECASE,
+        ),
+        "DEBUG-CODE-NET-CUSTOMERRORS-OFF",
+        "HIGH",
+        "Active debug · ASP.NET customErrors mode=Off (YSOD info disclosure)",
+        _NETCFG,
+    ),
+    (
+        "CWE-489",
+        re.compile(
+            r"""<compilation\s+[^>]*\bdebug\s*=\s*["']true["']""",
+            re.IGNORECASE,
+        ),
+        "DEBUG-CODE-NET-COMPILATION-DEBUG",
+        "MEDIUM",
+        "Active debug · ASP.NET compilation debug=true (perf + audit concern)",
+        _NETCFG,
     ),
 ]
 

@@ -374,6 +374,120 @@ def test_sql_fstring_requires_sql_keyword(tmp_path):
     assert not any(f.rule_id == "STATIC-SQL-FSTRING" for f in findings)
 
 
+# ── CWE-489 · Active Debug Code (Sprint 5.1 · #1) ────────────────────
+
+def test_detects_flask_debug_in_run(tmp_path):
+    (tmp_path / "srv.py").write_text(
+        'from flask import Flask\napp = Flask(__name__)\n'
+        'app.run(host="0.0.0.0", debug=True)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-489" and f.rule_id == "DEBUG-CODE-FLASK-ACTIVE"
+        and f.severity == "CRITICAL"
+        for f in findings
+    )
+
+
+def test_detects_flask_debug_via_config(tmp_path):
+    (tmp_path / "srv.py").write_text(
+        'from flask import Flask\napp = Flask(__name__)\n'
+        'app.config["DEBUG"] = True\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "DEBUG-CODE-FLASK-ACTIVE" for f in findings
+    )
+
+
+def test_detects_django_debug_true(tmp_path):
+    (tmp_path / "settings.py").write_text(
+        'SECRET_KEY = "x"\nDEBUG = True\nALLOWED_HOSTS = []\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-489" and f.rule_id == "DEBUG-CODE-DJANGO-SETTING"
+        and f.severity == "HIGH"
+        for f in findings
+    )
+
+
+def test_detects_net_customerrors_off(tmp_path):
+    (tmp_path / "web.config").write_text(
+        '<?xml version="1.0"?>\n<configuration>\n  <system.web>\n'
+        '    <customErrors mode="Off" />\n  </system.web>\n</configuration>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-489"
+        and f.rule_id == "DEBUG-CODE-NET-CUSTOMERRORS-OFF"
+        for f in findings
+    )
+
+
+def test_detects_net_compilation_debug(tmp_path):
+    (tmp_path / "web.config").write_text(
+        '<configuration><system.web>'
+        '<compilation debug="true" targetFramework="4.7.2" />'
+        '</system.web></configuration>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "DEBUG-CODE-NET-COMPILATION-DEBUG"
+        and f.severity == "MEDIUM"
+        for f in findings
+    )
+
+
+def test_django_debug_does_not_fire_on_inline_false(tmp_path):
+    """Regression · DEBUG = False no dispara."""
+    (tmp_path / "settings.py").write_text('DEBUG = False\n')
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "DEBUG-CODE-DJANGO-SETTING" for f in findings
+    )
+
+
+def test_flask_debug_does_not_fire_on_comment(tmp_path):
+    """Regression · mencionar debug=True en comment no dispara."""
+    (tmp_path / "x.py").write_text(
+        '# Do NOT set debug=True in production\n'
+        'app.run(host="0.0.0.0")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "DEBUG-CODE-FLASK-ACTIVE" for f in findings
+    )
+
+
+def test_net_customerrors_on_does_not_fire(tmp_path):
+    """Regression · customErrors mode="On" (secure) no dispara."""
+    (tmp_path / "web.config").write_text(
+        '<configuration><system.web>'
+        '<customErrors mode="On" defaultRedirect="~/Error" />'
+        '</system.web></configuration>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        "DEBUG-CODE-NET" in f.rule_id for f in findings
+    )
+
+
+def test_net_debug_detectors_do_not_fire_in_python(tmp_path):
+    """Regression · detectores .NET no disparan en .py aunque el texto
+    literal aparezca (protege scanner de auto-match)."""
+    (tmp_path / "patterns.py").write_text(
+        'PATTERNS = [\n'
+        '    r\'<customErrors\\\\s+mode="Off"\',\n'
+        '    r\'<compilation\\\\s+debug="true"\',\n'
+        ']\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        "DEBUG-CODE-NET" in f.rule_id for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

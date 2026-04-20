@@ -904,6 +904,46 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "No timeout · axios.X() sin timeout",
         _JSTS,
     ),
+    # ── CWE-770 · Missing Rate Limit (Sprint 5.3 · #10) ──────────────
+    # Referencias audit · ARC VULN-05 (sin rate limit SABRE client) ·
+    # BSP VULN-09 (sin rate limit IATA scraper) · ASR VULN-08 (sin
+    # rate limit endpoints). 5 ocurrencias.
+    # Scope · rutas mutating (POST/PUT/DELETE/PATCH) sin decorator
+    # de rate limit. LOW severity · frequently delegated a gateway.
+    (
+        "CWE-770",
+        re.compile(
+            r"""@(?:app|router|bp|api)\."""
+            r"""(?:route|post|put|delete|patch)\s*\([^)]*\)\s*\n"""
+            # Consume cualquier cantidad de decorators NO-limiter
+            r"""(?:\s*@(?!(?:limiter\.limit|rate_limit|limit|throttle|"""
+            r"""ratelimit|slowapi|throttled))\w[^\n]*\n)*"""
+            r"""\s*(?:async\s+)?def\s+\w+\s*\("""
+            # FastAPI Depends(RateLimiter) en params cuenta como rate limit
+            r"""(?![\s\S]{0,800}?Depends\s*\(\s*\w*"""
+            r"""(?:RateLimiter|Throttle|Limit|Throttled))""",
+            re.MULTILINE,
+        ),
+        "MISSING-RATE-LIMIT-FLASK-ROUTE",
+        "LOW",
+        "No rate limit · Flask/FastAPI route mutating sin @limiter/Depends",
+        _PY,
+    ),
+    (
+        "CWE-770",
+        re.compile(
+            r"""(?:app|router)\.(?:post|put|delete|patch)\s*\(\s*"""
+            r"""['"`][^'"`]+['"`]\s*,\s*"""
+            # Consume cualquier middleware NO-rateLimit
+            r"""(?:(?![\w.]*(?:rateLimit|limiter|throttle|slowDown|"""
+            r"""expressRateLimit))\w[\w.]*(?:\s*\([^)]*\))?\s*,\s*)*"""
+            r"""(?:async\s*)?(?:\(|function)"""
+        ),
+        "MISSING-RATE-LIMIT-EXPRESS-ROUTE",
+        "LOW",
+        "No rate limit · Express route mutating sin middleware rateLimit",
+        _JSTS,
+    ),
 ]
 
 

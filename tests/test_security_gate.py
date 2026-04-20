@@ -1445,6 +1445,77 @@ def test_missing_timeout_axios_with_config_no_fire(tmp_path):
     )
 
 
+# ── CWE-770 · Missing Rate Limit (Sprint 5.3 · #10) ──────────────────
+
+def test_detects_missing_rate_limit_flask_post(tmp_path):
+    (tmp_path / "api.py").write_text(
+        '@app.post("/login")\n'
+        '@login_required\n'
+        'def login():\n'
+        '    return {"ok": True}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-770"
+        and f.rule_id == "MISSING-RATE-LIMIT-FLASK-ROUTE"
+        for f in findings
+    )
+
+
+def test_detects_missing_rate_limit_express_post(tmp_path):
+    (tmp_path / "routes.ts").write_text(
+        'router.post("/login", authenticate, async (req, res) => {\n'
+        '    await handleLogin(req.body);\n'
+        '});\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "MISSING-RATE-LIMIT-EXPRESS-ROUTE" for f in findings
+    )
+
+
+def test_rate_limit_with_limiter_decorator_no_fire(tmp_path):
+    """Regression · @limiter.limit() presente NO dispara."""
+    (tmp_path / "api.py").write_text(
+        '@app.post("/login")\n'
+        '@limiter.limit("5/minute")\n'
+        '@login_required\n'
+        'def login():\n'
+        '    return {"ok": True}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "MISSING-RATE-LIMIT-FLASK-ROUTE" for f in findings
+    )
+
+
+def test_rate_limit_with_depends_ratelimiter_no_fire(tmp_path):
+    """Regression · FastAPI Depends(RateLimiter) NO dispara."""
+    (tmp_path / "api.py").write_text(
+        '@app.post("/login")\n'
+        'async def login(\n'
+        '    rl: None = Depends(RateLimiter(times=5, seconds=60)),\n'
+        '):\n'
+        '    return {"ok": True}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "MISSING-RATE-LIMIT-FLASK-ROUTE" for f in findings
+    )
+
+
+def test_rate_limit_express_with_limiter_middleware_no_fire(tmp_path):
+    """Regression · Express con rateLimit middleware NO dispara."""
+    (tmp_path / "routes.ts").write_text(
+        'router.post("/login", rateLimit({max: 5}), login);\n'
+        'router.post("/register", limiter, register);\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "MISSING-RATE-LIMIT-EXPRESS-ROUTE" for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

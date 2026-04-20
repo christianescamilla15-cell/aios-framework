@@ -844,6 +844,66 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "Silent failure PHP · catch(Exception $e){} body vacio",
         _PHP,
     ),
+    # ── CWE-400 · Uncontrolled Resource Consumption (5.3 · #9) ───────
+    # Referencias audit · ARC VULN-04 (sin timeout socket SABRE),
+    # BSP VULN-06 (sin timeout Playwright), Robot V-CR-04 (buffer read
+    # sin timeout), cfdis V-ME-02 (consumo memoria ilimitado).
+    # 7 ocurrencias · foco · llamadas de red/subprocess sin timeout.
+    (
+        "CWE-400",
+        re.compile(
+            r"""\brequests\.(?:get|post|put|delete|patch|head|options|request)"""
+            r"""\s*\((?![^)]*\btimeout\s*=)[^)]{0,600}\)"""
+        ),
+        "MISSING-TIMEOUT-REQUESTS-PY",
+        "HIGH",
+        "No timeout · requests.{get|post|...} sin timeout=",
+        _PY,
+    ),
+    (
+        "CWE-400",
+        re.compile(
+            r"""urllib\.request\.urlopen\s*\((?![^)]*\btimeout\s*=)"""
+            r"""[^)]{0,400}\)"""
+        ),
+        "MISSING-TIMEOUT-URLLIB-PY",
+        "HIGH",
+        "No timeout · urllib.request.urlopen sin timeout=",
+        _PY,
+    ),
+    (
+        "CWE-400",
+        re.compile(
+            r"""subprocess\.(?:run|call|check_call|check_output|Popen)"""
+            r"""\s*\((?![^)]*\btimeout\s*=)[^)]{0,600}\)"""
+        ),
+        "MISSING-TIMEOUT-SUBPROCESS-PY",
+        "MEDIUM",
+        "No timeout · subprocess.run/call/Popen sin timeout=",
+        _PY,
+    ),
+    (
+        "CWE-400",
+        re.compile(
+            r"""\bfetch\s*\((?![^)]*(?:signal|AbortSignal|timeout))"""
+            r"""[^)]{0,400}\)"""
+        ),
+        "MISSING-TIMEOUT-FETCH-JSTS",
+        "MEDIUM",
+        "No timeout · fetch() sin AbortSignal/timeout",
+        _JSTS,
+    ),
+    (
+        "CWE-400",
+        re.compile(
+            r"""\baxios(?:\.(?:get|post|put|delete|patch|head))?"""
+            r"""\s*\((?![^)]*\btimeout)[^)]{0,400}\)"""
+        ),
+        "MISSING-TIMEOUT-AXIOS-JSTS",
+        "MEDIUM",
+        "No timeout · axios.X() sin timeout",
+        _JSTS,
+    ),
 ]
 
 

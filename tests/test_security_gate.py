@@ -1327,6 +1327,124 @@ def test_catch_no_fire_with_body_jsts(tmp_path):
     )
 
 
+# ── CWE-400 · Missing Timeout (Sprint 5.3 · #9) ──────────────────────
+
+def test_detects_missing_timeout_requests_get(tmp_path):
+    (tmp_path / "client.py").write_text(
+        'import requests\n'
+        'r = requests.get("https://api.example.com/")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-400"
+        and f.rule_id == "MISSING-TIMEOUT-REQUESTS-PY"
+        for f in findings
+    )
+
+
+def test_detects_missing_timeout_requests_post(tmp_path):
+    (tmp_path / "c.py").write_text(
+        'import requests\n'
+        'requests.post(url, json={"x": 1})\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "MISSING-TIMEOUT-REQUESTS-PY" for f in findings
+    )
+
+
+def test_detects_missing_timeout_urllib(tmp_path):
+    (tmp_path / "c.py").write_text(
+        'import urllib.request\n'
+        'urllib.request.urlopen("https://api.example.com/")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "MISSING-TIMEOUT-URLLIB-PY" for f in findings
+    )
+
+
+def test_detects_missing_timeout_subprocess_run(tmp_path):
+    (tmp_path / "c.py").write_text(
+        'import subprocess\n'
+        'subprocess.run(["curl", "https://example.com"], capture_output=True)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "MISSING-TIMEOUT-SUBPROCESS-PY" for f in findings
+    )
+
+
+def test_detects_missing_timeout_fetch_jsts(tmp_path):
+    (tmp_path / "c.ts").write_text(
+        'async function load() {\n'
+        '  const r = await fetch("https://api.example.com/");\n'
+        '  return r.json();\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "MISSING-TIMEOUT-FETCH-JSTS" for f in findings
+    )
+
+
+def test_detects_missing_timeout_axios(tmp_path):
+    (tmp_path / "c.js").write_text(
+        'const axios = require("axios");\n'
+        'const r = await axios.get("https://api.example.com/");\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "MISSING-TIMEOUT-AXIOS-JSTS" for f in findings
+    )
+
+
+def test_missing_timeout_requests_with_timeout_no_fire(tmp_path):
+    """Regression · requests.get con timeout= NO dispara."""
+    (tmp_path / "c.py").write_text(
+        'import requests\n'
+        'r = requests.get("https://api.example.com/", timeout=10)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "MISSING-TIMEOUT-REQUESTS-PY" for f in findings
+    )
+
+
+def test_missing_timeout_subprocess_with_timeout_no_fire(tmp_path):
+    """Regression · subprocess.run con timeout= NO dispara."""
+    (tmp_path / "c.py").write_text(
+        'import subprocess\n'
+        'subprocess.run(["ls"], timeout=5, check=True)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "MISSING-TIMEOUT-SUBPROCESS-PY" for f in findings
+    )
+
+
+def test_missing_timeout_fetch_with_signal_no_fire(tmp_path):
+    """Regression · fetch con AbortSignal NO dispara."""
+    (tmp_path / "c.ts").write_text(
+        'const r = await fetch(url, { signal: AbortSignal.timeout(5000) });\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "MISSING-TIMEOUT-FETCH-JSTS" for f in findings
+    )
+
+
+def test_missing_timeout_axios_with_config_no_fire(tmp_path):
+    """Regression · axios con timeout en config NO dispara."""
+    (tmp_path / "c.ts").write_text(
+        'const r = await axios.get(url, { timeout: 10000 });\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "MISSING-TIMEOUT-AXIOS-JSTS" for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

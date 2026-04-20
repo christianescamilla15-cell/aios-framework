@@ -740,6 +740,53 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "Hardcoded · URL con prefijo de environment (staging/qa/prod/dev)",
         _ANY,
     ),
+    # ── CWE-256/522 · Credentials Plaintext Storage (5.2 · #7) ───────
+    # Referencias audit · Sicofav V-CR-01 (CWE-522 · credenciales en
+    # web.config) · cfdis V-CR-02 (CWE-256 · secrets en filesystem).
+    # Complementa CWE-798 (que cubre credenciales hardcoded en
+    # literales de source code) · este foco es STORAGE persistente
+    # sin cifrado.
+    (
+        "CWE-522",
+        re.compile(
+            r"""<add\s+[^>]*\bkey\s*=\s*["'][^"']*"""
+            r"""(?:[Pp]assword|[Pp]wd|[Ss]ecret|[Tt]oken|[Aa]pi[Kk]ey|"""
+            r"""[Cc]redential|[Pp]rivate[Kk]ey)[^"']*["']\s+"""
+            r"""value\s*=\s*["'](?!\{|\$|</?placeholder|</?your)"""
+            r"""[^"']+["']""",
+            re.IGNORECASE,
+        ),
+        "CREDENTIAL-PLAINTEXT-WEBCONFIG",
+        "HIGH",
+        "Credenciales plaintext · web.config <add key=... value=...>",
+        _NETCFG,
+    ),
+    (
+        "CWE-256",
+        re.compile(
+            r"""open\s*\(\s*["'][^"']*"""
+            r"""(?:password|passwd|secret|credential|api[-_]?key|"""
+            r"""token|pwd|\.env|\.pem|private[-_]?key)"""
+            r"""[^"']*["']\s*,\s*["'][wa]"""
+        ),
+        "CREDENTIAL-PLAINTEXT-FILE-WRITE-PY",
+        "HIGH",
+        "Credential file · open() de archivo credential en modo write/append",
+        _PY,
+    ),
+    (
+        "CWE-522",
+        re.compile(
+            r"""["'][^"']*(?:Server|Data\s+Source|Host)\s*=\s*[^;"']+;"""
+            r"""[^"']*(?:Password|Pwd)\s*=\s*"""
+            r"""(?!\{|\$|<|%|@|["'])[^;"']{3,}""",
+            re.IGNORECASE,
+        ),
+        "CREDENTIAL-PLAINTEXT-CONNECTION-STRING",
+        "HIGH",
+        "Credenciales plaintext · connection string con Password=... literal",
+        _ANY,
+    ),
 ]
 
 

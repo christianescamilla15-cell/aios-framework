@@ -1098,6 +1098,112 @@ def test_hardcoded_hostname_short_var_no_fire(tmp_path):
     )
 
 
+# ── CWE-256/522 · Credentials Plaintext Storage (Sprint 5.2 · #7) ────
+
+def test_detects_credential_webconfig_plaintext(tmp_path):
+    (tmp_path / "web.config").write_text(
+        '<configuration>\n'
+        '  <appSettings>\n'
+        '    <add key="DBPassword" value="SuperSecret123!" />\n'
+        '    <add key="ApiKey" value="ABC123XYZ" />\n'
+        '  </appSettings>\n'
+        '</configuration>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-522"
+        and f.rule_id == "CREDENTIAL-PLAINTEXT-WEBCONFIG"
+        for f in findings
+    )
+
+
+def test_detects_credential_file_write_py(tmp_path):
+    (tmp_path / "dump.py").write_text(
+        'def save(pwd):\n'
+        '    with open("passwords.txt", "w") as f:\n'
+        '        f.write(pwd)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "CREDENTIAL-PLAINTEXT-FILE-WRITE-PY"
+        for f in findings
+    )
+
+
+def test_detects_credential_env_file_write(tmp_path):
+    (tmp_path / "bootstrap.py").write_text(
+        'def setup():\n'
+        '    with open(".env", "w") as f:\n'
+        '        f.write("DB_PASSWORD=s3cret\\n")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "CREDENTIAL-PLAINTEXT-FILE-WRITE-PY"
+        for f in findings
+    )
+
+
+def test_detects_credential_connection_string(tmp_path):
+    (tmp_path / "config.cs").write_text(
+        'public static string Conn = "Server=db.internal;Database=app;'
+        'User=admin;Password=MyP@ssw0rd;";\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "CREDENTIAL-PLAINTEXT-CONNECTION-STRING"
+        for f in findings
+    )
+
+
+def test_detects_credential_pwd_connection_string(tmp_path):
+    (tmp_path / "app.py").write_text(
+        'DSN = "Server=10.0.0.1;Database=db;Uid=user;Pwd=rawpass;"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "CREDENTIAL-PLAINTEXT-CONNECTION-STRING"
+        for f in findings
+    )
+
+
+def test_credential_webconfig_placeholder_no_fire(tmp_path):
+    """Regression · valor placeholder tipo ${DBPassword} NO dispara."""
+    (tmp_path / "web.config").write_text(
+        '<configuration><appSettings>'
+        '<add key="DBPassword" value="${DB_PASSWORD}" />'
+        '<add key="ApiKey" value="$(APIKEY)" />'
+        '</appSettings></configuration>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "CREDENTIAL-PLAINTEXT-WEBCONFIG" for f in findings
+    )
+
+
+def test_credential_conn_string_placeholder_no_fire(tmp_path):
+    """Regression · Password={placeholder} NO dispara."""
+    (tmp_path / "cfg.cs").write_text(
+        'var c = "Server=db;Database=x;User=u;Password={DB_PWD};";\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "CREDENTIAL-PLAINTEXT-CONNECTION-STRING"
+        for f in findings
+    )
+
+
+def test_credential_file_write_unrelated_filename_no_fire(tmp_path):
+    """Regression · open() sobre archivo no-credential NO dispara."""
+    (tmp_path / "x.py").write_text(
+        'with open("output.txt", "w") as f: f.write("data")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "CREDENTIAL-PLAINTEXT-FILE-WRITE-PY"
+        for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

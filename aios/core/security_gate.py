@@ -444,6 +444,91 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "Active debug · ASP.NET compilation debug=true (perf + audit concern)",
         _NETCFG,
     ),
+    # ── CWE-532 · Sensitive Data in Logs (Sprint 5.1 · #2) ───────────
+    # Referencias audit · ARC VULN-07 (print() plaintext · MEDIUM),
+    # BSP VULN-10 (sin logging estructurado), Robot V-ME-01
+    # (CWE-532 transversal), cfdis V-ME-03.
+    # Heuristica · matchea cuando un logger/print recibe una variable
+    # cuyo nombre contiene credential/token/secret/password/api_key.
+    # Se evita literal strings (como `print("password ok")`) via
+    # negative lookahead a quote · se captura f-string interpolation
+    # y concat con operador.
+    (
+        "CWE-532",
+        re.compile(
+            r"""(?:\bprint|logger\.\w+|logging\.\w+|\blog\.\w+|"""
+            r"""sys\.stdout\.write)\s*\(\s*"""
+            r"""(?:f["'][^"']*\{\s*\w*|(?!["'])\w*)"""
+            r"""(?:password|passwd|pwd|secret|token|api_?key|"""
+            r"""credential|private_?key|session_?id|bearer|"""
+            r"""access_?token|refresh_?token)"""
+        ),
+        "SENSITIVE-DATA-LOG-PY",
+        "HIGH",
+        "Info leak · print/logger con variable/f-string de credencial",
+        _PY,
+    ),
+    (
+        "CWE-532",
+        re.compile(
+            r"""(?:Console\.WriteLine|_?[Ll]ogger\.\w+|Log\.\w+|"""
+            r"""Debug\.Write(?:Line)?|Trace\.Write(?:Line)?)\s*\(\s*"""
+            r"""(?:\$"[^"]*\{\s*\w*|(?!["'])\w*|\w+\s*\+\s*\w*)"""
+            r"""(?:[Pp]assword|[Pp]asswd|[Pp]wd|[Ss]ecret|[Tt]oken|"""
+            r"""[Aa]pi[Kk]ey|[Cc]redential|[Pp]rivate[Kk]ey|"""
+            r"""[Ss]ession[Ii]d|[Bb]earer|[Aa]ccess[Tt]oken)"""
+        ),
+        "SENSITIVE-DATA-LOG-CSHARP",
+        "HIGH",
+        "Info leak C# · logger/Console/Debug con variable de credencial",
+        _CS,
+    ),
+    (
+        "CWE-532",
+        re.compile(
+            r"""(?:System\.out\.print(?:ln)?|System\.err\.print(?:ln)?|"""
+            r"""logger\.\w+|LOGGER\.\w+|\blog\.\w+)\s*\(\s*"""
+            r"""(?:"[^"]*"\s*\+\s*\w*|(?!["'])\w*)"""
+            r"""(?:[Pp]assword|[Pp]asswd|[Pp]wd|[Ss]ecret|[Tt]oken|"""
+            r"""[Aa]pi[Kk]ey|[Cc]redential|[Pp]rivate[Kk]ey|"""
+            r"""[Ss]ession[Ii]d|[Bb]earer|[Aa]ccess[Tt]oken)"""
+        ),
+        "SENSITIVE-DATA-LOG-JAVA",
+        "HIGH",
+        "Info leak Java · System.out/logger con variable de credencial",
+        _JAVA,
+    ),
+    (
+        "CWE-532",
+        re.compile(
+            r"""(?:\becho\b|\bprint\b|error_log|var_dump|print_r|syslog|"""
+            r"""file_put_contents)\s*\(?\s*[^)]*"""
+            r"""\$\w*"""
+            r"""(?:password|passwd|pwd|secret|token|api_?key|"""
+            r"""credential|private_?key|session_?id|bearer|"""
+            r"""access_?token|refresh_?token)""",
+            re.IGNORECASE,
+        ),
+        "SENSITIVE-DATA-LOG-PHP",
+        "HIGH",
+        "Info leak PHP · echo/error_log/syslog con $var de credencial",
+        _PHP,
+    ),
+    (
+        "CWE-532",
+        re.compile(
+            r"""console\.(?:log|info|debug|warn|error|trace)\s*\(\s*"""
+            r"""(?:`[^`]*\$\{\s*\w*|(?!["'`])\w*)"""
+            r"""(?:[Pp]assword|[Pp]asswd|[Pp]wd|[Ss]ecret|[Tt]oken|"""
+            r"""[Aa]pi[Kk]ey|[Cc]redential|[Pp]rivate[Kk]ey|"""
+            r"""[Ss]ession[Ii]d|[Bb]earer|[Aa]ccess[Tt]oken|"""
+            r"""[Rr]efresh[Tt]oken)"""
+        ),
+        "SENSITIVE-DATA-LOG-JSTS",
+        "HIGH",
+        "Info leak JS/TS · console.X con variable/template de credencial",
+        _JSTS,
+    ),
 ]
 
 

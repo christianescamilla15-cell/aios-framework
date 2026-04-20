@@ -488,6 +488,124 @@ def test_net_debug_detectors_do_not_fire_in_python(tmp_path):
     )
 
 
+# ── CWE-532 · Sensitive Data in Logs (Sprint 5.1 · #2) ───────────────
+
+def test_detects_sensitive_log_py_variable(tmp_path):
+    (tmp_path / "auth.py").write_text(
+        'def login(user, password):\n'
+        '    print(password)\n'
+        '    logger.info(api_key)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-532" and f.rule_id == "SENSITIVE-DATA-LOG-PY"
+        for f in findings
+    )
+
+
+def test_detects_sensitive_log_py_fstring(tmp_path):
+    (tmp_path / "x.py").write_text(
+        'logger.info(f"auth token={token}")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "SENSITIVE-DATA-LOG-PY" for f in findings
+    )
+
+
+def test_detects_sensitive_log_csharp(tmp_path):
+    (tmp_path / "Auth.cs").write_text(
+        'public class A {\n'
+        '    void Log(string password) {\n'
+        '        Console.WriteLine(password);\n'
+        '        _logger.LogInformation(apiKey);\n'
+        '    }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "SENSITIVE-DATA-LOG-CSHARP" for f in findings
+    )
+
+
+def test_detects_sensitive_log_java(tmp_path):
+    (tmp_path / "Auth.java").write_text(
+        'public class Auth {\n'
+        '    void log(String password) {\n'
+        '        System.out.println(password);\n'
+        '        logger.info(apiKey);\n'
+        '    }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "SENSITIVE-DATA-LOG-JAVA" for f in findings
+    )
+
+
+def test_detects_sensitive_log_php(tmp_path):
+    (tmp_path / "auth.php").write_text(
+        '<?php\n'
+        '$password = $_POST["pwd"];\n'
+        'error_log("login " . $password);\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "SENSITIVE-DATA-LOG-PHP" for f in findings
+    )
+
+
+def test_detects_sensitive_log_jsts_console(tmp_path):
+    (tmp_path / "auth.ts").write_text(
+        'function login(user: string, password: string) {\n'
+        '  console.log(password);\n'
+        '  console.debug(accessToken);\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "SENSITIVE-DATA-LOG-JSTS" for f in findings
+    )
+
+
+def test_sensitive_log_py_does_not_fire_on_literal_string(tmp_path):
+    """Regression · print("password ok") no dispara · es literal."""
+    (tmp_path / "x.py").write_text(
+        'def m():\n'
+        '    print("Password prompt")\n'
+        '    print("token expired")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id.startswith("SENSITIVE-DATA-LOG-PY") for f in findings
+    )
+
+
+def test_sensitive_log_jsts_does_not_fire_on_literal(tmp_path):
+    """Regression · console.log("password invalid") no dispara."""
+    (tmp_path / "x.js").write_text(
+        'console.log("password invalid");\n'
+        'console.error("token expired");\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "SENSITIVE-DATA-LOG-JSTS" for f in findings
+    )
+
+
+def test_sensitive_log_detectors_respect_language_filter(tmp_path):
+    """Regression · patterns de sensitive-log no cruzan lang boundary.
+    Evitar que detector PHP dispare en .py porque el .py menciona $password."""
+    (tmp_path / "note.py").write_text(
+        '# Nota: en PHP se escribe $password · no usar en Python\n'
+        'PASSWORD_DOC = "see php/auth.php"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "SENSITIVE-DATA-LOG-PHP" for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

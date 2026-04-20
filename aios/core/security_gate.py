@@ -660,6 +660,43 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "Info leak C# · Response/StatusCode con ex.ToString/StackTrace",
         _CS,
     ),
+    # ── CWE-284 · Insecure Bind External (Sprint 5.1 · #5) ───────────
+    # Referencias audit · BSP VULN-02 (Flask bind 0.0.0.0 · CRITICAL),
+    # ASR VULN-02 (Flask bind 0.0.0.0 · CRITICAL).
+    # Riesgo · servicio expuesto en toda interface · combinado con
+    # debug=True escala a RCE (CWE-489). Standalone es HIGH exposure.
+    (
+        "CWE-284",
+        re.compile(
+            r"""(?:\.run|\.listen|\.bind|uvicorn\.run|hypercorn\.run|"""
+            r"""make_server|serve)\s*\([^)]*"""
+            r"""["']0\.0\.0\.0["']"""
+        ),
+        "INSECURE-BIND-PYTHON",
+        "HIGH",
+        "Insecure bind · Flask/FastAPI/uvicorn/socket listen en 0.0.0.0",
+        _PY,
+    ),
+    (
+        "CWE-284",
+        re.compile(
+            r"""ALLOWED_HOSTS\s*=\s*\[\s*["']\*["']\s*\]"""
+        ),
+        "INSECURE-BIND-DJANGO-WILDCARD-HOST",
+        "HIGH",
+        "Insecure access · Django ALLOWED_HOSTS = ['*'] acepta cualquier Host",
+        _PY,
+    ),
+    (
+        "CWE-284",
+        re.compile(
+            r"""\.listen\s*\([^)]*["'`]0\.0\.0\.0["'`]"""
+        ),
+        "INSECURE-BIND-NODE-EXPRESS",
+        "HIGH",
+        "Insecure bind · Node server.listen(port, '0.0.0.0')",
+        _JSTS,
+    ),
 ]
 
 

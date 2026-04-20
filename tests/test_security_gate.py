@@ -921,6 +921,95 @@ def test_verbose_error_jsts_no_fire_on_message_log(tmp_path):
     )
 
 
+# ── CWE-284 · Insecure Bind External (Sprint 5.1 · #5) ────────────────
+
+def test_detects_insecure_bind_flask(tmp_path):
+    (tmp_path / "srv.py").write_text(
+        'from flask import Flask\napp = Flask(__name__)\n'
+        'app.run(host="0.0.0.0", port=8080)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-284" and f.rule_id == "INSECURE-BIND-PYTHON"
+        for f in findings
+    )
+
+
+def test_detects_insecure_bind_uvicorn(tmp_path):
+    (tmp_path / "srv.py").write_text(
+        'import uvicorn\n'
+        'uvicorn.run("main:app", host="0.0.0.0", port=8000)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "INSECURE-BIND-PYTHON" for f in findings
+    )
+
+
+def test_detects_insecure_bind_socket(tmp_path):
+    (tmp_path / "s.py").write_text(
+        'import socket\ns = socket.socket()\ns.bind(("0.0.0.0", 5555))\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "INSECURE-BIND-PYTHON" for f in findings
+    )
+
+
+def test_detects_insecure_bind_django_wildcard_host(tmp_path):
+    (tmp_path / "settings.py").write_text(
+        'SECRET_KEY = "x"\nDEBUG = False\nALLOWED_HOSTS = ["*"]\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "INSECURE-BIND-DJANGO-WILDCARD-HOST" for f in findings
+    )
+
+
+def test_detects_insecure_bind_node_express(tmp_path):
+    (tmp_path / "srv.js").write_text(
+        'app.listen(8080, "0.0.0.0", () => console.log("up"));\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "INSECURE-BIND-NODE-EXPRESS" for f in findings
+    )
+
+
+def test_insecure_bind_localhost_no_fire(tmp_path):
+    """Regression · bind a 127.0.0.1 (secure) NO dispara."""
+    (tmp_path / "srv.py").write_text(
+        'app.run(host="127.0.0.1", port=8080)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "INSECURE-BIND-PYTHON" for f in findings
+    )
+
+
+def test_insecure_bind_django_specific_host_no_fire(tmp_path):
+    """Regression · ALLOWED_HOSTS con dominio especifico NO dispara."""
+    (tmp_path / "settings.py").write_text(
+        'ALLOWED_HOSTS = ["app.example.com", "api.example.com"]\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "INSECURE-BIND-DJANGO-WILDCARD-HOST"
+        for f in findings
+    )
+
+
+def test_insecure_bind_node_localhost_no_fire(tmp_path):
+    """Regression · Node bind a localhost NO dispara."""
+    (tmp_path / "srv.js").write_text(
+        'app.listen(8080, "127.0.0.1");\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "INSECURE-BIND-NODE-EXPRESS" for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

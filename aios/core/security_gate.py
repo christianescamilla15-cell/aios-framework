@@ -787,6 +787,63 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "Credenciales plaintext · connection string con Password=... literal",
         _ANY,
     ),
+    # ── CWE-703 · Bare/Silent Exception Handlers (Sprint 5.2 · #8) ───
+    # Referencias audit · BSP VULN-07 (RejectionHandler switch empty),
+    # cfdis V-CR-03 (sin manejo error SAT), Robot V-HI-03 (sin retry/
+    # circuit breaker SABRE), COM-IND V-HI-01 (sin retry Praxis).
+    # Silent failures enmascaran bugs · impiden observabilidad.
+    (
+        "CWE-703",
+        re.compile(
+            r"""(?m)^\s*except\s*:\s*$|"""
+            r"""except\s*(?:\([^)]+\)|BaseException|Exception|\w+)?"""
+            r"""\s*(?:as\s+\w+)?\s*:\s*\n\s*pass\s*(?:\n|$)"""
+        ),
+        "BARE-EXCEPT-HANDLER-PY",
+        "MEDIUM",
+        "Silent failure · except: bare o except + pass (swallow)",
+        _PY,
+    ),
+    (
+        "CWE-703",
+        re.compile(
+            r"""catch\s*(?:\([^)]*\))?\s*\{\s*\}"""
+        ),
+        "BARE-EXCEPT-HANDLER-CSHARP",
+        "MEDIUM",
+        "Silent failure C# · catch{} o catch(Ex){} body vacio",
+        _CS,
+    ),
+    (
+        "CWE-703",
+        re.compile(
+            r"""catch\s*\(\s*[\w.]+(?:\s+\w+)?\s*\)\s*\{\s*\}"""
+        ),
+        "BARE-EXCEPT-HANDLER-JAVA",
+        "MEDIUM",
+        "Silent failure Java · catch(Exception e){} body vacio",
+        _JAVA,
+    ),
+    (
+        "CWE-703",
+        re.compile(
+            r"""catch\s*(?:\([^)]*\))?\s*\{\s*\}"""
+        ),
+        "BARE-EXCEPT-HANDLER-JSTS",
+        "MEDIUM",
+        "Silent failure JS/TS · catch{} o catch(err){} body vacio",
+        _JSTS,
+    ),
+    (
+        "CWE-703",
+        re.compile(
+            r"""catch\s*\(\s*\\?\w+(?:\\\w+)*\s+\$\w+\s*\)\s*\{\s*\}"""
+        ),
+        "BARE-EXCEPT-HANDLER-PHP",
+        "MEDIUM",
+        "Silent failure PHP · catch(Exception $e){} body vacio",
+        _PHP,
+    ),
 ]
 
 

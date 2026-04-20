@@ -1204,6 +1204,129 @@ def test_credential_file_write_unrelated_filename_no_fire(tmp_path):
     )
 
 
+# ── CWE-703 · Bare Except Handler (Sprint 5.2 · #8) ──────────────────
+
+def test_detects_bare_except_py(tmp_path):
+    (tmp_path / "x.py").write_text(
+        'def f():\n'
+        '    try: do()\n'
+        '    except:\n'
+        '        return None\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.cwe == "CWE-703" and f.rule_id == "BARE-EXCEPT-HANDLER-PY"
+        for f in findings
+    )
+
+
+def test_detects_except_pass_py(tmp_path):
+    (tmp_path / "x.py").write_text(
+        'def f():\n'
+        '    try: do()\n'
+        '    except Exception as e:\n'
+        '        pass\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "BARE-EXCEPT-HANDLER-PY" for f in findings
+    )
+
+
+def test_detects_empty_catch_csharp(tmp_path):
+    (tmp_path / "X.cs").write_text(
+        'public void F() {\n'
+        '    try { Do(); }\n'
+        '    catch (Exception ex) { }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "BARE-EXCEPT-HANDLER-CSHARP" for f in findings
+    )
+
+
+def test_detects_empty_catch_java(tmp_path):
+    (tmp_path / "X.java").write_text(
+        'public class X {\n'
+        '    void f() {\n'
+        '        try { do_it(); }\n'
+        '        catch (Exception e) { }\n'
+        '    }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "BARE-EXCEPT-HANDLER-JAVA" for f in findings
+    )
+
+
+def test_detects_empty_catch_jsts(tmp_path):
+    (tmp_path / "x.ts").write_text(
+        'function f() {\n'
+        '  try { doIt(); }\n'
+        '  catch (err) { }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "BARE-EXCEPT-HANDLER-JSTS" for f in findings
+    )
+
+
+def test_detects_empty_catch_php(tmp_path):
+    (tmp_path / "x.php").write_text(
+        '<?php\n'
+        'try { do_it(); }\n'
+        'catch (Exception $e) { }\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "BARE-EXCEPT-HANDLER-PHP" for f in findings
+    )
+
+
+def test_bare_except_no_fire_with_body(tmp_path):
+    """Regression · except con body real (no solo pass) NO dispara."""
+    (tmp_path / "x.py").write_text(
+        'def f():\n'
+        '    try: do()\n'
+        '    except Exception as e:\n'
+        '        logger.exception("failed")\n'
+        '        raise\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "BARE-EXCEPT-HANDLER-PY" for f in findings
+    )
+
+
+def test_catch_no_fire_with_body_csharp(tmp_path):
+    """Regression · catch con body real NO dispara."""
+    (tmp_path / "X.cs").write_text(
+        'public void F() {\n'
+        '    try { Do(); }\n'
+        '    catch (Exception ex) { Log.Error(ex); throw; }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "BARE-EXCEPT-HANDLER-CSHARP" for f in findings
+    )
+
+
+def test_catch_no_fire_with_body_jsts(tmp_path):
+    """Regression · JS catch con body real NO dispara."""
+    (tmp_path / "x.js").write_text(
+        'try { doIt(); }\n'
+        'catch (err) { console.error(err); throw err; }\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "BARE-EXCEPT-HANDLER-JSTS" for f in findings
+    )
+
+
 def test_sql_fstring_still_fires_with_keyword(tmp_path):
     """Positive · el tightening no rompe detection de SQL real."""
     (tmp_path / "bad.py").write_text(

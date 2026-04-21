@@ -1,0 +1,50 @@
+{
+  "$schema": "https://github.com/OYN-AMX/am-kiro/schema/settings.schema.json",
+  "aios": {
+    "version": "1.7.1",
+    "default_mode": "auto",
+    "session": {
+      "auto_boot": true,
+      "auto_refresh_on_close": true,
+      "context_retention_days": 30
+    },
+    "security": {
+      "default_severity_gate": "CRITICAL",
+      "enabled_detectors": "all",
+      "sarif_output": true,
+      "external_scanners": {
+        "wiz": { "enabled": false, "api_endpoint": null },
+        "veracode": { "enabled": false, "api_endpoint": null },
+        "prisma": { "enabled": false, "api_endpoint": null },
+        "tenable": { "enabled": false, "api_endpoint": null }
+      }
+    },
+    "policies": {
+      "active": "default",
+      "available": ["default", "enterprise", "amx-revenue-accounting"]
+    },
+    "stacks": {
+      "auto_detect": true,
+      "supported": ["aws", "cicd", "cobol", "docker", "dotnet", "java", "multiagent", "php", "python"]
+    },
+    "mcp": {
+      "enabled": true,
+      "server_module": "aios.mcp_server",
+      "tools": ["aios_init", "aios_task", "aios_boot", "aios_refresh", "aios_analyze", "aios_release"]
+    }
+  },
+  "amx_overrides": {
+    "when_policy": "amx-revenue-accounting",
+    "applies": {
+      "prohibited_services": ["ECS", "SES", "SNS (for email)"],
+      "required_services": ["Akamai (internet-facing)", "EKS or Serverless (T0/T1 apps)", "Relay interno AMX (emails/alerts)"],
+      "kms_rule": "one_per_service",
+      "role_prefix": "amx-r-*",
+      "scan_sequence": ["wiz", "veracode", "prisma", "tenable"],
+      "gates_pre_prod": [
+        "optimo", "leanix_c4", "adr", "borde_arquitectura", "scans", "miguel_rachid"
+      ],
+      "tiers_document": "Dynamo site · Edgar Castillo + Israel Miguel González Sandoval"
+    }
+  }
+}

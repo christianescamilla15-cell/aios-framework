@@ -1,0 +1,45 @@
+{
+  "$schema": "https://github.com/OYN-AMX/am-kiro/schema/hook.schema.json",
+  "name": "aios-release-gate",
+  "description": "AIOS · valida release readiness antes de deploy · integra resultados WIZ + Veracode + Prisma + Tenable",
+  "trigger": {
+    "event": "pre-deploy",
+    "manual_invocation": true
+  },
+  "action": {
+    "type": "command",
+    "command": "python -m aios.cli.main release --external-scans",
+    "timeout_sec": 300,
+    "on_failure": "block"
+  },
+  "conditions": {
+    "require_amx_policy": true,
+    "branch_match": ["main", "release/*"]
+  },
+  "amx_gates_enforced": {
+    "order": [
+      "optimo_proyecto_registrado",
+      "leanix_c4_uploaded",
+      "adr_with_alternative_documented",
+      "borde_arquitectura_approved",
+      "wiz_scan_clean",
+      "veracode_scan_clean",
+      "prisma_scan_clean",
+      "tenable_scan_clean",
+      "miguel_rachid_final_approval"
+    ],
+    "source_retro": "2026-04-20 · Antonio Hernández Oropeza + Pedro Emmanuel Abaonza"
+  },
+  "constraints_enforced": {
+    "ecs_prohibited": true,
+    "ses_sns_prohibited": true,
+    "kms_one_per_service": true,
+    "akamai_mandatory_internet_facing": true,
+    "role_prefix": "amx-r-*"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "author": "AIOS",
+    "amx_retro_compliance": "2026-04-20"
+  }
+}

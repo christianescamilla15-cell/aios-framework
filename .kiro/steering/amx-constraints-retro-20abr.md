@@ -1,7 +1,7 @@
 ---
-inclusion: fileMatch
-fileMatchPattern: ['**/aios-policy.json', '**/policies/amx-*/**', '**/manifest.json']
+inclusion: always
 amx_policy: amx-revenue-accounting
+note: Retro arquitectos 20-abr · constraints críticos · carga siempre en workspaces AMX
 ---
 
 # AMX · Constraints de arquitectura (retro 20-abr-2026)

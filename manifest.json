@@ -16,7 +16,8 @@
       "05_context_refresh.md",
       "aios-overview.md",
       "aios-stacks-auto-detection.md",
-      "aios-modes.md"
+      "aios-modes.md",
+      "amx-constraints-retro-20abr.md"
     ],
     "hooks": [
       "aios-pre-task.kiro.hook",

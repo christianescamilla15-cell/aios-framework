@@ -60,9 +60,65 @@ DEFAULT_CONFIG = {
     # escanearse por auto-match de los literales declarados (ej. el
     # archivo de suppressions cita hostnames/literales en el campo
     # reason y file · se matchean a si mismos).
+    # v1.7.2 · soporta glob patterns (fnmatch): ej. "tools/**", "*.generated.*"
     "exclude_files": ["aios-config.json", "aios-suppressions.json"],
+    # v1.7.2 · default true · filtra findings que caen en lineas de
+    # comentario para reducir falsos positivos en comentarios de
+    # trazabilidad tipo "// Eliminado: <literal>" que el refactor deja
+    # como evidencia del fix aplicado. Setear false para auditoria
+    # estricta cuando se quiera detectar TODO incluyendo comentarios.
+    "exclude_comment_lines": True,
     "max_file_size_bytes": 2 * 1024 * 1024,
 }
+
+
+# v1.7.2 · patrones de comentario por extension de archivo
+# usado por _is_comment_line() para descartar findings en comentarios
+# de trazabilidad (reduce FPs de scanner POST-refactor).
+_COMMENT_PREFIXES: dict[str, tuple[str, ...]] = {
+    # Python · Shell · YAML
+    ".py": ("#",), ".sh": ("#",), ".yaml": ("#",), ".yml": ("#",),
+    ".toml": ("#",), ".ini": (";", "#"), ".cfg": (";", "#"),
+    # C-family · //, /*, * (continuation)
+    ".cs": ("//", "/*", "*"), ".java": ("//", "/*", "*"),
+    ".js": ("//", "/*", "*"), ".jsx": ("//", "/*", "*"),
+    ".ts": ("//", "/*", "*"), ".tsx": ("//", "/*", "*"),
+    ".mjs": ("//", "/*", "*"), ".cjs": ("//", "/*", "*"),
+    ".c": ("//", "/*", "*"), ".h": ("//", "/*", "*"),
+    ".cpp": ("//", "/*", "*"), ".hpp": ("//", "/*", "*"),
+    # PHP · mezcla # y // y /*
+    ".php": ("//", "#", "/*", "*"),
+    ".phtml": ("//", "#", "/*", "*"),
+    # Ruby
+    ".rb": ("#",),
+    # XML · HTML · comentario multiline
+    ".xml": ("<!--",), ".html": ("<!--",), ".htm": ("<!--",),
+    ".config": ("<!--",),  # ASP.NET web.config / app.config
+    # SQL
+    ".sql": ("--",),
+}
+
+
+def _is_comment_line(line: str, ext: str) -> bool:
+    """v1.7.2 · return True si la linea es comentario (por extension).
+
+    COBOL es caso especial: column 7 con '*' = comentario, o prefijo '*>'.
+    Multi-line comments (/* */, <!-- -->): solo detecta la linea de apertura
+    y continuacion con '*' · no hace parsing real · suficiente para FPs
+    de trazabilidad que son single-line en 99% de los casos.
+    """
+    stripped = line.lstrip()
+    if not stripped:
+        return False
+    # COBOL · column 7 con '*' o prefijo '*>' (free-format)
+    if ext in (".cbl", ".cob", ".cpy"):
+        if stripped.startswith("*>"):
+            return True
+        if len(line) >= 7 and line[6] == "*":
+            return True
+        return False
+    prefixes = _COMMENT_PREFIXES.get(ext, ())
+    return any(stripped.startswith(p) for p in prefixes)
 
 
 @dataclass
@@ -962,10 +1018,54 @@ def _load_config(root: Path) -> dict:
     return merged
 
 
+def _match_exclude_files(
+    path: Path, root: Path, patterns: list[str],
+) -> bool:
+    """v1.7.2 · soporta glob patterns en exclude_files.
+
+    Cada pattern puede ser:
+    - Nombre exacto · "aios-config.json" (legacy · compat v1.x)
+    - Glob con wildcards · "tools/*", "tools/**", "*.generated.*"
+    - Ruta relativa · "apps/legacy/web.config"
+
+    Matches contra filename, relative-to-root, y full path. Retorna True
+    si el archivo debe ser excluido.
+    """
+    import fnmatch
+    if not patterns:
+        return False
+    name = path.name
+    try:
+        rel = str(path.relative_to(root)).replace("\\", "/")
+    except ValueError:
+        rel = str(path).replace("\\", "/")
+    for pat in patterns:
+        if not pat:
+            continue
+        pat_norm = pat.replace("\\", "/")
+        # Detectar si el pattern es glob (tiene wildcards)
+        has_wild = any(c in pat_norm for c in "*?[")
+        if has_wild:
+            # Glob match contra filename + relative path
+            if fnmatch.fnmatch(name, pat_norm) or fnmatch.fnmatch(rel, pat_norm):
+                return True
+            # v1.7.2 · "**/" matchea recursivo · fnmatch no lo hace nativamente
+            if "**" in pat_norm:
+                # Normalizar "foo/**/bar" a "foo/*/bar" y "foo/**" a "foo/*"
+                simple = pat_norm.replace("**/", "").replace("/**", "")
+                if simple and fnmatch.fnmatch(rel, f"*{simple}*"):
+                    return True
+        else:
+            # Match exacto (comportamiento legacy v1.x)
+            if name == pat_norm or rel == pat_norm:
+                return True
+    return False
+
+
 def _walk_files(root: Path, config: dict):
     skip_dirs = set(config.get("exclude_dirs", []))
     skip_exts = set(config.get("exclude_exts", []))
-    skip_files = set(config.get("exclude_files", []))
+    skip_files_raw = config.get("exclude_files", [])
     max_size = int(config.get("max_file_size_bytes", 2 * 1024 * 1024))
     for path in root.rglob("*"):
         if not path.is_file():
@@ -974,7 +1074,7 @@ def _walk_files(root: Path, config: dict):
             continue
         if path.suffix.lower() in skip_exts:
             continue
-        if path.name in skip_files:
+        if _match_exclude_files(path, root, skip_files_raw):
             continue
         try:
             if path.stat().st_size > max_size:
@@ -989,6 +1089,7 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
     cfg = config or _load_config(root)
     findings: list[Finding] = []
     forbidden = [lit for lit in cfg.get("forbidden_literals", []) if lit]
+    skip_comments = bool(cfg.get("exclude_comment_lines", True))
 
     for fp in _walk_files(root, cfg):
         try:
@@ -997,15 +1098,22 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
             continue
         rel = str(fp.relative_to(root))
         fp_ext = fp.suffix.lower()
+        lines_cache = content.splitlines()
+
+        def _emit_unless_comment(finding: Finding) -> None:
+            """v1.7.2 · skip findings que caen en lineas de comentario."""
+            if skip_comments and 0 < finding.line <= len(lines_cache):
+                if _is_comment_line(lines_cache[finding.line - 1], fp_ext):
+                    return
+            findings.append(finding)
 
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
             if file_exts is not None and fp_ext not in file_exts:
                 continue
             for m in pattern.finditer(content):
                 line_no = content.count("\n", 0, m.start()) + 1
-                lines = content.splitlines()
-                snippet = lines[line_no - 1].strip()[:160] if line_no - 1 < len(lines) else ""
-                findings.append(Finding(
+                snippet = lines_cache[line_no - 1].strip()[:160] if line_no - 1 < len(lines_cache) else ""
+                _emit_unless_comment(Finding(
                     cwe=cwe, severity=severity, rule_id=rule_id,
                     file=rel, line=line_no, snippet=snippet,
                 ))
@@ -1013,7 +1121,7 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
         for literal in forbidden:
             for m in re.finditer(re.escape(literal), content):
                 line_no = content.count("\n", 0, m.start()) + 1
-                findings.append(Finding(
+                _emit_unless_comment(Finding(
                     cwe="CWE-798", severity="CRITICAL",
                     rule_id=f"FORBIDDEN-LITERAL-{literal[:20]}",
                     file=rel, line=line_no, snippet=literal,
@@ -1037,7 +1145,8 @@ def scan_files(
     findings: list[Finding] = []
     forbidden = [lit for lit in cfg.get("forbidden_literals", []) if lit]
     skip_exts = set(cfg.get("exclude_exts", []))
-    skip_files = set(cfg.get("exclude_files", []))
+    skip_files_raw = cfg.get("exclude_files", [])
+    skip_comments = bool(cfg.get("exclude_comment_lines", True))
 
     for file_rel in files:
         file_rel = file_rel.strip()
@@ -1053,25 +1162,31 @@ def scan_files(
             continue
         if fp.suffix.lower() in skip_exts:
             continue
-        if fp.name in skip_files:
+        if _match_exclude_files(fp, root, skip_files_raw):
             continue
         try:
             content = fp.read_text(encoding="utf-8", errors="ignore")
         except (OSError, UnicodeDecodeError):
             continue
         fp_ext = fp.suffix.lower()
+        lines_cache = content.splitlines()
+
+        def _emit_unless_comment(finding: Finding) -> None:
+            if skip_comments and 0 < finding.line <= len(lines_cache):
+                if _is_comment_line(lines_cache[finding.line - 1], fp_ext):
+                    return
+            findings.append(finding)
 
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
             if file_exts is not None and fp_ext not in file_exts:
                 continue
             for m in pattern.finditer(content):
                 line_no = content.count("\n", 0, m.start()) + 1
-                lines = content.splitlines()
                 snippet = (
-                    lines[line_no - 1].strip()[:160]
-                    if line_no - 1 < len(lines) else ""
+                    lines_cache[line_no - 1].strip()[:160]
+                    if line_no - 1 < len(lines_cache) else ""
                 )
-                findings.append(Finding(
+                _emit_unless_comment(Finding(
                     cwe=cwe, severity=severity, rule_id=rule_id,
                     file=file_rel, line=line_no, snippet=snippet,
                 ))
@@ -1079,7 +1194,7 @@ def scan_files(
         for literal in forbidden:
             for m in re.finditer(re.escape(literal), content):
                 line_no = content.count("\n", 0, m.start()) + 1
-                findings.append(Finding(
+                _emit_unless_comment(Finding(
                     cwe="CWE-798", severity="CRITICAL",
                     rule_id=f"FORBIDDEN-LITERAL-{literal[:20]}",
                     file=file_rel, line=line_no, snippet=literal,

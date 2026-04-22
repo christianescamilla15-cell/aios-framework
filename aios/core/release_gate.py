@@ -54,6 +54,102 @@ def _enumerate_multi_module_specs(root: Path) -> list[Path]:
     return sorted(modules)
 
 
+def _check_behavior_preservation(root: Path) -> dict:
+    """v2.0.0 · RFC-003 Nivel 3 · verifica behavior fingerprints.
+
+    Busca todos los fingerprints en .aios/characterization/ y compara
+    cada uno contra el archivo actual · emite deltas. Si hay CRITICAL
+    deltas · marca como fail + blocking.
+    """
+    char_dir = root / ".aios" / "characterization"
+    if not char_dir.exists():
+        return {
+            "check": "Behavior preservation (characterization)",
+            "status": "skip",
+            "detail": "No characterization baselines · skip (run 'aios characterize capture' pre-refactor)",
+            "_blocking": False,
+        }
+    try:
+        from .characterization import load_fingerprint, capture_file, diff_fingerprints
+    except ImportError:
+        return {
+            "check": "Behavior preservation (characterization)",
+            "status": "skip",
+            "detail": "characterization module not available",
+            "_blocking": False,
+        }
+    fingerprint_files = list(char_dir.glob("*.json"))
+    if not fingerprint_files:
+        return {
+            "check": "Behavior preservation (characterization)",
+            "status": "skip",
+            "detail": "Characterization dir exists but empty",
+            "_blocking": False,
+        }
+    total_critical = 0
+    total_warn = 0
+    total_info = 0
+    verified_count = 0
+    missing_count = 0
+    first_critical: str = ""
+    for fp_file in fingerprint_files:
+        try:
+            import json as _json
+            data = _json.loads(fp_file.read_text(encoding="utf-8"))
+            rel = data.get("file", "")
+            if not rel:
+                continue
+            target = root / rel
+            if not target.exists():
+                missing_count += 1
+                continue
+            pre = load_fingerprint(rel, root)
+            if pre is None:
+                continue
+            post = capture_file(target, root)
+            result = diff_fingerprints(pre, post)
+            verified_count += 1
+            counts = result.by_severity()
+            total_critical += counts.get("CRITICAL", 0)
+            total_warn += counts.get("WARN", 0)
+            total_info += counts.get("INFO", 0)
+            if counts.get("CRITICAL", 0) > 0 and not first_critical:
+                first_critical = rel
+        except Exception:  # noqa: BLE001
+            continue
+
+    if total_critical > 0:
+        return {
+            "check": "Behavior preservation (characterization)",
+            "status": "fail",
+            "detail": (
+                f"{total_critical} CRITICAL deltas en {verified_count} archivos · "
+                f"primer archivo con breaking change: {first_critical} · "
+                f"rollback recomendado · corre 'aios characterize verify --file {first_critical}'"
+            ),
+            "_blocking": True,
+        }
+    if total_warn > 0:
+        return {
+            "check": "Behavior preservation (characterization)",
+            "status": "warn",
+            "detail": (
+                f"{verified_count} archivos verificados · {total_warn} WARN · "
+                f"{total_info} INFO · sin CRITICAL · revisar deltas si acaso"
+            ),
+            "_blocking": False,
+        }
+    return {
+        "check": "Behavior preservation (characterization)",
+        "status": "pass",
+        "detail": (
+            f"{verified_count} archivos verificados · 0 deltas breaking · "
+            f"{total_info} added (OK)"
+        ),
+        "_blocking": False,
+    }
+
+
 def _tokenize(text: str) -> set:
     """Tokenize text into lowercase word set for similarity."""
     import re
@@ -252,6 +348,15 @@ def check_release_readiness(root: Path) -> Dict:
             "status": "pass",
             "detail": "0 findings requieren review humano",
         })
+
+    # 9. v2.0.0 · RFC-003 Nivel 3 · Behavior preservation
+    # Si existen fingerprints previos en .aios/characterization/,
+    # verifica que los archivos refactorizados no rompan API contract.
+    # CRITICAL deltas (method_removed · signature_changed) bloquean release.
+    behavior_check = _check_behavior_preservation(root)
+    checks.append(behavior_check)
+    if behavior_check.get("_blocking"):
+        blocking = True
 
     passed = sum(1 for c in checks if c["status"] == "pass")
     warned = sum(1 for c in checks if c["status"] == "warn")

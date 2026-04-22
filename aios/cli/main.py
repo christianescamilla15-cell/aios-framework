@@ -1204,6 +1204,22 @@ def main():
                    help="Solo ontology (Nivel 1) · no invoca LLM")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
+    # v2.0.0 · RFC-003 Nivel 3 · Characterization tests CLI
+    p = sub.add_parser("characterize",
+                       help="Captura/verifica behavior fingerprint · "
+                            "rollback-safe refactor validation")
+    p.add_argument("--root", default=".")
+    p.add_argument("action",
+                   choices=["capture", "verify", "show", "diff"],
+                   help="capture: snapshot pre-refactor · "
+                        "verify: comparar post vs baseline · "
+                        "show: mostrar fingerprint guardado · "
+                        "diff: comparar 2 archivos directamente")
+    p.add_argument("--file", required=True, help="Archivo target")
+    p.add_argument("--vs", default="",
+                   help="Para diff: segundo archivo a comparar")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # status
     p = sub.add_parser("status", help="Show project status")
     p.add_argument("--root", default=".")
@@ -1415,6 +1431,8 @@ def main():
         "resume": cmd_resume, "checkpoint": cmd_checkpoint,
         # v1.9.0 · RFC-003 Nivel 2 · LLM classifier
         "classify": cmd_classify,
+        # v2.0.0 · RFC-003 Nivel 3 · Characterization tests
+        "characterize": cmd_characterize,
     }
 
     if args.command in commands:
@@ -1489,6 +1507,130 @@ def cmd_resume(args):
         if cp.get("updated"):
             print(f"  Updated:                {cp['updated']}")
     print()
+
+
+def cmd_characterize(args):
+    """v2.0.0 · characterization tests · RFC-003 Nivel 3."""
+    import json
+    from aios.core import characterization as ch
+    from pathlib import Path
+    root = get_root(args)
+    file_path = Path(args.file)
+    if not file_path.is_absolute():
+        file_path = root / file_path
+    if not file_path.exists():
+        print(f"  ERROR · archivo no existe: {args.file}")
+        return
+
+    if args.action == "capture":
+        fp = ch.capture_file(file_path, root)
+        out_path = ch.save_fingerprint(fp, root)
+        if args.format == "json":
+            print(json.dumps(fp.to_dict(), indent=2, ensure_ascii=False))
+            return
+        print()
+        print(f"  Characterization captured · RFC-003 Nivel 3")
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  File       : {fp.file}")
+        print(f"  Language   : {fp.language}")
+        print(f"  Captured   : {fp.captured_at}")
+        print(f"  AST hash   : {fp.ast_hash}")
+        print(f"  Line count : {fp.line_count}")
+        print(f"  Classes    : {len(fp.classes)}")
+        print(f"  Methods    : {len(fp.methods)}")
+        print(f"  Fields     : {len(fp.fields)}")
+        print(f"  Imports    : {len(fp.imports)}")
+        print(f"  Saved to   : {out_path}")
+        print()
+        return
+
+    if args.action == "show":
+        rel = str(file_path.relative_to(root))
+        fp = ch.load_fingerprint(rel, root)
+        if fp is None:
+            print(f"  (sin fingerprint previo para {rel})")
+            return
+        if args.format == "json":
+            print(json.dumps(fp.to_dict(), indent=2, ensure_ascii=False))
+            return
+        print()
+        print(f"  Fingerprint de {fp.file}")
+        print(f"  ──────────────────────────────────")
+        print(f"  Captured   : {fp.captured_at}")
+        print(f"  AST hash   : {fp.ast_hash}")
+        print(f"  Classes ({len(fp.classes)}):")
+        for c in fp.classes[:10]:
+            print(f"    · {c.kind} {c.name} : {','.join(c.bases) or '(no bases)'}")
+        print(f"  Methods ({len(fp.methods)}):")
+        for m in fp.methods[:15]:
+            print(f"    · {m.canonical()[:100]}")
+        if len(fp.methods) > 15:
+            print(f"    · ... ({len(fp.methods) - 15} more)")
+        print()
+        return
+
+    if args.action == "verify":
+        result = ch.verify(file_path, root)
+        if result is None:
+            print(f"  ERROR · sin baseline · corre 'aios characterize capture' primero")
+            return
+        if args.format == "json":
+            print(json.dumps({
+                "file": result.file, "passed": result.passed,
+                "deltas": [{"kind": d.kind, "severity": d.severity,
+                            "element": d.element, "pre": d.pre,
+                            "post": d.post, "message": d.message}
+                           for d in result.deltas],
+                "summary": result.summary,
+                "by_severity": result.by_severity(),
+            }, indent=2, ensure_ascii=False))
+            return
+        print()
+        verdict = "PASS" if result.passed else "FAIL"
+        print(f"  Characterization verify · {verdict}")
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  File        : {result.file}")
+        print(f"  AST hash    : {result.summary.get('pre_fingerprint')} -> "
+              f"{result.summary.get('post_fingerprint')}")
+        print(f"  Line delta  : {result.summary.get('line_delta')}")
+        print(f"  By severity : {result.by_severity()}")
+        print()
+        for d in result.deltas:
+            icon = {"CRITICAL": "XX", "WARN": "!!", "INFO": "ii"}.get(d.severity, "--")
+            print(f"  [{icon}] {d.kind:20s} {d.element[:40]}")
+            if d.pre and d.post:
+                print(f"        pre : {d.pre[:100]}")
+                print(f"        post: {d.post[:100]}")
+            if d.message:
+                print(f"        → {d.message[:150]}")
+        print()
+        if not result.passed:
+            print("  ROLLBACK RECOMMENDED · CRITICAL deltas detected")
+        print()
+        return
+
+    if args.action == "diff":
+        if not args.vs:
+            print("  ERROR · --vs requerido para diff · segundo archivo")
+            return
+        other = Path(args.vs)
+        if not other.is_absolute():
+            other = root / other
+        if not other.exists():
+            print(f"  ERROR · archivo --vs no existe: {args.vs}")
+            return
+        fp_a = ch.capture_file(file_path, root)
+        fp_b = ch.capture_file(other, root)
+        result = ch.diff_fingerprints(fp_a, fp_b)
+        print()
+        print(f"  Diff · {fp_a.file} vs {fp_b.file}")
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  Hashes      : {fp_a.ast_hash} vs {fp_b.ast_hash}")
+        print(f"  By severity : {result.by_severity()}")
+        for d in result.deltas[:20]:
+            print(f"  [{d.severity[:4]}] {d.kind:20s} {d.element[:50]}")
+        print()
+        return
 
 
 def cmd_classify(args):

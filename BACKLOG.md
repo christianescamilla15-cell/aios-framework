@@ -271,6 +271,85 @@ Re-correr el análisis sobre el mismo workspace post-v2.1.1 · esperado: unclear
 
 ---
 
+## RFC-004 · 4 detectores nuevos derivados de análisis NoShow real (ATOS-NOSHOW-ROBOT)
+
+**Severidad**: ALTA · captura 4 clases de hallazgos reales que AIOS no ve hoy
+**Origen**: análisis sesión-limpia sobre ATOS-NOSHOW-ROBOT + NoshowReport · 2026-04-22. Framework detectó 3 findings reales vs ~7 detectables humano = 40% coverage · consistente con calibración previa 25-40% CWE-scanner+gates.
+
+Los 4 gaps descubiertos son **patrones de infosec reales** que escapan a CWE estándar · muy valiosos para AMX y cualquier enterprise con builds/deployments múltiples.
+
+### RFC-004a · CROSS-COPY-DRIFT-DETECTOR
+
+Detecta divergencia entre copias del mismo servicio (`source-tree/` vs `build-output/` vs `prod-deployed/`). Caso real NoShow:
+- Target framework: source 4.7.2 vs build 4.6.1
+- UserName/Password divergentes entre source y test config
+- Sabre cert paths distintos
+- Distribution lists de email diferentes
+
+**Implementación sugerida**: scanner mode `--compare <dir1> <dir2>` que para cada par de archivos con nombre similar (fuzzy match · ej. `App.config` en ambos) hace diff semántico de keys/values.
+
+### RFC-004b · CREDENTIAL-BYTE-IDENTITY-DETECTOR
+
+Detecta secretos **byte-idénticos** entre `prod.config` y `test.config` · indica que test está usando credenciales reales (no mocks). Caso NoShow:
+- DB AIDX password byte-idéntica en prod + test + source
+- SFTP passphrase byte-idéntica
+
+**Implementación**: hash de cada value que matchee forbidden_literal pattern · si 2+ archivos tienen el mismo hash en keys con nombre `password|secret|token|key`, flag CRITICAL.
+
+**Por qué es valioso**: este es el clásico "test ambiente compartido" que explota muchos breaches · ningún SAST comercial lo detecta de forma automatizada.
+
+### RFC-004c · THIRD-PARTY-EXFIL-HEURISTIC
+
+Detecta distribución de datos a dominios no-corporativos desde código de producción. Caso NoShow:
+- Dist lists con emails `@miatech.net` (third-party · no AMX)
+
+**Implementación**: scanner busca literales `user@dominio.tld` · compara contra whitelist de dominios corporativos (configurable en aios-config.json `corporate_domains: ["amx.com", "aeromexico.com", ...]`). Los que no matchean · flag HIGH.
+
+**Caveat**: puede tener FPs para integraciones legítimas (auditores · partners). Solución: whitelist explícita por proyecto.
+
+### RFC-004d · RUNTIME-DATA-FILE-SCANNER
+
+Extiende el scan a archivos que hoy quedan fuera por diseño pero contienen data sensible:
+- `Email.html` templates (pueden tener PII · placeholders vs real)
+- `files/*.txt` (PNRs · tickets)
+- `logs/*.log` (raramente versionados · pero en build outputs aparecen)
+
+**Implementación**: categoria nueva `runtime_data` con detectores específicos · scan opt-in con `--include-runtime-data`. No cambiar default (evita noise).
+
+### Prioridad
+
+- **Tier 1** (v2.2.0): 004a + 004b · son los 2 más impactantes · requieren rediseño minor del scanner (workspace-level vs file-level).
+- **Tier 2** (v2.3.0): 004c · corporate_domains whitelist + heuristic simple.
+- **Tier 3** (v2.4.0): 004d · scan extendido a runtime data · requiere nuevos detectores MIME-aware.
+
+### Impacto esperado al cerrar RFC-004
+
+Coverage esperado contra análisis humano:
+- Actual (v2.1.1): 25-40% en workspaces reales
+- v2.2.0 (+ 004a + 004b): ~60% (agrega drift + credential equivalence · ambos son ~15% del valor perdido)
+- v2.3.0 (+ 004c): ~70%
+- v2.4.0 (+ 004d): ~80%
+
+El 20% restante siempre serán bugs de dominio altamente específicos que requieren humano (lógica de negocio · integración cross-module · flujos de autorización). Esa brecha es intrínseca · no es fixeable con un scanner · **documentado explícitamente como límite del framework**.
+
+---
+
+## BUG-006 · __version__ hardcoded desactualizado en aios/__init__.py
+
+**Severidad**: BAJA · solo cosmético pero daña credibilidad
+**Origen**: validación NoShow 2026-04-22 · `aios version` reportó v1.7.1 aunque package instalado era 2.1.1.
+
+### Causa
+Los bumps de version v1.7.2 → v2.1.1 tocaban `pyproject.toml`, `manifest.json`, `.kiro/settings/aios-settings.json` pero NO `aios/__init__.py` que tenía string hardcoded `__version__ = "1.7.1"`.
+
+### Fix (v2.1.2 · commit pendiente)
+`aios/__init__.py` ahora lee versión dinámicamente de `importlib.metadata.version("aios-kiro")` · sincroniza siempre con pyproject.toml. Fallback hardcoded `"2.1.2"` solo si el package no está instalado (dev local fresh clone).
+
+### Prevención a futuro
+Leer de pyproject.toml es la solución permanente · ningún script de bump puede "olvidar" el `__init__.py`. Versionado single-source-of-truth.
+
+---
+
 ## RFC-003 · Domain-awareness · de scanner genérico a asistente con contexto
 
 **Severidad**: CRÍTICA · es la diferencia entre "framework juguete" y "herramienta profesional"

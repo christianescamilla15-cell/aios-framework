@@ -9,9 +9,21 @@
 
 ## TL;DR
 
-Construí `amx-aios-unified` · un Kiro Power que empaqueta **4 sistemas** (AIOS spec-driven + Mythos scanner + Arena self-play + Nemesis engagement) en una sola unidad instalable. Lo validé end-to-end sobre un workload realista de **70,265 LoC en 6 lenguajes** · el refactor completó en **2h 49min wall-clock** · entregó **79/79 FRKs resueltos · 100% precision/recall · release_gate READY · pre-deploy completo** (CI/CD · Docker · K8s · Helm · Terraform · observability · SLOs · chaos · load tests · ADRs).
+Construí `amx-aios-unified` · un Kiro Power que empaqueta **4 sistemas** (AIOS spec-driven + Mythos scanner + Arena self-play + Nemesis engagement) en una sola unidad instalable. Lo validé end-to-end sobre un workload sintético realista de **70,265 LoC en 6 lenguajes** · el refactor completó en **2h 49min wall-clock** · entregó **release_gate READY · pre-deploy completo** (CI/CD · Docker · K8s · Helm · Terraform · observability · SLOs · chaos · load tests · ADRs).
 
 El pack + el framework AIOS están **drop-in compatibles** con tu arquitectura AM-KIRO (manifest.json · .kiro/ · packs system). Propongo contribuirlo como `aios` pack oficial.
+
+### Honestidad metodológica sobre el alcance
+
+Al validarlo contra un análisis humano experto real sobre NoShow, el framework captó **7 de 28 hallazgos (25% de recall)** · los 21 restantes son **bugs de dominio** (vuelo 829 hardcoded · drift entre configs · secretos en test.config · código marcado para eliminación · anti-patrones de negocio) que los 72 detectores CWE de Mythos **no cubren por diseño**.
+
+**El framework no sustituye un análisis humano experto** · lo complementa. Vale la pena cuando:
+- Das baseline mínimo en segundos sobre un codebase sin análisis previo
+- Necesitas evidencia automatizada reproducible para los 4 gates AMX (WIZ/Veracode/Prisma/Tenable)
+- Escalas a N apps donde hacer análisis humano profundo a cada una toma semanas
+- Funcionas como red de seguridad sobre CWE estándar que el humano pudo olvidar
+
+No vale como narrativa única cuando ya hay Resumen Técnico humano · el aporte marginal es bajo.
 
 ---
 
@@ -73,12 +85,13 @@ Un codebase generado determinísticamente (Python · `tools/generate_frankenstei
 | Métrica | Valor |
 |---|---:|
 | **Wall-clock total** | **2h 49min** |
-| **FRKs resueltos** | **79/79 ✅** |
+| **FRKs resueltos** | **79/79 ✅** (dentro del scope CWE del scanner) |
 | **Build gates PASS** | **6/6** (4 CLI real · 2 syntax-manual · Java/COBOL) |
 | **Tests** | 120/120 PHP regression PASS · C# xUnit PASS · Python 100% |
 | **Commits atómicos** | 9 |
 | **LoC nuevos** | **+62,522** (specs + tests + CI/CD + Docker + k8s + helm + terraform + docs) |
-| **Detection precision/recall** | **100% / 100%** (vs gold standard `SEED_EXPECTED_FINDINGS.json`) |
+| **Detection (vs gold standard sintético propio)** | 100% precision/recall — caveat: era contra un SEED autogenerado · tautológico |
+| **Detection (vs análisis humano experto NoShow)** | **25%** (7/28) — ver sección honestidad metodológica |
 | **Release gate final** | **READY · 4/4 PASS** |
 
 ### Delta security_scan (ruido scanner eliminado iterativamente)
@@ -205,3 +218,20 @@ Estoy disponible cualquier momento esta semana.
 ---
 
 *Este documento es evidencia operativa · no replace un playbook oficial de gobierno. Todo commits firmados · repos privados · ningún secreto real AMX incluido (los forbidden_literals del audit están en catálogo interno amx-hallazgos-audit con access control).*
+
+---
+
+## Anexo · 4 detectores que el framework debería tener (aprendidos del análisis humano NoShow)
+
+Estos son los patrones que humano experto detecta pero Mythos no. Propuesta para v1.8:
+
+| Detector propuesto | Qué captura | Ejemplo NoShow |
+|---|---|---|
+| `BUSINESS-HARDCODED-VALUES` | números de vuelo · route codes · SKUs · IDs pinned | `if (pnr.Flight == "829")` |
+| `CROSS-FOLDER-CONFIG-DRIFT` | divergencia semántica prod vs test vs qa configs | `test.config` vs `prod.config` con mismos secrets reales |
+| `SECRETS-IN-TEST-CONFIGS` | secretos reales en configs marcados test/qa/staging | `test.config` con `S4tP@ssw0rd` real |
+| `CODE-MARKED-FOR-REMOVAL` | TODO-REMOVE · DEPRECATED · stubs olvidados entre iteraciones | `// TODO: remove before release` de hace 6 meses |
+
+Estos NO son CWE estándar · son **patrones operativos de dominio** que requieren heurística semántica + cross-file analysis. Son exactamente lo que el análisis humano NoShow capturó y yo perdí.
+
+Si tu equipo AM-KIRO tiene patrones similares propios, lo podemos co-desarrollar. Esto cierra la brecha "framework vs humano experto" de 25% → mayor.

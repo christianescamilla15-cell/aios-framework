@@ -136,3 +136,77 @@ Kiro Free Bonus 500 créditos se agota rápido en workspaces grandes (70K LoC pr
 Workaround durante la sesión:
 1. Dividir prompts grandes en chunks más pequeños (5 chunks vs 1 mega-prompt)
 2. Ejecutar partes boilerplate desde WSL/terminal (CI/CD templates · Dockerfiles) sin pasar por el agente
+
+---
+
+## RFC-002 · 4 detectores de dominio faltantes (prioridad ALTA)
+
+**Severidad**: ALTA · brecha de 75% entre framework y análisis humano experto
+**Origen**: feedback usuario 2026-04-22 · análisis humano NoShow detectó 28 hallazgos · Mythos solo 7 (25% recall)
+
+### Contexto
+
+La validación LM-FRK70K reportó "100% precision/recall" · pero ese benchmark era contra un `SEED_EXPECTED_FINDINGS.json` autogenerado por el mismo proceso. Tautológico. El benchmark que importa es contra análisis humano experto de un proyecto real.
+
+Resultado real: **framework capta 7 de 28 hallazgos (25%)** · los 21 restantes son bugs de dominio que los 72 detectores CWE estándar de Mythos no cubren por diseño. Mythos es CWE-scanner · no auditor de dominio.
+
+### 4 detectores propuestos
+
+#### RFC-002a · BUSINESS-HARDCODED-VALUES
+Detecta valores de negocio hardcoded que deberían venir de datos runtime:
+- Números de vuelo (`"829"`, patterns `^[0-9]{2,4}$` en contexto Flight/PNR)
+- Route codes (`"MEX-TIJ"`, `"AIFA-CUN"`)
+- SKUs pinned (`"CL-ECONOMY-FLEX"`)
+- IDs de negocio específicos en literales
+
+**Complejidad**: necesita heurística semántica · nombre de variable + contexto
+**Ejemplo NoShow**: `if (pnr.FlightNumber == "829")` → debe ser `if (pnr.FlightNumber == config.NoShowTargetFlight)`
+
+#### RFC-002b · CROSS-FOLDER-CONFIG-DRIFT
+Detecta divergencia semántica entre configs de diferentes ambientes:
+- `prod.config` vs `test.config` vs `qa.config` con mismas claves
+- Reporta drift: keys presentes en uno y no en otro · valores "reales" en ambientes de test
+
+**Complejidad**: cross-file analysis · necesita clustering por patrón de nombre
+**Ejemplo NoShow**: `test.config` tiene los mismos secrets reales que `prod.config` → debería tener mocks
+
+#### RFC-002c · SECRETS-IN-TEST-CONFIGS
+Detecta secretos reales en archivos con sufijo/path de test:
+- `*.test.config`, `*-qa.*`, `*/tests/`, `*/fixtures/` con literales que matchean forbidden_literals
+- Whitelist heurístico: reconoce mocks (`mock-password`, `TEST_API_KEY`, `xxx-xxx-xxx`)
+
+**Complejidad**: baja · combina forbidden_literals existente + glob del path
+**Ejemplo NoShow**: `NoShowService.Tests.config` con password real de prod
+
+#### RFC-002d · CODE-MARKED-FOR-REMOVAL
+Detecta código stub/dead marcado para eliminación que sobrevivió iteraciones:
+- `TODO: remove`, `TODO: delete`, `DEPRECATED`, `XXX-REMOVE`, `@deprecated` con fecha antigua
+- Cross-reference con git blame (opcional) para detectar markers con > 6 meses
+
+**Complejidad**: media · regex simple + opcional git history
+**Ejemplo NoShow**: `// TODO: remove before release` de hace 8 meses en production code path
+
+### Plan de implementación
+
+- **v1.8.0** · RFC-002c + RFC-002d · rapid-fixes (regex + glob)
+- **v1.8.1** · RFC-002a con heurística semántica básica (variable-name + type hint)
+- **v1.8.2** · RFC-002b con cross-file diff · requiere cambio arquitectural (scanner pasa de per-file a workspace-level)
+
+### Impacto esperado
+
+Al cerrar estos 4 detectores · el recall contra análisis humano NoShow debería pasar de 25% → estimado 60-75%. El 25-40% restante siempre será bugs de dominio altamente específicos que requieren análisis humano experto. Esa brecha es intrínseca · no es fixeable con un scanner.
+
+### Posicionamiento honesto (para narrative a Ibrahim)
+
+**AIOS ES**:
+- CWE-scanner automatizado (21/28 CWEs · 9 lenguajes)
+- Generador de evidencia reproducible para gates AMX (WIZ/Veracode/Prisma/Tenable)
+- Baseline mínimo en segundos sobre codebases sin análisis previo
+- Red de seguridad · escalable a N apps
+
+**AIOS NO ES** (y NUNCA debe venderse como):
+- Sustituto del análisis humano experto de dominio
+- Detector de anti-patrones de negocio
+- Solución única pre-deploy · solo una capa de varias
+
+**Narrativa correcta**: "Framework da evidencia automatizada reproducible para los 4 gates AMX (compliance). El análisis humano experto captura los bugs de dominio que ningún scanner detecta (vuelo hardcoded · drift de configs · lógica de negocio). Son complementarios · no sustitutos."

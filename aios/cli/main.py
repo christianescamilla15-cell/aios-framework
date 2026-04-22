@@ -761,6 +761,76 @@ def cmd_onboard(args):
     print(f"{'='*60}\n")
 
 
+def cmd_scaffold_deploy_ready(args):
+    """Auto-detect app + scaffold deploy-ready package (docs · IaC · CI/CD · tests · runbook)."""
+    from aios.core.deploy_ready import detect_profile, scaffold, generate_mythos_tut
+
+    app_path = Path(args.app_path).resolve()
+    overwrite = getattr(args, "overwrite", False)
+    register_mythos = not getattr(args, "no_mythos", False)
+
+    print(f"\n{'='*60}")
+    print(f"  AIOS · SCAFFOLD DEPLOY-READY")
+    print(f"{'='*60}")
+    print(f"  App path · {app_path}")
+
+    profile = detect_profile(app_path)
+
+    # CLI override for primary stack (use case: target stack differs from current code)
+    stack_override = getattr(args, "primary_stack", None)
+    if stack_override and stack_override != profile.primary_stack:
+        print(f"\n  [!] Stack override · auto-detected '{profile.primary_stack}' → forcing '{stack_override}'")
+        profile.primary_stack = stack_override
+        if stack_override not in profile.detected_stacks:
+            profile.detected_stacks.append(stack_override)
+        profile.notes.append(f"primary_stack manually overridden via CLI · original detection: auto")
+
+    output_dir_arg = getattr(args, "output_dir", None)
+    output_dir = Path(output_dir_arg) if output_dir_arg else None
+
+    print(f"\n  Profile detectado:")
+    print(f"    app_id            · {profile.app_id}")
+    print(f"    app_name          · {profile.app_name}")
+    print(f"    primary_stack     · {profile.primary_stack}")
+    print(f"    detected_stacks   · {', '.join(profile.detected_stacks) or '(none)'}")
+    print(f"    tier_proposed     · {profile.tier_proposed}")
+    print(f"    tier_rationale    · {profile.tier_rationale}")
+    print(f"    criticality       · {profile.criticality}")
+    print(f"    workload          · {'CronJob (batch)' if profile.is_batch else 'Deployment (service)'}")
+    print(f"    vulns_known       · {len(profile.vulns_known)}  ({sum(1 for v in profile.vulns_known if v.severity == 'CRITICAL')} CRITICAL · {sum(1 for v in profile.vulns_known if v.severity == 'HIGH')} HIGH)")
+    print(f"    integrations      · {', '.join(profile.integrations) or '(none)'}")
+    print(f"    compliance        · {', '.join(profile.compliance) or '(none)'}")
+    print(f"    has_discovery     · {profile.has_discovery}")
+    print(f"    has_code          · {profile.has_code}")
+    if profile.notes:
+        print(f"\n  Notes:")
+        for n in profile.notes:
+            print(f"    [!] {n}")
+
+    print(f"\n  Scaffolding deploy-ready/ ...")
+    report = scaffold(profile, output_dir=output_dir, overwrite=overwrite)
+    print(f"    files_created  · {len(report.files_created)}")
+    print(f"    files_skipped  · {len(report.files_skipped)} (already exist · use --overwrite)")
+    for w in report.warnings:
+        print(f"    [!] {w}")
+
+    if register_mythos:
+        repo_root = Path(getattr(args, "root", None) or Path.cwd()).resolve()
+        tut = generate_mythos_tut(profile, repo_root)
+        if tut:
+            print(f"\n  Mythos TUT registered · {tut}")
+        else:
+            print(f"\n  [!] Mythos TUT skipped · mythos/mythos-targets/ not found under {repo_root}")
+
+    print(f"\n  Next steps:")
+    print(f"    1. Review deploy-ready/ARCHITECT_PACKAGE_README.md")
+    print(f"    2. Enrich ADR-001 and ADR-002 with app-specific decisions")
+    print(f"    3. Complete C4 diagrams (drawio skeleton not generated · copy from similar app)")
+    print(f"    4. Run Mythos scan · mythos scan {profile.app_id}-{profile.primary_stack}")
+    print(f"    5. Escalate to Borde Arquitectura (Israel Miguel) for Gate 4 review")
+    print(f"{'='*60}\n")
+
+
 def cmd_guide(args):
     """Show troubleshooting guide."""
     print(get_guide(args.topic if hasattr(args, 'topic') else None))
@@ -1093,6 +1163,30 @@ def main():
     p.add_argument("--risks", help="New risks")
     p.add_argument("--root", default=".")
 
+    # v1.7.3 · resume · retoma sesion desde checkpoint guardado
+    p = sub.add_parser("resume",
+                       help="Retoma la sesion desde el ultimo checkpoint "
+                            "(BUG-003 · fix context-limit interruptions)")
+    p.add_argument("--root", default=".")
+    p.add_argument("--format", choices=["human", "json"], default="human",
+                   help="Formato de salida")
+
+    # v1.7.3 · checkpoint · emite/actualiza checkpoint manual
+    p = sub.add_parser("checkpoint",
+                       help="Escribe o muestra el checkpoint actual del "
+                            "workstream · util despues de cada build-gate PASS")
+    p.add_argument("--root", default=".")
+    p.add_argument("--phase-completed", default="",
+                   help="Ultima fase cerrada (ej. 'FASE 2')")
+    p.add_argument("--phase-in-progress", default="",
+                   help="Fase+step en curso (ej. 'FASE 3 · step 2/6')")
+    p.add_argument("--next-action", default="",
+                   help="Accion inmediata a retomar")
+    p.add_argument("--last-commit", default="",
+                   help="Hash del ultimo commit atomico")
+    p.add_argument("--show", action="store_true",
+                   help="Solo muestra el checkpoint actual · no escribe")
+
     # status
     p = sub.add_parser("status", help="Show project status")
     p.add_argument("--root", default=".")
@@ -1267,6 +1361,19 @@ def main():
     p.add_argument("--target", choices=["all", "changelog", "cache", "specs", "memory"], default="cache", help="What to clean")
     p.add_argument("--root", default=".")
 
+    # scaffold-deploy-ready
+    p = sub.add_parser(
+        "scaffold-deploy-ready",
+        help="Auto-detect app + scaffold deploy-ready package (docs · IaC · CI/CD · tests · runbook)",
+    )
+    p.add_argument("app_path", help="Path to app directory (e.g. apps/02-arc)")
+    p.add_argument("--overwrite", action="store_true", help="Overwrite existing deploy-ready files")
+    p.add_argument("--no-mythos", action="store_true", help="Skip Mythos TUT auto-registration")
+    p.add_argument("--root", default=".", help="Repo root (for Mythos TUT lookup)")
+    p.add_argument("--primary-stack", choices=["dotnet", "python", "java", "cobol", "php", "node"],
+                   help="Force primary stack (override auto-detection) · use when target stack differs from current code")
+    p.add_argument("--output-dir", help="Output dir (default: <app_path>/deploy-ready)")
+
     # version
     p = sub.add_parser("version", help="Show AIOS version")
 
@@ -1286,6 +1393,9 @@ def main():
         "test": cmd_test, "progress": cmd_progress, "watch": cmd_watch, "cache": cmd_cache,
         "refine": cmd_refine, "sync": cmd_sync, "search": cmd_search,
         "changelog": cmd_changelog, "clean": cmd_clean,
+        "scaffold-deploy-ready": cmd_scaffold_deploy_ready,
+        # v1.7.3 · BUG-003 · resume + checkpoint
+        "resume": cmd_resume, "checkpoint": cmd_checkpoint,
     }
 
     if args.command in commands:
@@ -1332,6 +1442,66 @@ def cmd_version(args):
     """Show AIOS version."""
     from aios import __version__
     print(f"  AIOS v{__version__}")
+
+
+def cmd_resume(args):
+    """v1.7.3 · retoma sesion desde checkpoint guardado · BUG-003."""
+    import json
+    from aios.core.memory_engine import get_checkpoint, resume_instruction
+    root = get_root(args)
+    cp = get_checkpoint(root)
+    if args.format == "json":
+        print(json.dumps(cp, indent=2, ensure_ascii=False))
+        return
+    print()
+    print("  AIOS Resume · checkpoint del workstream")
+    print("  " + "─" * 60)
+    if not any(cp.values()):
+        print("  (sin checkpoint · workstream nuevo · empieza FASE 0)")
+    else:
+        if cp.get("phase_completed"):
+            print(f"  Ultima fase completada: {cp['phase_completed']}")
+        if cp.get("phase_in_progress"):
+            print(f"  En progreso:            {cp['phase_in_progress']}")
+        if cp.get("next_action"):
+            print(f"  Proxima accion:         {cp['next_action']}")
+        if cp.get("last_commit"):
+            print(f"  Ultimo commit:          {cp['last_commit']}")
+        if cp.get("updated"):
+            print(f"  Updated:                {cp['updated']}")
+    print()
+
+
+def cmd_checkpoint(args):
+    """v1.7.3 · muestra o actualiza checkpoint · BUG-003."""
+    from aios.core.memory_engine import get_checkpoint, update_checkpoint
+    root = get_root(args)
+    if args.show:
+        cp = get_checkpoint(root)
+        print()
+        print("  Checkpoint actual:")
+        for k, v in cp.items():
+            print(f"    {k}: {v or '(empty)'}")
+        print()
+        return
+    update_checkpoint(
+        root,
+        phase_completed=args.phase_completed,
+        phase_in_progress=args.phase_in_progress,
+        next_action=args.next_action,
+        last_commit=args.last_commit,
+    )
+    print()
+    print("  ✓ Checkpoint escrito en ai-memory/active_workstream.md")
+    if args.phase_completed:
+        print(f"    phase_completed: {args.phase_completed}")
+    if args.phase_in_progress:
+        print(f"    phase_in_progress: {args.phase_in_progress}")
+    if args.next_action:
+        print(f"    next_action: {args.next_action}")
+    if args.last_commit:
+        print(f"    last_commit: {args.last_commit}")
+    print()
 
 
 if __name__ == "__main__":

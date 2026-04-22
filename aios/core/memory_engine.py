@@ -60,7 +60,10 @@ def update_workstream(root: Path, task: str, mode: str, spec_path: str, phase: s
 ## Next Step
 {next_step or "Fill spec files, then run execution prompt."}
 """
-    (root / "ai-memory" / "active_workstream.md").write_text(content, encoding="utf-8")
+    # v1.7.3 · auto-crear ai-memory dir si no existe
+    memory_dir = root / "ai-memory"
+    memory_dir.mkdir(parents=True, exist_ok=True)
+    (memory_dir / "active_workstream.md").write_text(content, encoding="utf-8")
 
 
 def append_decision(root: Path, entry: str) -> None:
@@ -97,3 +100,143 @@ def get_active_task(root: Path) -> Dict[str, str]:
         elif s == "## Current Phase" and i + 1 < len(lines):
             result["phase"] = lines[i + 1].strip()
     return result
+
+
+# ---------------------------------------------------------------------------
+# v1.7.3 · Checkpoint (BUG-003 · resumption automatica entre fases)
+# ---------------------------------------------------------------------------
+#
+# Objetivo: cuando Kiro hit el limite de contexto mid-fase (o el usuario
+# dice "continua"), el agente lee este checkpoint y retoma desde el ultimo
+# sub-step validado · sin re-procesar el workspace completo ni perder
+# progreso intermedio.
+#
+# Formato en active_workstream.md:
+#     ## Checkpoint
+#     phase_completed: FASE 2
+#     phase_in_progress: FASE 3 · step 2/6 · shared/ libraries
+#     next_action: crea shared/secrets/ISecretsProvider por stack
+#     last_commit: 6ff65d4
+#     updated: 2026-04-22T16:57:08Z
+
+
+def get_checkpoint(root: Path) -> Dict[str, str]:
+    """v1.7.3 · lee el checkpoint de resumption del active_workstream.md.
+
+    Retorna dict con keys: phase_completed · phase_in_progress ·
+    next_action · last_commit · updated. Vacios si no existe checkpoint.
+    """
+    path = root / "ai-memory" / "active_workstream.md"
+    if not path.exists():
+        return {
+            "phase_completed": "", "phase_in_progress": "",
+            "next_action": "", "last_commit": "", "updated": "",
+        }
+    content = path.read_text(encoding="utf-8")
+    result = {
+        "phase_completed": "", "phase_in_progress": "",
+        "next_action": "", "last_commit": "", "updated": "",
+    }
+    # Parseo simple del bloque "## Checkpoint · key: value" lines
+    in_checkpoint = False
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("## Checkpoint"):
+            in_checkpoint = True
+            continue
+        if in_checkpoint and stripped.startswith("## "):
+            # Siguiente section · fin del bloque checkpoint
+            break
+        if in_checkpoint and ":" in stripped:
+            key, _, val = stripped.partition(":")
+            key_norm = key.strip().lower().replace(" ", "_").replace("-", "_")
+            if key_norm in result:
+                result[key_norm] = val.strip()
+    return result
+
+
+def update_checkpoint(
+    root: Path,
+    phase_completed: str = "",
+    phase_in_progress: str = "",
+    next_action: str = "",
+    last_commit: str = "",
+) -> None:
+    """v1.7.3 · escribe/actualiza el bloque ## Checkpoint del
+    active_workstream.md. Preserva las otras secciones intactas.
+
+    Diseñado para ser llamado despues de cada build-gate PASS o al
+    cerrar un sub-step atomic · permite que 'aios resume' retome
+    exactamente donde quedo.
+    """
+    from datetime import datetime, timezone
+    memory_dir = root / "ai-memory"
+    memory_dir.mkdir(parents=True, exist_ok=True)
+    path = memory_dir / "active_workstream.md"
+
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    # Leer contenido actual o bootstrap
+    if path.exists():
+        content = path.read_text(encoding="utf-8")
+    else:
+        content = "# Active Workstream\n\nNo active workstream yet.\n"
+
+    # Reemplazar o agregar el bloque ## Checkpoint
+    new_block = (
+        "## Checkpoint\n"
+        f"phase_completed: {phase_completed}\n"
+        f"phase_in_progress: {phase_in_progress}\n"
+        f"next_action: {next_action}\n"
+        f"last_commit: {last_commit}\n"
+        f"updated: {now}\n"
+    )
+
+    lines = content.splitlines(keepends=True)
+    out: list[str] = []
+    i = 0
+    replaced = False
+    while i < len(lines):
+        line = lines[i]
+        if line.strip().startswith("## Checkpoint"):
+            # Skip hasta la siguiente ## section
+            out.append(new_block)
+            replaced = True
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith("## "):
+                i += 1
+            continue
+        out.append(line)
+        i += 1
+
+    if not replaced:
+        # Append al final
+        if out and not out[-1].endswith("\n"):
+            out[-1] = out[-1] + "\n"
+        out.append("\n" + new_block)
+
+    path.write_text("".join(out), encoding="utf-8")
+
+
+def resume_instruction(root: Path) -> str:
+    """v1.7.3 · genera la instruccion human-readable para retomar la
+    sesion · util cuando el usuario escribe 'aios resume' o 'continua'.
+
+    Formato one-liner para que Kiro lo vea en 1 turn sin re-procesar
+    todo el workspace.
+    """
+    cp = get_checkpoint(root)
+    if not any(cp.values()):
+        return "(sin checkpoint · workstream nuevo · empieza FASE 0)"
+    parts = []
+    if cp.get("phase_completed"):
+        parts.append(f"ultima fase completada: {cp['phase_completed']}")
+    if cp.get("phase_in_progress"):
+        parts.append(f"en progreso: {cp['phase_in_progress']}")
+    if cp.get("next_action"):
+        parts.append(f"next: {cp['next_action']}")
+    if cp.get("last_commit"):
+        parts.append(f"last_commit: {cp['last_commit']}")
+    if cp.get("updated"):
+        parts.append(f"updated: {cp['updated']}")
+    return " · ".join(parts)

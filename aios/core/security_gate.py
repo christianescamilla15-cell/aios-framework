@@ -198,6 +198,11 @@ class Finding:
     file: str
     line: int
     snippet: str
+    # v1.8.0 · RFC-003 · classificacion contra domain ontology
+    ontology_action: str = "auto_fix"  # auto_fix|pause_for_review|skip|warn
+    ontology_match: Optional[str] = None
+    ontology_classification: str = "unclear"
+    ontology_message: str = ""
 
 
 # Extension groups · detectores se filtran por ext para evitar meta-FPs
@@ -1164,11 +1169,19 @@ def _walk_files(root: Path, config: dict):
 
 
 def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
-    """Scan `root` con detectores embedded + forbidden literals."""
+    """Scan `root` con detectores embedded + forbidden literals.
+
+    v1.8.0 · RFC-003 Nivel 1 · si existe ontology (policy dir o
+    amx-domain-ontology.yaml en root), cada finding emitido queda
+    clasificado (bug · business_rule · migration_candidate · unclear)
+    y con accion recomendada (auto_fix · pause_for_review · skip · warn).
+    """
     cfg = config or _load_config(root)
     findings: list[Finding] = []
     forbidden = [lit for lit in cfg.get("forbidden_literals", []) if lit]
     skip_comments = bool(cfg.get("exclude_comment_lines", True))
+    # v1.8.0 · load domain ontology (opcional · no-op si no existe)
+    ontology = _load_ontology_for_scan(root, cfg)
 
     for fp in _walk_files(root, cfg):
         try:
@@ -1187,10 +1200,16 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
         )
 
         def _emit_unless_comment(finding: Finding) -> None:
-            """v1.7.2 · skip findings que caen en lineas de comentario."""
+            """v1.7.2 · skip findings que caen en lineas de comentario.
+
+            v1.8.0 · RFC-003 · enrich finding con clasificacion de
+            domain ontology antes de emit.
+            """
             if skip_comments and 0 < finding.line <= len(lines_cache):
                 if _is_comment_line(lines_cache[finding.line - 1], fp_ext):
                     return
+            # v1.8.0 · classify against ontology
+            _enrich_finding_with_ontology(finding, ontology)
             findings.append(finding)
 
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
@@ -1220,6 +1239,67 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
     return findings
 
 
+# ---------------------------------------------------------------------------
+# v1.8.0 · RFC-003 · helpers de domain ontology
+# ---------------------------------------------------------------------------
+
+def _load_ontology_for_scan(root: Path, cfg: dict) -> dict:
+    """Busca ontology en orden: cfg['ontology_path'] · root/amx-domain-ontology.yaml
+    · policies/<policy>/ontology.yaml. Retorna dict vacio si no hay.
+    """
+    try:
+        from .ontology import load_ontology
+    except ImportError:
+        return {}
+
+    # 1. Explicit path en config
+    ontology_path = cfg.get("ontology_path")
+    if ontology_path:
+        p = Path(ontology_path)
+        if not p.is_absolute():
+            p = root / p
+        return load_ontology(p)
+
+    # 2. Root-level convention
+    convention = root / "amx-domain-ontology.yaml"
+    if convention.exists():
+        return load_ontology(convention)
+
+    # 3. Policy-scoped ontology
+    policy_name = cfg.get("policy", "amx-revenue-accounting")
+    # Buscar en el package instalado (aios/policies/<policy>/ontology.yaml)
+    try:
+        import aios.policies as _ap
+        policy_dir = Path(_ap.__file__).parent / policy_name
+        ont_file = policy_dir / "ontology.yaml"
+        if ont_file.exists():
+            return load_ontology(ont_file)
+    except Exception:  # noqa: BLE001
+        pass
+
+    return {"patterns": [], "default_action": "auto_fix",
+            "default_classification": "unclear"}
+
+
+def _enrich_finding_with_ontology(finding: Finding, ontology: dict) -> None:
+    """v1.8.0 · muta el finding in-place con ontology classification."""
+    if not ontology or not ontology.get("patterns"):
+        # Sin ontology · deja defaults (auto_fix · unclear)
+        return
+    try:
+        from .ontology import classify_finding
+    except ImportError:
+        return
+    try:
+        result = classify_finding(finding, ontology)
+        finding.ontology_action = result.action
+        finding.ontology_match = result.ontology_match
+        finding.ontology_classification = result.classification
+        finding.ontology_message = result.message
+    except Exception:  # noqa: BLE001 · classify failures no deben romper scan
+        pass
+
+
 def scan_files(
     root: Path,
     files: list[str],
@@ -1237,6 +1317,8 @@ def scan_files(
     skip_exts = set(cfg.get("exclude_exts", []))
     skip_files_raw = cfg.get("exclude_files", [])
     skip_comments = bool(cfg.get("exclude_comment_lines", True))
+    # v1.8.0 · RFC-003 · load ontology
+    ontology = _load_ontology_for_scan(root, cfg)
 
     for file_rel in files:
         file_rel = file_rel.strip()
@@ -1270,6 +1352,7 @@ def scan_files(
             if skip_comments and 0 < finding.line <= len(lines_cache):
                 if _is_comment_line(lines_cache[finding.line - 1], fp_ext):
                     return
+            _enrich_finding_with_ontology(finding, ontology)
             findings.append(finding)
 
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
@@ -1414,6 +1497,24 @@ def run_security_gate(root: Path) -> dict:
             "file": f.file, "line": f.line,
         })
 
+    # v1.8.0 · RFC-003 · recolecta findings que requieren review humano
+    # (domain ontology marco como business_rule o unclear con pause)
+    requires_review: list[dict] = []
+    ontology_counts: dict[str, int] = {}
+    for f in findings:
+        action = getattr(f, "ontology_action", "auto_fix")
+        ontology_counts[action] = ontology_counts.get(action, 0) + 1
+        if action == "pause_for_review":
+            requires_review.append({
+                "rule_id": f.rule_id,
+                "file": f.file,
+                "line": f.line,
+                "severity": f.severity,
+                "ontology_match": getattr(f, "ontology_match", None),
+                "classification": getattr(f, "ontology_classification", "unclear"),
+                "message": getattr(f, "ontology_message", ""),
+            })
+
     return {
         "check": "Security static scan",
         "status": status,
@@ -1424,4 +1525,7 @@ def run_security_gate(root: Path) -> dict:
         "findings_summary": by_sev,
         "top_findings": top,
         "suppressed_count": suppressed_count,
+        # v1.8.0 · RFC-003 · domain ontology outputs
+        "requires_human_review": requires_review,
+        "ontology_counts": ontology_counts,
     }

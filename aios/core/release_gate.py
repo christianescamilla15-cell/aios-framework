@@ -231,6 +231,28 @@ def check_release_readiness(root: Path) -> Dict:
         "top_findings": sec.get("top_findings", []),
     }
 
+    # 8. v1.8.0 · RFC-003 · Domain-aware review check
+    # Si el scan devolvio findings con ontology_action=pause_for_review,
+    # no bloqueamos el release pero sí emitimos WARN para que el reviewer
+    # humano los apruebe antes del merge final.
+    pause_findings = sec.get("requires_human_review", [])
+    if pause_findings:
+        checks.append({
+            "check": "Domain-aware review (business rules vs bugs)",
+            "status": "warn",
+            "detail": (
+                f"{len(pause_findings)} findings requieren review humano · "
+                f"posible regla de negocio o intent del dominio · ver "
+                f"requires_human_review list"
+            ),
+        })
+    else:
+        checks.append({
+            "check": "Domain-aware review (business rules vs bugs)",
+            "status": "pass",
+            "detail": "0 findings requieren review humano",
+        })
+
     passed = sum(1 for c in checks if c["status"] == "pass")
     warned = sum(1 for c in checks if c["status"] == "warn")
     failed = sum(1 for c in checks if c["status"] == "fail")

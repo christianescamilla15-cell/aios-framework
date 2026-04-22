@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/OYN-AMX/am-kiro/schema/pack.schema.json",
   "name": "aios",
-  "version": "1.7.4",
+  "version": "1.8.0",
   "description": "AIOS · spec-driven development framework + session management + 72 detectores de seguridad · Sprint 5.3 · AM-KIRO compatible pack",
   "author": "Christian Hernández · eTrive",
   "repo": "https://github.com/eTrive/aios-framework",

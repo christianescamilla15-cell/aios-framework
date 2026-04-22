@@ -66,3 +66,73 @@ Al iniciar un spec con el pack AIOS, aprobar "Base · $content *" la primera vez
 
 ### Tracking
 - Fix en el pack: ajustar `04_execution.md` para emitir `design.md` atómico
+
+---
+
+## RFC-001 · STATIC-CMD-SHELL-TRUE detector · verificación
+
+**Severidad**: INFORMACIONAL (no es bug)
+**Origen**: FINAL_REPORT_LM_FRK70K.md · recomendación R3 · 2026-04-22
+
+### Observación
+El FINAL_REPORT del refactor 70K reportó que el detector `STATIC-CMD-SHELL-TRUE` activaba en `shell=False` (falso positivo de 1 archivo). Revisión del código confirma que **el regex actual es correcto**:
+
+```python
+re.compile(r"""subprocess\.[a-z]+\([^)]*shell\s*=\s*True""")
+```
+
+El regex requiere literal `shell=True` · no matchea `shell=False`. El falso positivo reportado vino de OTRO detector (probable `STATIC-CMD-SHELL-TRUE` fue confusión con `STATIC-PICKLE-DESERIALIZATION` u otro) o del scanner de `forbidden_literals` sobre comentarios de trazabilidad.
+
+### Resolución
+Cerrado como NO-BUG · el regex `[^)]*shell\s*=\s*True` es el filtro correcto. El caso real (comentarios con `shell=False`) queda resuelto por R1 (`exclude_comment_lines` en commit `0943cb9`).
+
+### Evidencia
+Test local sobre fragmentos:
+- `subprocess.run("x", shell=True)` → ✅ match (CRITICAL)
+- `subprocess.run("x", shell=False)` → ✅ no match
+- `# antes usabamos shell=False` (comment) → ✅ no match (filtro v1.7.2)
+
+---
+
+## BUG-003 · Kiro UI · checkpoint automático entre fases
+
+**Severidad**: BAJA · afecta UX de sesiones muy largas
+**Origen**: FINAL_REPORT_LM_FRK70K.md · recomendación R7 · 2026-04-22
+
+### Síntoma
+Durante el refactor LM-FRK70K (3.5h · 10 módulos · 9 commits), Kiro requirió múltiples "continua" del usuario cuando llegaba al límite de contexto de turn. Esto fragmenta la ejecución autónoma declarada en auto-mode y consume cuota de créditos por re-lecturas.
+
+### Causa raíz (hipótesis)
+Kiro no persiste estado de "fase en progreso" entre turns. Al llegar al límite del context window, pierde el plan explícito y espera instrucciones nuevas.
+
+### Fix propuesto (AIOS side)
+Agregar a `ai-memory/active_workstream.md` un campo `## Checkpoint` con:
+- `phase_completed`: última fase cerrada
+- `phase_in_progress`: fase actual + sub-step
+- `next_action`: comando exacto para retomar
+- `last_commit`: hash del último commit atómico
+
+Cuando el usuario escribe "continua" · el router lee el Checkpoint y emite el prompt exacto internamente. Requiere steering rule en `04_execution.md` que obligue a escribir/actualizar el Checkpoint después de cada build-gate PASS.
+
+### Fix propuesto (Kiro host side · fuera de nuestro control)
+Auto-resumption cuando el usuario hace "continua" · que Kiro recargue automáticamente el `active_workstream.md` + `Checkpoint` sin pedir intervención.
+
+### Workaround actual
+Al "continua" · decir también "lee el último commit en git y sigue desde donde quedaste".
+
+### Tracking
+- Requiere feature grande · iteración futura (post-Sprint 5.3)
+- Dependency: Alberto Ibrahim si queremos Auto-resumption del host
+
+---
+
+## NOTA · Kiro UI · límite de context/cuota
+
+**Estado**: SIN ACCIÓN (fuera de scope AIOS · observado)
+**Origen**: FINAL_REPORT_LM_FRK70K.md · recomendación R6 · 2026-04-22
+
+Kiro Free Bonus 500 créditos se agota rápido en workspaces grandes (70K LoC pre-carga context cada turn). Cuando se agota, Kiro retorna "Too many requests". Solo mitigable desde el host Kiro (aumentar cuota · context caching · prompt compaction). Documentado para evidencia · no es fix del pack AIOS.
+
+Workaround durante la sesión:
+1. Dividir prompts grandes en chunks más pequeños (5 chunks vs 1 mega-prompt)
+2. Ejecutar partes boilerplate desde WSL/terminal (CI/CD templates · Dockerfiles) sin pasar por el agente

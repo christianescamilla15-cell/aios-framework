@@ -29,7 +29,7 @@ import json
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -198,11 +198,18 @@ class Finding:
     file: str
     line: int
     snippet: str
-    # v1.8.0 · RFC-003 · classificacion contra domain ontology
+    # v1.8.0 · RFC-003 Nivel 1 · ontology classification
     ontology_action: str = "auto_fix"  # auto_fix|pause_for_review|skip|warn
     ontology_match: Optional[str] = None
     ontology_classification: str = "unclear"
     ontology_message: str = ""
+    # v1.9.0 · RFC-003 Nivel 2 · LLM classifier output (solo si invocado)
+    llm_classification: Optional[str] = None  # bug|business_rule|migration_candidate|unclear
+    llm_confidence: float = 0.0  # 0.0-1.0
+    llm_reasoning: str = ""
+    llm_evidence: list = field(default_factory=list)
+    llm_provider: Optional[str] = None
+    llm_cached: bool = False
 
 
 # Extension groups · detectores se filtran por ext para evitar meta-FPs
@@ -1175,6 +1182,11 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
     amx-domain-ontology.yaml en root), cada finding emitido queda
     clasificado (bug · business_rule · migration_candidate · unclear)
     y con accion recomendada (auto_fix · pause_for_review · skip · warn).
+
+    v1.9.0 · RFC-003 Nivel 2 · si llm_classifier.enabled=true en config,
+    findings con ontology_action=pause_for_review son re-evaluados por
+    LLM (Claude/GPT/Ollama) con context (code + git blame + cross-file).
+    Override de decisión si confidence >= threshold.
     """
     cfg = config or _load_config(root)
     findings: list[Finding] = []
@@ -1182,6 +1194,8 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
     skip_comments = bool(cfg.get("exclude_comment_lines", True))
     # v1.8.0 · load domain ontology (opcional · no-op si no existe)
     ontology = _load_ontology_for_scan(root, cfg)
+    # v1.9.0 · load LLM classifier (opt-in · no-op si disabled)
+    llm_classifier = _load_llm_classifier(cfg)
 
     for fp in _walk_files(root, cfg):
         try:
@@ -1202,14 +1216,17 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
         def _emit_unless_comment(finding: Finding) -> None:
             """v1.7.2 · skip findings que caen en lineas de comentario.
 
-            v1.8.0 · RFC-003 · enrich finding con clasificacion de
-            domain ontology antes de emit.
+            v1.8.0 · RFC-003 Nivel 1 · enrich con domain ontology.
+            v1.9.0 · RFC-003 Nivel 2 · LLM classifier para findings
+            que Nivel 1 marcó como pause_for_review.
             """
             if skip_comments and 0 < finding.line <= len(lines_cache):
                 if _is_comment_line(lines_cache[finding.line - 1], fp_ext):
                     return
-            # v1.8.0 · classify against ontology
+            # v1.8.0 · Nivel 1 · ontology classification
             _enrich_finding_with_ontology(finding, ontology)
+            # v1.9.0 · Nivel 2 · LLM re-classification (opt-in · solo pause)
+            _enrich_finding_with_llm(finding, root, llm_classifier)
             findings.append(finding)
 
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
@@ -1300,6 +1317,56 @@ def _enrich_finding_with_ontology(finding: Finding, ontology: dict) -> None:
         pass
 
 
+# ---------------------------------------------------------------------------
+# v1.9.0 · RFC-003 Nivel 2 · LLM classifier helpers
+# ---------------------------------------------------------------------------
+
+def _load_llm_classifier(cfg: dict):
+    """Crea LLMClassifier desde config si enabled · None si opt-out."""
+    llm_cfg = (cfg or {}).get("llm_classifier") or {}
+    if not llm_cfg.get("enabled", False):
+        return None
+    try:
+        from .llm_classifier import LLMClassifier
+        return LLMClassifier.from_config(llm_cfg)
+    except ImportError:
+        return None
+    except Exception:  # noqa: BLE001 · init failures no deben romper scan
+        return None
+
+
+def _enrich_finding_with_llm(
+    finding: Finding, root: Path, classifier,
+) -> None:
+    """v1.9.0 · si classifier está disponible y el finding tiene
+    ontology_action=pause_for_review, invoca LLM para re-clasificar.
+    Si confidence >= threshold, override la decision del Nivel 1.
+    """
+    if classifier is None:
+        return
+    # Solo invocar LLM para findings que Nivel 1 dejó ambiguos
+    if finding.ontology_action != "pause_for_review":
+        return
+    try:
+        result = classifier.classify(finding, root)
+    except Exception:  # noqa: BLE001
+        return
+    # Guardar siempre el output del LLM (audit trail)
+    finding.llm_classification = result.classification
+    finding.llm_confidence = result.confidence
+    finding.llm_reasoning = result.reasoning
+    finding.llm_evidence = list(result.evidence)
+    finding.llm_provider = result.provider
+    finding.llm_cached = result.cached
+    # Override Nivel 1 solo si high confidence
+    if result.confidence >= classifier.confidence_threshold:
+        finding.ontology_action = result.recommended_action
+        finding.ontology_classification = result.classification
+        finding.ontology_message = (
+            f"[LLM override · conf={result.confidence:.2f}] {result.reasoning}"
+        )
+
+
 def scan_files(
     root: Path,
     files: list[str],
@@ -1317,8 +1384,10 @@ def scan_files(
     skip_exts = set(cfg.get("exclude_exts", []))
     skip_files_raw = cfg.get("exclude_files", [])
     skip_comments = bool(cfg.get("exclude_comment_lines", True))
-    # v1.8.0 · RFC-003 · load ontology
+    # v1.8.0 · RFC-003 Nivel 1 · load ontology
     ontology = _load_ontology_for_scan(root, cfg)
+    # v1.9.0 · RFC-003 Nivel 2 · load LLM classifier (opt-in)
+    llm_classifier = _load_llm_classifier(cfg)
 
     for file_rel in files:
         file_rel = file_rel.strip()
@@ -1353,6 +1422,7 @@ def scan_files(
                 if _is_comment_line(lines_cache[finding.line - 1], fp_ext):
                     return
             _enrich_finding_with_ontology(finding, ontology)
+            _enrich_finding_with_llm(finding, root, llm_classifier)
             findings.append(finding)
 
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
@@ -1497,15 +1567,18 @@ def run_security_gate(root: Path) -> dict:
             "file": f.file, "line": f.line,
         })
 
-    # v1.8.0 · RFC-003 · recolecta findings que requieren review humano
-    # (domain ontology marco como business_rule o unclear con pause)
+    # v1.8.0 · RFC-003 Nivel 1 · recolecta findings que requieren review humano
+    # v1.9.0 · RFC-003 Nivel 2 · incluye reasoning del LLM si hubo override
     requires_review: list[dict] = []
     ontology_counts: dict[str, int] = {}
+    llm_overrides = 0
     for f in findings:
         action = getattr(f, "ontology_action", "auto_fix")
         ontology_counts[action] = ontology_counts.get(action, 0) + 1
+        if getattr(f, "llm_classification", None) is not None:
+            llm_overrides += 1
         if action == "pause_for_review":
-            requires_review.append({
+            entry = {
                 "rule_id": f.rule_id,
                 "file": f.file,
                 "line": f.line,
@@ -1513,7 +1586,18 @@ def run_security_gate(root: Path) -> dict:
                 "ontology_match": getattr(f, "ontology_match", None),
                 "classification": getattr(f, "ontology_classification", "unclear"),
                 "message": getattr(f, "ontology_message", ""),
-            })
+            }
+            # v1.9.0 · enrich con LLM output si disponible
+            if getattr(f, "llm_classification", None):
+                entry["llm"] = {
+                    "classification": f.llm_classification,
+                    "confidence": f.llm_confidence,
+                    "reasoning": f.llm_reasoning,
+                    "evidence": list(f.llm_evidence),
+                    "provider": f.llm_provider,
+                    "cached": f.llm_cached,
+                }
+            requires_review.append(entry)
 
     return {
         "check": "Security static scan",
@@ -1525,7 +1609,9 @@ def run_security_gate(root: Path) -> dict:
         "findings_summary": by_sev,
         "top_findings": top,
         "suppressed_count": suppressed_count,
-        # v1.8.0 · RFC-003 · domain ontology outputs
+        # v1.8.0 · RFC-003 Nivel 1 · ontology outputs
         "requires_human_review": requires_review,
         "ontology_counts": ontology_counts,
+        # v1.9.0 · RFC-003 Nivel 2 · LLM classifier metrics
+        "llm_overrides": llm_overrides,
     }

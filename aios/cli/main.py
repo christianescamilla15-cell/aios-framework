@@ -1187,6 +1187,23 @@ def main():
     p.add_argument("--show", action="store_true",
                    help="Solo muestra el checkpoint actual · no escribe")
 
+    # v1.9.0 · RFC-003 Nivel 2 · LLM classifier CLI
+    p = sub.add_parser("classify",
+                       help="Clasifica un finding usando ontology + LLM · "
+                            "debug/preview sin correr scan completo")
+    p.add_argument("--root", default=".")
+    p.add_argument("--file", required=True, help="Archivo del finding")
+    p.add_argument("--line", type=int, required=True, help="Linea del finding")
+    p.add_argument("--rule-id", required=True, help="Rule ID del finding")
+    p.add_argument("--severity", default="CRITICAL")
+    p.add_argument("--snippet", default="",
+                   help="Snippet del codigo · si omite, se extrae del archivo")
+    p.add_argument("--provider", default="",
+                   help="Override provider (mock|anthropic|openai|ollama)")
+    p.add_argument("--no-llm", action="store_true",
+                   help="Solo ontology (Nivel 1) · no invoca LLM")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # status
     p = sub.add_parser("status", help="Show project status")
     p.add_argument("--root", default=".")
@@ -1396,6 +1413,8 @@ def main():
         "scaffold-deploy-ready": cmd_scaffold_deploy_ready,
         # v1.7.3 · BUG-003 · resume + checkpoint
         "resume": cmd_resume, "checkpoint": cmd_checkpoint,
+        # v1.9.0 · RFC-003 Nivel 2 · LLM classifier
+        "classify": cmd_classify,
     }
 
     if args.command in commands:
@@ -1469,6 +1488,108 @@ def cmd_resume(args):
             print(f"  Ultimo commit:          {cp['last_commit']}")
         if cp.get("updated"):
             print(f"  Updated:                {cp['updated']}")
+    print()
+
+
+def cmd_classify(args):
+    """v1.9.0 · clasifica un finding con ontology + LLM · RFC-003 Nivel 2."""
+    import json
+    from aios.core.security_gate import Finding, _load_config
+    from aios.core.ontology import load_ontology as _load_ont, classify_finding as _classify_ont
+    root = get_root(args)
+    cfg = _load_config(root)
+    # Build finding desde args
+    snippet = args.snippet
+    if not snippet:
+        try:
+            fp = root / args.file
+            lines = fp.read_text(encoding="utf-8", errors="ignore").splitlines()
+            if 0 < args.line <= len(lines):
+                snippet = lines[args.line - 1].strip()[:160]
+        except OSError:
+            snippet = ""
+    finding = Finding(
+        cwe="", severity=args.severity, rule_id=args.rule_id,
+        file=args.file, line=args.line, snippet=snippet,
+    )
+    # Nivel 1 · ontology
+    from aios.core.security_gate import _load_ontology_for_scan
+    ontology = _load_ontology_for_scan(root, cfg)
+    ont_result = _classify_ont(finding, ontology)
+    finding.ontology_action = ont_result.action
+    finding.ontology_match = ont_result.ontology_match
+    finding.ontology_classification = ont_result.classification
+    finding.ontology_message = ont_result.message
+    # Nivel 2 · LLM (opt-in · skip si --no-llm)
+    llm_result = None
+    if not args.no_llm:
+        from aios.core.llm_classifier import LLMClassifier
+        llm_cfg = (cfg.get("llm_classifier") or {}).copy()
+        if args.provider:
+            llm_cfg["provider"] = args.provider
+            llm_cfg["enabled"] = True
+        if llm_cfg.get("enabled", False) or args.provider:
+            try:
+                clf = LLMClassifier.from_config(llm_cfg)
+                llm_result = clf.classify(finding, root)
+                finding.llm_classification = llm_result.classification
+                finding.llm_confidence = llm_result.confidence
+                finding.llm_reasoning = llm_result.reasoning
+                finding.llm_evidence = list(llm_result.evidence)
+                finding.llm_provider = llm_result.provider
+                finding.llm_cached = llm_result.cached
+                if llm_result.confidence >= clf.confidence_threshold:
+                    finding.ontology_action = llm_result.recommended_action
+                    finding.ontology_classification = llm_result.classification
+            except Exception as exc:  # noqa: BLE001
+                llm_result = None
+                print(f"  (LLM error: {exc})")
+    # Output
+    if args.format == "json":
+        out = {
+            "finding": {
+                "rule_id": finding.rule_id, "file": finding.file,
+                "line": finding.line, "severity": finding.severity,
+                "snippet": finding.snippet,
+            },
+            "ontology": {
+                "action": finding.ontology_action,
+                "match": finding.ontology_match,
+                "classification": finding.ontology_classification,
+                "message": finding.ontology_message,
+            },
+            "llm": {
+                "classification": finding.llm_classification,
+                "confidence": finding.llm_confidence,
+                "reasoning": finding.llm_reasoning,
+                "evidence": finding.llm_evidence,
+                "provider": finding.llm_provider,
+                "cached": finding.llm_cached,
+            } if finding.llm_classification else None,
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return
+    # Human
+    print()
+    print("  Classify · Domain Ontology + LLM (v1.9.0)")
+    print("  " + "─" * 60)
+    print(f"  Finding:  {finding.rule_id} · {finding.file}:{finding.line}")
+    print(f"  Snippet:  {finding.snippet[:100]}")
+    print()
+    print(f"  [Nivel 1] ontology:")
+    print(f"    action         : {finding.ontology_action}")
+    print(f"    match          : {finding.ontology_match or '(ninguno)'}")
+    print(f"    classification : {finding.ontology_classification}")
+    if finding.ontology_message:
+        print(f"    message        : {finding.ontology_message[:100]}")
+    if llm_result:
+        print()
+        print(f"  [Nivel 2] LLM ({finding.llm_provider}, cached={finding.llm_cached}):")
+        print(f"    classification : {finding.llm_classification}")
+        print(f"    confidence     : {finding.llm_confidence:.2f}")
+        print(f"    reasoning      : {finding.llm_reasoning[:200]}")
+        if finding.llm_evidence:
+            print(f"    evidence       : {', '.join(finding.llm_evidence[:5])}")
     print()
 
 

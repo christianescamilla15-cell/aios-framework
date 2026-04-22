@@ -86,6 +86,44 @@ El Power expone **steering rules** (carpeta `steering/`) que el agente sigue aut
 - `aios-modes.md` · detalle de los 4 modos
 - `amx-constraints-retro-20abr.md` · constraints AMX post retro 20-abr
 
+## Audit Bridge · integración con kcb (kiro-claude-bridge)
+
+Los 8 tools están instrumentados para emitir eventos `mcp_tool_call` (start/end
+con `correlation_id` + `duration_ms`) al `kcb bridge`. Esto permite auditar end-to-end
+cada invocación MCP hecha por Kiro — factorizaciones, scans, release gates.
+
+**Cómo activarlo**: edita el `mcp.json` instalado (`~/.kiro/powers/installed/amx-aios-unified/mcp.json`)
+e inyecta las env vars:
+
+```json
+{
+  "mcpServers": {
+    "aios": {
+      "command": "aios-mcp",
+      "args": [],
+      "env": {
+        "KCB_SESSION_ID": "<session id from: kcb start>",
+        "KCB_STATE_DIR": "<absolute path a .kcb-state/>",
+        "KCB_ACTOR": "aios-mcp"
+      }
+    }
+  }
+}
+```
+
+Después: `Ctrl+Shift+P` → `Developer: Reload Window` en Kiro para que el MCP
+subprocess reinicie con el env actualizado. Validación rápida: tras invocar
+cualquier tool desde Kiro, `kcb summary --session <id>` debe mostrar
+`Tool calls` > 0.
+
+**Qué se emite por cada tool call**:
+- Event `start` con `tool` name + `args` sanitizados (truncados a 200 chars)
+- Event `end` con `duration_ms` + `error` si la excepción subió
+- Mismo `correlation_id` une ambos para tracking
+
+**Safety**: si `KCB_SESSION_ID` no está set, el decorator es no-op · la
+instrumentación nunca rompe el tool (exceptions swallowed).
+
 ## Origen y autoría
 
 - **Autor:** Christian Hernández · eTrive

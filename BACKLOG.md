@@ -210,3 +210,60 @@ Al cerrar estos 4 detectores · el recall contra análisis humano NoShow deberí
 - Solución única pre-deploy · solo una capa de varias
 
 **Narrativa correcta**: "Framework da evidencia automatizada reproducible para los 4 gates AMX (compliance). El análisis humano experto captura los bugs de dominio que ningún scanner detecta (vuelo hardcoded · drift de configs · lógica de negocio). Son complementarios · no sustitutos."
+
+---
+
+## RFC-003 · Domain-awareness · de scanner genérico a asistente con contexto
+
+**Severidad**: CRÍTICA · es la diferencia entre "framework juguete" y "herramienta profesional"
+**Origen**: feedback usuario 2026-04-22 · "¿qué me asegura que el refactor no sea genérico?"
+
+### El problema fundamental
+
+Hoy Mythos detecta patterns CWE-estándar · pero no distingue entre:
+- Hardcoded value que es **BUG** (secret · credential · injection)
+- Hardcoded value que es **REGLA DE NEGOCIO** (vuelo 829 específico del dominio NoShow · ruta específica · ID acordado con un tercero)
+
+El refactor auto-mode asume que todo detected finding es bug · aplica fix genérico · tests de regresión son string-level (valida que el pattern no reaparezca · no que el behavior sea correcto). Resultado: refactor genérico puede introducir bugs nuevos que pasan libres hasta deploy.
+
+**El análisis humano es el único filtro real hoy. Sin humano · el framework rompe dominio.**
+
+### 8 capacidades faltantes
+
+1. **Domain ontology** · catálogo AMX versionado (`amx-domain-ontology.yaml`) con clasificación por pattern (bug / business_rule / unclear) · auto_fix_allowed · fix_template · evidence_required
+2. **Intent classification pre-fix** · LLM call o humano pregunta: "¿este valor es bug o intent?" antes de refactorizar
+3. **Characterization tests antes del refactor** · captura behavior real con inputs · genera suite · refactor rollback-safe si rompe contract
+4. **Cross-file semantic analysis** · call-graph + semantic clustering · detecta drift entre archivos · impacto de un cambio en otros files
+5. **Stakeholder-in-the-loop explícito** · auto_fix_safe vs requires_review · pausa en decisiones no-obvias
+6. **Git blame + commit context como signal** · clasificar intent con historia del código
+7. **Behavior-preserving tests (no string-preserving)** · tests validan contract · no ausencia del pattern
+8. **Dual-path artifacts** · PR técnico + business review doc por cada fix
+
+### 4 niveles de implementación (ROI vs esfuerzo)
+
+| Nivel | Qué cubre | Esfuerzo | ROI |
+|---|---|---|---|
+| **Nivel 1** · Domain ontology (capacidad 1) | classificación pre-fix básica | 2-3 días | 🟢 Alto · cambio dramático |
+| **Nivel 2** · LLM classifier per-finding (capacidades 2, 6) | intent classification con context | 1-2 semanas | 🟢 Alto · reduce 80% FP dominio |
+| **Nivel 3** · Characterization tests (capacidades 3, 7) | behavior-preserving · rollback auto | 3-4 semanas | 🟡 Medio · complejo por lenguaje |
+| **Nivel 4** · Stakeholder split (capacidades 5, 8) | auto_fix_safe vs requires_review | 2-3 semanas | 🟢 Alto · cambio cultural del flujo |
+
+Cross-file semantic analysis (capacidad 4) es transversal · se implementa gradualmente.
+
+### Status quo honesto que debo comunicar
+
+- Sin Nivel 1-2 · **no confiar en auto-mode sobre codebases críticos sin review humano**
+- Framework hoy = red de seguridad CWE · **no** refactor agent autónomo en producción
+- El humano es el centro · el framework acelera · nunca sustituye
+
+### Plan propuesto
+
+- **v1.8 · Nivel 1**: `amx-domain-ontology.yaml` + helper `classify_finding(finding, ontology) -> {allowed, pause, skip}` · 2-3 días
+- **v1.9 · Nivel 2**: LLM classifier · `classify_finding_with_llm(finding, git_context) -> intent` · 1-2 semanas
+- **v2.0 · Nivel 3-4**: characterization + stakeholder split · 1-2 meses · requiere piloto con AMX para validar antes
+
+### Conclusión
+
+Este RFC es el **más crítico** del backlog · cierra la brecha entre "framework juguete" y "herramienta profesional". Sin esto · todo el pre-deploy (CI/CD · gates · release_gate) es teatro: el código refactorizado puede tener bugs de dominio intactos o nuevos · y ningún gate los detecta.
+
+Prioridad: ALTA · pre-requisito para cualquier piloto con cliente real (NoShow · otros AMX).

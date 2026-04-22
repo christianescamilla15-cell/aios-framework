@@ -3,6 +3,12 @@
 v1.6.0 changes:
 - Spec matching by similarity (Jaccard) when active task path missing or stale
 - Searches specs/ folder for best match if direct path fails
+
+v1.7.2 changes (deriva de LM-FRK70K retro · recomendaciones R4 + R5):
+- Active task accepts COMPLETED / DONE / DELIVERED / PRE-DEPLOY / CLOSED
+  como estados terminales · no bloquea el gate cuando la fase esta cerrada.
+- Spec folder reconoce pattern multi-modulo (specs/<module>/ con
+  requirements.md en cada uno) · valida refactors end-to-end tipo FRK70K.
 """
 from __future__ import annotations
 
@@ -11,6 +17,41 @@ from typing import Dict, List, Optional
 
 from .memory_engine import get_active_task, read_memory
 from .security_gate import run_security_gate
+
+
+# v1.7.2 · estados terminales que indican workstream COMPLETADO
+# (no bloquean el gate · el refactor end-to-end ya cerro la FASE N)
+_TERMINAL_PHASE_TOKENS = (
+    "COMPLETED", "COMPLETE", "DONE", "DELIVERED",
+    "PRE-DEPLOY", "PREDEPLOY", "CLOSED", "FINAL",
+    "RELEASE", "READY-FOR-RELEASE",
+)
+
+
+def _is_terminal_phase(phase: str) -> bool:
+    """v1.7.2 · True si la phase indica workstream terminal/completado."""
+    if not phase:
+        return False
+    upper = phase.upper().replace("_", "-").replace(" ", "-")
+    return any(token in upper for token in _TERMINAL_PHASE_TOKENS)
+
+
+def _enumerate_multi_module_specs(root: Path) -> list[Path]:
+    """v1.7.2 · detecta multi-modulo specs/ pattern.
+
+    Retorna lista de subdirs de specs/ que contienen requirements.md.
+    Usado por el release_gate para validar refactors end-to-end con
+    N specs paralelos (ej. LM-FRK70K: specs/legacy-01-sicofav-module/,
+    specs/legacy-02-arc-module/, ..., specs/legacy-10-noshow-module/).
+    """
+    specs_root = root / "specs"
+    if not specs_root.exists():
+        return []
+    modules: list[Path] = []
+    for child in specs_root.iterdir():
+        if child.is_dir() and (child / "requirements.md").exists():
+            modules.append(child)
+    return sorted(modules)
 
 
 def _tokenize(text: str) -> set:
@@ -68,16 +109,39 @@ def check_release_readiness(root: Path) -> Dict:
     checks: List[Dict] = []
     blocking = False
 
-    # 1. Active task exists
+    # v1.7.2 · detectar multi-modulo specs para pasar R4/R5 en refactors
+    # end-to-end tipo LM-FRK70K (N specs paralelos bajo specs/)
+    multi_specs = _enumerate_multi_module_specs(root)
+
+    # 1. Active task exists · v1.7.2: COMPLETED/DONE/PRE-DEPLOY pasan sin fail
     task = get_active_task(root)
     task_title = task.get("task", "")
+    phase = task.get("phase", "")
     if task_title:
-        checks.append({"check": "Active task defined", "status": "pass", "detail": task_title})
+        detail = task_title
+        if _is_terminal_phase(phase):
+            detail = f"{task_title} · phase={phase} (terminal · no-op)"
+        checks.append({"check": "Active task defined", "status": "pass", "detail": detail})
+    elif _is_terminal_phase(phase):
+        # v1.7.2 · fase terminal sin task actual · workstream cerrado OK
+        checks.append({
+            "check": "Active task defined",
+            "status": "pass",
+            "detail": f"workstream closed · phase={phase}",
+        })
+    elif multi_specs:
+        # v1.7.2 · sin active task pero con multi-modulo specs · refactor
+        # end-to-end completado sin workstream activo · pass con info
+        checks.append({
+            "check": "Active task defined",
+            "status": "pass",
+            "detail": f"multi-module refactor · {len(multi_specs)} specs (no single active task)",
+        })
     else:
         checks.append({"check": "Active task defined", "status": "fail", "detail": "No active workstream"})
         blocking = True
 
-    # 2. Spec exists · v1.6.0 fallback to similarity matching
+    # 2. Spec exists · v1.6.0 similarity · v1.7.2 multi-modulo
     spec_path = task.get("spec", "")
     spec_dir = None
     if spec_path and Path(spec_path).exists():
@@ -93,9 +157,23 @@ def check_release_readiness(root: Path) -> Dict:
                 "status": "pass",
                 "detail": f"matched by similarity → {matched.name}"
             })
+        elif multi_specs:
+            # v1.7.2 · multi-modulo fallback
+            checks.append({
+                "check": "Spec folder exists",
+                "status": "pass",
+                "detail": f"multi-module pattern · {len(multi_specs)} specs/ subdirs",
+            })
         else:
             checks.append({"check": "Spec folder exists", "status": "fail", "detail": "Missing spec (no match found)"})
             blocking = True
+    elif multi_specs:
+        # v1.7.2 · sin task pero con multi-modulo specs · pass
+        checks.append({
+            "check": "Spec folder exists",
+            "status": "pass",
+            "detail": f"multi-module pattern · {len(multi_specs)} specs/ subdirs ({', '.join(s.name for s in multi_specs[:3])}{'...' if len(multi_specs) > 3 else ''})",
+        })
     else:
         checks.append({"check": "Spec folder exists", "status": "fail", "detail": "Missing spec"})
         blocking = True

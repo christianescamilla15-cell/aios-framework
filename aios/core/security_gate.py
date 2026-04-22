@@ -121,6 +121,75 @@ def _is_comment_line(line: str, ext: str) -> bool:
     return any(stripped.startswith(p) for p in prefixes)
 
 
+def _strip_inline_comments(content: str, ext: str) -> str:
+    """v1.7.3 · reemplaza contenido de comentarios con espacios preservando
+    offsets + newlines. Evita que regex multi-linea capturen patterns que
+    viven DENTRO de un comentario (ej. subprocess.run(... # NO shell=True)).
+
+    Cubre dos casos:
+    1. Linea full-comment (ej. '# TODO ...') · reemplaza la linea entera
+       con espacios (detectado por _is_comment_line).
+    2. Inline comment al final de linea de codigo (ej. 'x = 1  # nota')
+       · reemplaza desde el marker hasta el newline con espacios.
+
+    Preserva la estructura exacta del content original para que los
+    line_no y match spans sigan siendo correctos.
+
+    Limitacion conocida: no parsea strings · '#' dentro de '"foo # bar"'
+    puede falsear como comentario si hay espacio antes. Aceptado como
+    trade-off · para auditoria estricta set exclude_comment_lines: false.
+    """
+    # v1.7.3 · markers inline por extension
+    # (no incluimos XML/HTML · <!-- --> multiline requiere parseo real)
+    inline_markers = {
+        # Python · Shell · YAML · TOML
+        ".py": ("#",), ".sh": ("#",), ".yaml": ("#",), ".yml": ("#",),
+        ".toml": ("#",), ".rb": ("#",),
+        # C-family · inline '//'
+        ".cs": ("//",), ".java": ("//",),
+        ".js": ("//",), ".jsx": ("//",),
+        ".ts": ("//",), ".tsx": ("//",),
+        ".mjs": ("//",), ".cjs": ("//",),
+        ".c": ("//",), ".h": ("//",),
+        ".cpp": ("//",), ".hpp": ("//",),
+        # PHP mezcla
+        ".php": ("//", "#"), ".phtml": ("//", "#"),
+        # SQL
+        ".sql": ("--",),
+    }
+    markers = inline_markers.get(ext, ())
+    lines = content.splitlines(keepends=True)
+    out: list[str] = []
+    for line in lines:
+        if _is_comment_line(line, ext):
+            # Linea full-comment · blank entire line (preserve newline)
+            if line.endswith("\n"):
+                out.append(" " * (len(line) - 1) + "\n")
+            else:
+                out.append(" " * len(line))
+            continue
+        # Inline comment stripping
+        if markers:
+            modified = line
+            for marker in markers:
+                # Busca '\s+<marker>' para no hit dentro de strings puras
+                # (approximacion razonable · evita '#' pegado a literal).
+                import re as _re
+                pat = _re.compile(
+                    r"(?<=\s)" + _re.escape(marker) + r"[^\n]*"
+                )
+                matches = list(pat.finditer(modified))
+                if matches:
+                    # Blank each inline comment span (keep positions)
+                    for m in reversed(matches):
+                        blanked = " " * (m.end() - m.start())
+                        modified = modified[:m.start()] + blanked + modified[m.end():]
+            out.append(modified)
+        else:
+            out.append(line)
+    return "".join(out)
+
+
 @dataclass
 class Finding:
     cwe: str
@@ -770,6 +839,10 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     (
         "CWE-547",
         re.compile(
+            # v1.7.3 · negative lookahead · NO detectar dominios internos
+            # canonicos AMX (Route53 PHZ) · son la solucion post-refactor
+            # correcta · no un leak. Formato: *.amx.internal · *.amx.com.mx
+            r"""(?!["'][a-zA-Z0-9_.-]+\.amx\.(?:internal|com\.mx)["'])"""
             r"""["'][a-zA-Z0-9_-]+"""
             r"""(?:\.[a-zA-Z0-9_-]+)*"""
             r"""\.(?:corp|internal|local|intranet|lan|"""
@@ -805,10 +878,16 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     (
         "CWE-522",
         re.compile(
+            # v1.7.3 · negative lookahead ampliado: arn:aws:secretsmanager,
+            # arn:aws:kms, {{ssm:...}}, ${env.*}, @Microsoft.KeyVault son
+            # referencias legitimas (la solucion post-refactor) · no
+            # credenciales plaintext.
             r"""<add\s+[^>]*\bkey\s*=\s*["'][^"']*"""
             r"""(?:[Pp]assword|[Pp]wd|[Ss]ecret|[Tt]oken|[Aa]pi[Kk]ey|"""
             r"""[Cc]redential|[Pp]rivate[Kk]ey)[^"']*["']\s+"""
-            r"""value\s*=\s*["'](?!\{|\$|</?placeholder|</?your)"""
+            r"""value\s*=\s*["'](?!\{|\$|</?placeholder|</?your|"""
+            r"""arn:aws:|@Microsoft\.KeyVault|"""
+            r"""\{\{ssm:|ssm://|aws-secret://)"""
             r"""[^"']+["']""",
             re.IGNORECASE,
         ),
@@ -1099,6 +1178,13 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
         rel = str(fp.relative_to(root))
         fp_ext = fp.suffix.lower()
         lines_cache = content.splitlines()
+        # v1.7.3 · content sanitizado (comentarios reemplazados por
+        # espacios preservando offsets) para evitar FPs donde regex
+        # multi-linea capturan patterns citados en comentarios.
+        scan_content = (
+            _strip_inline_comments(content, fp_ext)
+            if skip_comments else content
+        )
 
         def _emit_unless_comment(finding: Finding) -> None:
             """v1.7.2 · skip findings que caen en lineas de comentario."""
@@ -1110,14 +1196,18 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
             if file_exts is not None and fp_ext not in file_exts:
                 continue
-            for m in pattern.finditer(content):
-                line_no = content.count("\n", 0, m.start()) + 1
+            # v1.7.3 · detector regex opera sobre content sin comentarios
+            for m in pattern.finditer(scan_content):
+                line_no = scan_content.count("\n", 0, m.start()) + 1
                 snippet = lines_cache[line_no - 1].strip()[:160] if line_no - 1 < len(lines_cache) else ""
                 _emit_unless_comment(Finding(
                     cwe=cwe, severity=severity, rule_id=rule_id,
                     file=rel, line=line_no, snippet=snippet,
                 ))
 
+        # forbidden_literals siguen usando content original (v1.7.2
+        # el line-by-line filter es suficiente · los literals no
+        # cruzan lineas).
         for literal in forbidden:
             for m in re.finditer(re.escape(literal), content):
                 line_no = content.count("\n", 0, m.start()) + 1
@@ -1170,6 +1260,11 @@ def scan_files(
             continue
         fp_ext = fp.suffix.lower()
         lines_cache = content.splitlines()
+        # v1.7.3 · content sanitizado para detectores (ver scan_directory)
+        scan_content = (
+            _strip_inline_comments(content, fp_ext)
+            if skip_comments else content
+        )
 
         def _emit_unless_comment(finding: Finding) -> None:
             if skip_comments and 0 < finding.line <= len(lines_cache):
@@ -1180,8 +1275,8 @@ def scan_files(
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
             if file_exts is not None and fp_ext not in file_exts:
                 continue
-            for m in pattern.finditer(content):
-                line_no = content.count("\n", 0, m.start()) + 1
+            for m in pattern.finditer(scan_content):
+                line_no = scan_content.count("\n", 0, m.start()) + 1
                 snippet = (
                     lines_cache[line_no - 1].strip()[:160]
                     if line_no - 1 < len(lines_cache) else ""

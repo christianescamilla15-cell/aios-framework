@@ -1241,6 +1241,19 @@ def main():
                    help="Para diff: segundo archivo a comparar")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
+    # v2.2.0 · RFC-004a + RFC-004b · Cross-Copy Drift Detector CLI
+    p = sub.add_parser("drift",
+                       help="Detecta divergencia cross-copy (source vs build vs prod) "
+                            "+ credenciales byte-idénticas entre ambientes")
+    p.add_argument("--source", required=True,
+                   help="Primer directorio (ej. source tree)")
+    p.add_argument("--compare", required=True,
+                   help="Segundo directorio (ej. build output · prod deployed)")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+    p.add_argument("--severity-min", default="INFO",
+                   choices=["INFO", "MEDIUM", "HIGH", "CRITICAL"],
+                   help="Filtra findings bajo este nivel")
+
     # v2.1.0 · RFC-003 Nivel 4 · Stakeholder-in-the-Loop CLI
     p = sub.add_parser("review",
                        help="Gestiona decisiones sobre findings que "
@@ -1480,6 +1493,8 @@ def main():
         "characterize": cmd_characterize,
         # v2.1.0 · RFC-003 Nivel 4 · Stakeholder-in-the-Loop
         "review": cmd_review,
+        # v2.2.0 · RFC-004a + 004b · Cross-Copy Drift Detector
+        "drift": cmd_drift,
     }
 
     if args.command in commands:
@@ -1553,6 +1568,88 @@ def cmd_resume(args):
             print(f"  Ultimo commit:          {cp['last_commit']}")
         if cp.get("updated"):
             print(f"  Updated:                {cp['updated']}")
+    print()
+
+
+def cmd_drift(args):
+    """v2.2.0 · cross-copy drift detector · RFC-004a + RFC-004b."""
+    import json
+    from pathlib import Path as _Path
+    from aios.core.drift_detector import detect_drift
+
+    src = _Path(args.source)
+    if not src.is_absolute():
+        src = _Path.cwd() / src
+    cmp = _Path(args.compare)
+    if not cmp.is_absolute():
+        cmp = _Path.cwd() / cmp
+    if not src.exists():
+        print(f"  ERROR · source no existe: {args.source}")
+        return
+    if not cmp.exists():
+        print(f"  ERROR · compare no existe: {args.compare}")
+        return
+
+    severity_order = ["INFO", "MEDIUM", "HIGH", "CRITICAL"]
+    min_idx = severity_order.index(args.severity_min)
+    report = detect_drift(src, cmp)
+
+    # Filter findings por severity-min
+    filtered = [
+        f for f in report.findings
+        if severity_order.index(f.severity) >= min_idx
+    ]
+
+    if args.format == "json":
+        out = report.to_dict()
+        out["findings"] = [f.to_dict() for f in filtered]
+        out["by_severity"] = {
+            s: sum(1 for f in filtered if f.severity == s)
+            for s in severity_order
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Cross-Copy Drift Analysis · RFC-004")
+    print("  " + "─" * 68)
+    print(f"  Source  : {report.root_a}")
+    print(f"  Compare : {report.root_b}")
+    print()
+    print(f"  Config file pairs matched: {report.file_pairs_matched}")
+    print(f"  Files only in source  : {len(report.files_only_in_a)}")
+    print(f"  Files only in compare : {len(report.files_only_in_b)}")
+    print()
+    by_sev = {s: sum(1 for f in filtered if f.severity == s) for s in severity_order}
+    print(f"  Findings by severity (min={args.severity_min}):")
+    for s in reversed(severity_order):
+        count = by_sev.get(s, 0)
+        if count > 0:
+            print(f"    {s:10s} : {count}")
+    print()
+    if filtered:
+        # Critical + High primero · agrupados
+        for sev in ("CRITICAL", "HIGH", "MEDIUM", "INFO"):
+            sev_findings = [f for f in filtered if f.severity == sev]
+            if not sev_findings:
+                continue
+            print(f"  ═══ {sev} ({len(sev_findings)}) ═══")
+            for f in sev_findings[:20]:
+                print(f"    · [{f.kind}] {f.key}")
+                if f.file_a or f.file_b:
+                    print(f"      A: {f.file_a or '(no presente)'}")
+                    print(f"      B: {f.file_b or '(no presente)'}")
+                if f.value_a or f.value_b:
+                    v_a = f.value_a[:80] + "..." if len(f.value_a) > 80 else f.value_a
+                    v_b = f.value_b[:80] + "..." if len(f.value_b) > 80 else f.value_b
+                    print(f"      val A: {v_a}")
+                    print(f"      val B: {v_b}")
+                print(f"      → {f.message[:200]}")
+                if f.extra_occurrences:
+                    print(f"      Se repite en {len(f.extra_occurrences)} archivos:")
+                    for occ in f.extra_occurrences[:5]:
+                        print(f"        · {occ.get('file','')}:{occ.get('line',0)}")
+                print()
     print()
 
 

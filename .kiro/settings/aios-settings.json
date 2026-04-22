@@ -1,7 +1,7 @@
 {
   "$schema": "https://github.com/OYN-AMX/am-kiro/schema/settings.schema.json",
   "aios": {
-    "version": "2.1.2",
+    "version": "2.2.0",
     "default_mode": "auto",
     "session": {
       "auto_boot": true,

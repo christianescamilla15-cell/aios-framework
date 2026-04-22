@@ -266,17 +266,101 @@ def aggregate_report(project_path: str) -> dict:
 
 @app.tool()
 @instrument_tool
-def forbidden_literals_suggest() -> dict:
-    """Retorna la lista canonical de AMX forbidden literals que
-    security_scan detecta cuando se configuran en aios-config.json.
-    Informativo · el scanner NO los incluye por default (user opt-in)."""
+def forbidden_literals_suggest(project_path: str = ".") -> dict:
+    """Devuelve guia + estado del config de forbidden_literals que
+    security_scan consume desde aios-config.json.
+
+    Verifica si `aios-config.json` existe en project_path y reporta
+    el count actual. Retorna categorias de ejemplo con placeholders
+    (patrones genericos · no valores sensibles) y un JSON template
+    listo para copy-paste al config."""
+    root = Path(project_path).expanduser().resolve()
+    cfg_file = root / "aios-config.json"
+    current_count = 0
+    current_enabled = False
+    config_status = "missing"
+    if cfg_file.exists():
+        config_status = "present"
+        try:
+            raw = json.loads(cfg_file.read_text(encoding="utf-8"))
+            sg = raw.get("security_gate", {}) if isinstance(raw, dict) else {}
+            current_enabled = bool(sg.get("enabled", False))
+            current_count = len(
+                [lit for lit in sg.get("forbidden_literals", []) if lit]
+            )
+        except Exception as exc:  # noqa: BLE001
+            config_status = f"invalid_json: {exc}"
+
+    example_categories = [
+        {
+            "category": "hardcoded_credentials",
+            "description": "passwords, API keys, secret tokens inline en codigo",
+            "placeholders": [
+                "<HARDCODED_PASSWORD>",
+                "<API_KEY_LITERAL>",
+                "<BEARER_TOKEN>",
+            ],
+        },
+        {
+            "category": "internal_ip_addresses",
+            "description": "IPs de red interna que no deben salir del perimetro",
+            "placeholders": [
+                "<INTERNAL_IP_PROD>",
+                "<INTERNAL_IP_STAGE>",
+                "<DB_HOST_LITERAL>",
+            ],
+        },
+        {
+            "category": "domain_specific_ids",
+            "description": "IDs de negocio que no deben quedar hardcoded",
+            "placeholders": [
+                "<FIXTURE_RECORD_ID>",
+                "<TEST_TRANSACTION_CODE>",
+                "<LEGACY_SERVICE_ID>",
+            ],
+        },
+        {
+            "category": "project_branding",
+            "description": "nombres codigo o branding que no debe filtrarse",
+            "placeholders": [
+                "<INTERNAL_PROJECT_CODENAME>",
+                "<LEGACY_SYSTEM_NAME>",
+            ],
+        },
+    ]
+
+    template = {
+        "security_gate": {
+            "enabled": True,
+            "strict": False,
+            "max_critical": 0,
+            "max_high": 5,
+            "forbidden_literals": [
+                "<REPLACE_WITH_YOUR_LITERAL_1>",
+                "<REPLACE_WITH_YOUR_LITERAL_2>",
+            ],
+        }
+    }
+
     return {
-        "note": "estos literales son del catalogo AMX · configurar en aios-config.json forbidden_literals",
-        "literals_info": (
-            "Los literales especificos de AMX estan documentados en el "
-            "catalogo interno del proyecto amx-hallazgos-audit. Este MCP "
-            "server NO los expone · seguridad by design. Si tu proyecto "
-            "requiere detectarlos, agrega la lista manualmente al config."
+        "config_path": str(cfg_file),
+        "config_status": config_status,
+        "security_gate_enabled": current_enabled,
+        "current_forbidden_literals_count": current_count,
+        "how_to_configure": (
+            "Agrega tus literales en aios-config.json -> "
+            "security_gate.forbidden_literals (lista de strings). "
+            "Despues corre security_scan o release_gate_check para que "
+            "los detecte. Este tool NO expone los literales en si · "
+            "se cargan desde el config del proyecto."
+        ),
+        "example_categories": example_categories,
+        "config_template": template,
+        "canonical_amx_catalog_hint": (
+            "El catalogo AMX canonico esta versionado en el repo privado "
+            "amx-hallazgos-audit (06_amx_policy.md + policy.py). Usarlo "
+            "como fuente de verdad para proyectos AMX · copiar al "
+            "aios-config.json local del proyecto auditado."
         ),
     }
 

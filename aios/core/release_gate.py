@@ -150,6 +150,64 @@ def _check_behavior_preservation(root: Path) -> dict:
     }
 
 
+def _check_human_review(root: Path, pause_findings: list) -> dict:
+    """v2.1.0 · RFC-003 Nivel 4 · aplica decisiones humanas.
+
+    Los findings con decisión 'reject' bloquean release (user dijo que
+    el refactor rompe dominio). Los 'approve' se consideran resueltos.
+    Pending/deferred siguen en WARN.
+    """
+    try:
+        from .review import filter_findings_by_decisions
+    except ImportError:
+        return {
+            "check": "Human review decisions (SITL)",
+            "status": "skip",
+            "detail": "review module not available",
+            "_blocking": False,
+        }
+    buckets = filter_findings_by_decisions(pause_findings or [], root)
+    n_pending = len(buckets.get("pending", []))
+    n_approved = len(buckets.get("approved", []))
+    n_rejected = len(buckets.get("rejected", []))
+    n_deferred = len(buckets.get("deferred", []))
+
+    if n_rejected > 0:
+        return {
+            "check": "Human review decisions (SITL)",
+            "status": "fail",
+            "detail": (
+                f"{n_rejected} findings REJECTED · rollback requerido · "
+                f"ver .aios/review-log.jsonl · corre 'aios review list'"
+            ),
+            "_blocking": True,
+        }
+    if n_pending > 0 or n_deferred > 0:
+        return {
+            "check": "Human review decisions (SITL)",
+            "status": "warn",
+            "detail": (
+                f"{n_pending} pending · {n_deferred} deferred · "
+                f"{n_approved} approved · corre 'aios review list' "
+                f"para gestionar"
+            ),
+            "_blocking": False,
+        }
+    if n_approved > 0:
+        return {
+            "check": "Human review decisions (SITL)",
+            "status": "pass",
+            "detail": f"{n_approved} findings approved en review queue · 0 pending/rejected",
+            "_blocking": False,
+        }
+    return {
+        "check": "Human review decisions (SITL)",
+        "status": "pass",
+        "detail": "0 findings requieren review · queue limpia",
+        "_blocking": False,
+    }
+
+
 def _tokenize(text: str) -> set:
     """Tokenize text into lowercase word set for similarity."""
     import re
@@ -356,6 +414,17 @@ def check_release_readiness(root: Path) -> Dict:
     behavior_check = _check_behavior_preservation(root)
     checks.append(behavior_check)
     if behavior_check.get("_blocking"):
+        blocking = True
+
+    # 10. v2.1.0 · RFC-003 Nivel 4 · Human review decisions (SITL)
+    # Aplica las decisiones registradas en .aios/review-log.jsonl:
+    #  - rejected findings bloquean release
+    #  - approved findings se consideran resueltos
+    #  - deferred/pending siguen en WARN
+    pause_findings = sec.get("requires_human_review", [])
+    review_check = _check_human_review(root, pause_findings)
+    checks.append(review_check)
+    if review_check.get("_blocking"):
         blocking = True
 
     passed = sum(1 for c in checks if c["status"] == "pass")

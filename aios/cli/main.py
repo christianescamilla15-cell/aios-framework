@@ -1220,6 +1220,30 @@ def main():
                    help="Para diff: segundo archivo a comparar")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
+    # v2.1.0 · RFC-003 Nivel 4 · Stakeholder-in-the-Loop CLI
+    p = sub.add_parser("review",
+                       help="Gestiona decisiones sobre findings que "
+                            "requieren review humano (approve/reject/defer) · "
+                            "audit trail en .aios/review-log.jsonl")
+    p.add_argument("--root", default=".")
+    p.add_argument("action",
+                   choices=["list", "show", "approve", "reject", "defer", "generate"],
+                   help="list: findings pendientes · show <id>: doc del finding · "
+                        "approve/reject/defer: registrar decisión · "
+                        "generate: emite review docs para findings pause actuales")
+    p.add_argument("--id", default="", help="Finding ID (ej. FRK-a3f8e1b2)")
+    p.add_argument("--reason", default="", help="Razón de la decisión (texto)")
+    p.add_argument("--classification", default="",
+                   choices=["", "bug", "business_rule", "migration_candidate", "unclear"],
+                   help="Al approve: reclasificación final (opcional)")
+    p.add_argument("--user", default="",
+                   help="Usuario que decide (default: git user.email)")
+    p.add_argument("--add-to-ontology", action="store_true",
+                   help="Al approve: propone entry al ontology (merge manual)")
+    p.add_argument("--pattern", default="",
+                   help="Regex pattern para ontology proposed (override auto-extract)")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # status
     p = sub.add_parser("status", help="Show project status")
     p.add_argument("--root", default=".")
@@ -1433,6 +1457,8 @@ def main():
         "classify": cmd_classify,
         # v2.0.0 · RFC-003 Nivel 3 · Characterization tests
         "characterize": cmd_characterize,
+        # v2.1.0 · RFC-003 Nivel 4 · Stakeholder-in-the-Loop
+        "review": cmd_review,
     }
 
     if args.command in commands:
@@ -1507,6 +1533,144 @@ def cmd_resume(args):
         if cp.get("updated"):
             print(f"  Updated:                {cp['updated']}")
     print()
+
+
+def cmd_review(args):
+    """v2.1.0 · stakeholder-in-the-loop · RFC-003 Nivel 4."""
+    import json
+    from datetime import datetime, timezone
+    from aios.core import review as rv
+    from aios.core.security_gate import run_security_gate
+    root = get_root(args)
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    # Determina usuario (git config si no --user)
+    user = args.user
+    if not user:
+        try:
+            import subprocess
+            r = subprocess.run(["git", "config", "user.email"],
+                               capture_output=True, text=True,
+                               cwd=str(root), check=False, timeout=5)
+            user = r.stdout.strip() or "anonymous"
+        except Exception:  # noqa: BLE001
+            user = "anonymous"
+
+    if args.action == "list":
+        # Corre scan + filtra por decisions
+        sec = run_security_gate(root)
+        pause = sec.get("requires_human_review", []) or []
+        buckets = rv.filter_findings_by_decisions(pause, root)
+        if args.format == "json":
+            print(json.dumps({
+                "pending": buckets["pending"],
+                "approved": len(buckets["approved"]),
+                "rejected": len(buckets["rejected"]),
+                "deferred": len(buckets["deferred"]),
+            }, indent=2, ensure_ascii=False))
+            return
+        print()
+        print(f"  Review queue")
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  Pending  : {len(buckets['pending'])} findings")
+        print(f"  Approved : {len(buckets['approved'])} (histórico)")
+        print(f"  Rejected : {len(buckets['rejected'])} (bloquean release)")
+        print(f"  Deferred : {len(buckets['deferred'])} (pospuestos)")
+        print()
+        if buckets["pending"]:
+            print("  Pendientes:")
+            for f in buckets["pending"][:20]:
+                print(f"    · {f['finding_id']} · {f.get('rule_id','')} · "
+                      f"{f.get('file','')}:{f.get('line','?')} · "
+                      f"sev={f.get('severity','?')}")
+        print()
+        return
+
+    if args.action == "generate":
+        sec = run_security_gate(root)
+        pause = sec.get("requires_human_review", []) or []
+        count = 0
+        for f in pause:
+            fid = rv.make_finding_id(
+                f.get("file", ""), int(f.get("line", 0) or 0),
+                f.get("rule_id", ""),
+            )
+            f_with_id = dict(f)
+            f_with_id["finding_id"] = fid
+            rv.generate_review_doc(f_with_id, root)
+            count += 1
+        print()
+        print(f"  {count} review docs generados en .aios/reviews/")
+        print()
+        return
+
+    if args.action == "show":
+        if not args.id:
+            print("  ERROR · --id requerido")
+            return
+        doc = root / ".aios" / "reviews" / f"{args.id}.md"
+        if not doc.exists():
+            print(f"  ERROR · review doc no existe: {args.id}")
+            print("  Corre 'aios review generate' primero")
+            return
+        print()
+        print(doc.read_text(encoding="utf-8"))
+        print()
+        return
+
+    if args.action in ("approve", "reject", "defer"):
+        if not args.id:
+            print(f"  ERROR · --id requerido para {args.action}")
+            return
+        # Find existing review doc para extraer metadata
+        doc = root / ".aios" / "reviews" / f"{args.id}.md"
+        file_path, line_no, rule_id = "", 0, ""
+        if doc.exists():
+            for line in doc.read_text(encoding="utf-8").splitlines():
+                if line.startswith("**File:**"):
+                    file_path = line.split("`", 2)[1] if "`" in line else ""
+                elif line.startswith("**Line:**"):
+                    import re as _re
+                    m = _re.search(r"\d+", line)
+                    if m:
+                        line_no = int(m.group(0))
+                elif line.startswith("**Rule:**"):
+                    rule_id = line.split("`", 2)[1] if "`" in line else ""
+
+        decision = rv.ReviewDecision(
+            timestamp=now, finding_id=args.id,
+            file=file_path, line=line_no, rule_id=rule_id,
+            action=args.action, reason=args.reason, user=user,
+            final_classification=args.classification,
+            ontology_proposed=args.add_to_ontology and args.action == "approve",
+        )
+        rv.log_decision(root, decision)
+
+        # Ontology proposal (optional)
+        if args.add_to_ontology and args.action == "approve":
+            snippet = ""
+            if doc.exists():
+                # Very heuristic · extract snippet line from markdown
+                for line in doc.read_text(encoding="utf-8").splitlines():
+                    if "snippet" in line.lower():
+                        snippet = line
+                        break
+            proposal_path = rv.propose_ontology_entry(
+                root, args.id, rule_id, snippet or "",
+                args.classification or "unclear",
+                args.reason or "Propuesto en review",
+                pattern_override=args.pattern,
+            )
+            print(f"  ✓ Ontology proposal agregado a: {proposal_path}")
+            print(f"    Merge manual al catálogo canónico tras aprobación AMX.")
+        print()
+        print(f"  ✓ Decision logged · {args.action.upper()} · {args.id}")
+        if args.reason:
+            print(f"    Reason: {args.reason}")
+        print(f"    User  : {user}")
+        print(f"    Time  : {now}")
+        print()
+        return
 
 
 def cmd_characterize(args):

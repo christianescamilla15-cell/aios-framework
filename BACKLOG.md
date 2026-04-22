@@ -213,6 +213,64 @@ Al cerrar estos 4 detectores · el recall contra análisis humano NoShow deberí
 
 ---
 
+## BUG-004 · Discrepancia `aios release` vs `aios security-scan-staged`
+
+**Severidad**: MEDIA · afecta reproducibilidad de evidencia
+**Origen**: validación sesión limpia v2.1.0 · 2026-04-22 · usuario reportó 41 vs 22 findings entre los 2 comandos.
+
+### Síntoma
+- `aios release` reporta N findings sobre el workspace
+- `aios security-scan-staged` reporta M findings (M < N típicamente)
+- Los conjuntos de archivos barridos difieren · sin documentación clara del por qué
+
+### Causa raíz probable
+- `release` → `scan_directory()` · barre TODO el workspace (rglob)
+- `security-scan-staged` → `scan_files()` · solo archivos pasados explícitamente (típicamente `git diff --cached --name-only`)
+
+Cuando hay mucho código no staged, los counts difieren legítimamente. Pero el CLI no lo comunica.
+
+### Fix propuesto
+1. `aios security-scan-staged` debe loggear al inicio: "Scanning N staged files · full workspace tiene M files · counts no son comparables con `aios release`"
+2. `aios release --detail` debe incluir una nota: "Full workspace scan · vs staged subset corre `aios security-scan-staged`"
+3. Agregar a `aios doctor` un check: "discrepancia staged vs release si > 20% delta"
+
+### Tracking
+- v2.1.1 · agregar logging warning en staged command
+
+---
+
+## BUG-005 · Ontology seed solo cubre `forbidden_literals` · no rule_ids de Mythos
+
+**Severidad**: ALTA · usuarios ven 80%+ de findings como `unclear`
+**Origen**: validación sesión limpia v2.1.0 · 2026-04-22 · 16/41 findings clasificados como `unclear` en carpeta test.
+
+### Síntoma
+El ontology seed (`aios/policies/amx-revenue-accounting/ontology.yaml`) inicialmente solo tenía entries por `literal` (PERRO_ROBOTICO, ATOS5246, etc). Cuando un detector de Mythos emite un finding con rule_id que no está en el catálogo (ej. `CREDENTIAL-PLAINTEXT-WEBCONFIG`, `STATIC-PATH-TRAVERSAL-CSHARP`), el ontology cae al default_classification que es `unclear`, pasando a review queue en vez de auto_fix.
+
+Resultado: review queue saturado de falsos unclears · UX pobre · el Nivel 1 no cumple su promesa de clasificar CWEs estándar como `bug`.
+
+### Fix (v2.1.1 · commit pendiente)
+Ampliar el ontology seed con 12 entries nuevas que mapean `rule_id` → classification:
+- CWE-522/798 · CREDENTIAL-PLAINTEXT-* → bug
+- CWE-89 · STATIC-SQL-* → bug
+- CWE-78 · STATIC-CMD-* → bug
+- CWE-22 · STATIC-PATH-TRAVERSAL-* → bug
+- CWE-502 · STATIC-PICKLE-* → bug
+- CWE-611 · STATIC-XXE-* → bug
+- CWE-79 · STATIC-XSS-* → bug
+- CWE-312 · STATIC-CLEARTEXT-* → bug
+- CWE-547 · HARDCODED-INTERNAL-HOSTNAME → migration_candidate
+- CWE-287 · STATIC-AUTH-BYPASS-* → bug · auto_fix=false (requiere review humano)
+- CWE-770 · STATIC-NO-TIMEOUT · UNBOUNDED-LOOP → bug
+- CWE-327 · STATIC-MD5/SHA1/WEAK-* → bug
+
+Con esto, la mayoría de los findings CWE estándar quedan clasificados correctamente. Review queue solo se llena con verdaderos unclears o business_rules.
+
+### Validación pendiente
+Re-correr el análisis sobre el mismo workspace post-v2.1.1 · esperado: unclear count baja de 16 a ≤3.
+
+---
+
 ## RFC-003 · Domain-awareness · de scanner genérico a asistente con contexto
 
 **Severidad**: CRÍTICA · es la diferencia entre "framework juguete" y "herramienta profesional"

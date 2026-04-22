@@ -156,15 +156,23 @@ def classify_finding(
         if not isinstance(pattern_entry, dict):
             continue
         if _pattern_matches(finding_text, rule_id, pattern_entry):
-            # Determine action
+            # Determine action · v2.1.1 · respeta auto_fix_allowed: false
+            # aunque classification sea 'bug' (ej. CWE-287 auth bypass
+            # es bug confirmado pero requiere review humano · no auto-fix).
             classification = pattern_entry.get("classification", "unclear")
             auto_fix_allowed = bool(pattern_entry.get("auto_fix_allowed", False))
-            if classification == "bug" or auto_fix_allowed:
+            if pattern_entry.get("skip", False) or classification == "skip":
+                action = ACTION_SKIP
+            elif auto_fix_allowed and classification in (
+                "bug", "migration_candidate",
+            ):
                 action = ACTION_AUTO_FIX
+            elif classification == "bug" and not auto_fix_allowed:
+                # Bug confirmado · pero auto-fix explicitamente deshabilitado ·
+                # requiere review humano (ej. auth bypass · no hay fix generico)
+                action = ACTION_PAUSE_FOR_REVIEW
             elif classification in ("business_rule", "unclear"):
                 action = ACTION_PAUSE_FOR_REVIEW
-            elif classification == "skip" or pattern_entry.get("skip", False):
-                action = ACTION_SKIP
             else:
                 action = ACTION_WARN
             return ClassificationResult(

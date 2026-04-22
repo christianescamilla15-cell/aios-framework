@@ -473,6 +473,27 @@ def cmd_security_scan_staged(args):
         print("[AIOS/scan-staged] No files to scan")
         return
 
+    # v2.1.1 · BUG-004 · advertir sobre scope para evitar confusion con
+    # 'aios release' (que escanea workspace completo)
+    try:
+        import subprocess as _sp
+        total_files_proc = _sp.run(
+            ["git", "ls-files"], capture_output=True, text=True,
+            cwd=str(root), check=False, timeout=5,
+        )
+        if total_files_proc.returncode == 0:
+            total_tracked = len([
+                l for l in total_files_proc.stdout.splitlines() if l.strip()
+            ])
+            if total_tracked > len(files):
+                print(
+                    f"[AIOS/scan-staged] SCOPE · {len(files)} staged files "
+                    f"de {total_tracked} tracked en repo · para scan "
+                    f"completo del workspace usa `aios release`"
+                )
+    except Exception:  # noqa: BLE001
+        pass
+
     findings = _scan_files(root, files)
     critical = [f for f in findings if f.severity == "CRITICAL"]
     high = [f for f in findings if f.severity == "HIGH"]

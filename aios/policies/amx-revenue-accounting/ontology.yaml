@@ -170,3 +170,144 @@ patterns:
       deuda reconocida (> 3 meses OK · < 1 mes sospechoso) antes
       de limpiar.
     tags: ["dead-code", "review-required"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # CWE-STANDARD · mapping por rule_id para los 72 detectores Mythos
+  # Fix del seed v2.1.1 · antes solo cubría forbidden_literals,
+  # causando que los otros detectores default-eran a 'unclear'.
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: CWE_798_CREDENTIAL_PLAINTEXT
+    description: "Credenciales plaintext en config · CWE-522/798"
+    matches:
+      - rule_id: "CREDENTIAL-PLAINTEXT-WEBCONFIG"
+      - rule_id: "CREDENTIAL-PLAINTEXT-APPSETTINGS"
+      - rule_id: "CREDENTIAL-PLAINTEXT-FS"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "secrets_manager_migration"
+    tags: ["credential", "cwe-522", "cwe-798"]
+
+  - id: CWE_89_SQL_INJECTION
+    description: "SQL injection · CWE-89"
+    matches:
+      - rule_id: "STATIC-SQL-FSTRING"
+      - rule_id: "STATIC-SQL-CONCAT"
+      - rule_id: "STATIC-SQL-CSHARP-CONCAT"
+      - rule_id: "STATIC-SQL-JAVA-CONCAT"
+      - rule_id: "STATIC-SQL-PHP-CONCAT"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "parameterized_queries"
+    tags: ["injection", "cwe-89"]
+
+  - id: CWE_78_COMMAND_INJECTION
+    description: "Command injection · CWE-78"
+    matches:
+      - rule_id: "STATIC-CMD-SHELL-TRUE"
+      - rule_id: "STATIC-CMD-PHP-SHELL"
+      - rule_id: "STATIC-CMD-CSHARP-PROCESS"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "process_start_no_shell"
+    tags: ["injection", "cwe-78"]
+
+  - id: CWE_22_PATH_TRAVERSAL
+    description: "Path traversal · CWE-22"
+    matches:
+      - rule_id: "STATIC-PATH-TRAVERSAL"
+      - rule_id: "STATIC-PATH-TRAVERSAL-CSHARP"
+      - rule_id: "STATIC-PATH-TRAVERSAL-JAVA"
+      - rule_id: "STATIC-PATH-TRAVERSAL-PHP"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "path_whitelist_basename"
+    tags: ["cwe-22"]
+
+  - id: CWE_502_INSECURE_DESERIALIZATION
+    description: "Insecure deserialization · CWE-502"
+    matches:
+      - rule_id: "STATIC-PICKLE-DESERIALIZATION"
+      - rule_id: "STATIC-JAVA-READOBJECT"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "schema_validated_json"
+    tags: ["cwe-502"]
+
+  - id: CWE_611_XXE
+    description: "XML External Entity · CWE-611"
+    matches:
+      - rule_id: "STATIC-XXE-LXML"
+      - rule_id: "STATIC-XXE-CSHARP"
+      - rule_id: "STATIC-XXE-JAVA"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "disable_external_dtd"
+    tags: ["cwe-611"]
+
+  - id: CWE_79_XSS
+    description: "Cross-site scripting · CWE-79"
+    matches:
+      - rule_id: "STATIC-XSS-FSTRING-HTML"
+      - rule_id: "STATIC-XSS-PHP-ECHO"
+      - rule_id: "STATIC-XSS-JS-INNERHTML"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "html_escape_output"
+    tags: ["cwe-79"]
+
+  - id: CWE_312_CLEARTEXT_LOGGING
+    description: "Cleartext logging · CWE-312 · PCI-DSS relevant"
+    matches:
+      - rule_id: "STATIC-CLEARTEXT-LEGACY-IP"
+      - rule_id: "STATIC-CLEARTEXT-CCDATA"
+      - rule_id: "STATIC-CLEARTEXT-PII"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "masked_logging"
+    tags: ["cwe-312", "pci-dss"]
+
+  - id: CWE_547_HARDCODED_HOSTNAME
+    description: "Hostname interno hardcoded · CWE-547"
+    matches:
+      - rule_id: "HARDCODED-INTERNAL-HOSTNAME"
+      - rule_id: "HARDCODED-ENV-URL-PREFIX"
+    classification: "migration_candidate"
+    auto_fix_allowed: true
+    fix_template: "route53_phz_migration"
+    tags: ["cwe-547", "dns"]
+
+  - id: CWE_287_AUTH_BYPASS
+    description: "Authentication bypass · CWE-287"
+    matches:
+      - rule_id: "STATIC-AUTH-BYPASS-NONE"
+      - rule_id: "STATIC-AUTH-BYPASS-HARDCODED"
+    classification: "bug"
+    auto_fix_allowed: false  # requiere review humano · no auto-fix
+    pause_message: >
+      Auth bypass detectado · REQUIERE review manual · el fix
+      depende del flujo de autorización · no auto-aplicable.
+    tags: ["cwe-287", "auth", "review-required"]
+
+  - id: CWE_770_RESOURCE_EXHAUSTION
+    description: "Resource exhaustion (sin límite) · CWE-770"
+    matches:
+      - rule_id: "STATIC-NO-TIMEOUT"
+      - rule_id: "STATIC-NO-RATE-LIMIT"
+      - rule_id: "STATIC-UNBOUNDED-LOOP"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "semaphore_bulkhead"
+    tags: ["cwe-770"]
+
+  - id: CWE_327_WEAK_CRYPTO
+    description: "Weak crypto · CWE-327"
+    matches:
+      - rule_id: "STATIC-MD5-HASH"
+      - rule_id: "STATIC-SHA1-HASH"
+      - rule_id: "STATIC-WEAK-CIPHER"
+      - rule_id: "STATIC-WEAK-RANDOM"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "bcrypt_argon2_migration"
+    tags: ["cwe-327", "crypto"]

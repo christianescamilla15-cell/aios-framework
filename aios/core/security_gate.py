@@ -232,6 +232,10 @@ _COBOL = frozenset({".cob", ".cbl", ".cpy"})
 _PHP = frozenset({".php", ".phtml", ".php3", ".php4", ".php5"})
 _JSTS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
 _NETCFG = frozenset({".config"})  # web.config / app.config de ASP.NET
+# v3.5.0 · extension groups añadidos para refinamientos AMX
+_VB = frozenset({".vb"})
+_PROJ = frozenset({".csproj", ".vbproj"})
+_APPSETTINGS = frozenset({".json"})  # filtrado adicional por regex
 _ANY: frozenset[str] | None = None  # aplica a cualquier extension
 
 # v3.5.0 · patterns de logging presentes dentro de un bloque catch
@@ -1424,6 +1428,77 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "IAM policy con Resource:* o Action:* · viola least-privilege · "
         "amazon-q-rules G07 · CWE-269",
         frozenset({".py", ".json", ".yaml", ".yml", ".ts"}),
+    ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.5.0 sprint 2 · 4 detectores refinados AMX · patrones observados
+    # en baseline 6 apps Revenue Accounting (23-abr-2026)
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-319",
+        re.compile(
+            # URL literal con IPv4 hardcoded (no CIDR en comentarios):
+            # http://10.0.1.5:8443/... o https://172.16.20.10/Notify
+            r"""["']https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""
+            r"""(?::\d{1,5})?/[^"'\s]*["']"""
+        ),
+        "AMX-VBNET-HARDCODED-IP-IN-URL",
+        "HIGH",
+        "URL literal con IP hardcoded en VB.NET · endpoint interno "
+        "cableado (SABRE/notify) · rotar a config + DNS · CWE-319",
+        _VB,
+    ),
+    (
+        "CWE-522",
+        re.compile(
+            # Connection string literal con credencial en DBCnx.vb-style:
+            # "Server=XXX;Database=Y;User Id=Z;Password=W"
+            # Match cuando aparece Server=/Data Source= junto con Password=
+            # en la misma línea · evita FPs en docs/xml literales.
+            r"""["'](?:[^"'\n]*?\b(?:Server|Data\s+Source|Host)\s*=\s*"""
+            r"""[^;"']+;[^"'\n]*?\bPassword\s*=\s*[^"';\s]+)[^"'\n]*["']"""
+        ),
+        "AMX-DBCNX-VB-HARDCODED-CONNSTR",
+        "HIGH",
+        "Connection string literal con Password inline en VB.NET · "
+        "mover a AWS Secrets Manager · amazon-q-rules security · "
+        "CWE-522",
+        _VB,
+    ),
+    (
+        "CWE-522",
+        re.compile(
+            # appsettings.json con sección ConnectionStrings que tiene
+            # un valor literal con Server=/Data Source=/Host= (o password)
+            # · NO dispara si el valor es un token $SECRETSMANAGER- /
+            # $ENV: / {{ }} / ${ } (placeholders de injection).
+            r""""ConnectionStrings"\s*:\s*\{[^}]*?"""
+            r""""[^"]+"\s*:\s*"(?!\$SECRETSMANAGER|\$\{|\{\{|\$ENV:)"""
+            r"""[^"]*?(?:\bServer\s*=|\bData\s+Source\s*=|\bHost\s*=|"""
+            r"""\bPassword\s*=|\bPwd\s*=)[^"]*"""
+            r""""[^}]*\}""",
+            re.DOTALL,
+        ),
+        "AMX-APPSETTINGS-CONNSTR-NO-SECRETS-MANAGER",
+        "HIGH",
+        "appsettings.json con ConnectionStrings literal · sin token "
+        "Secrets Manager ($SECRETSMANAGER-...) · riesgo commit de "
+        "credencial · amazon-q-rules security · CWE-522",
+        _APPSETTINGS,
+    ),
+    (
+        "CWE-1104",
+        re.compile(
+            # .csproj / .vbproj con TargetFramework[Version] EOL
+            # (anteriores a .NET 4.8 · Microsoft EOL support).
+            r"""<TargetFramework(?:Version)?>\s*v?"""
+            r"""(?:1\.\d|2\.\d|3\.\d|4\.0|4\.5(?:\.\d)?|4\.6(?:\.\d)?|"""
+            r"""4\.7(?:\.\d)?)\s*</TargetFramework(?:Version)?>"""
+        ),
+        "AMX-NETFX-EOL-HIGH",
+        "HIGH",
+        ".NET Framework EOL (≤ v4.7) · Microsoft no soporta · "
+        "migrar a .NET 8 LTS (o mínimo 4.8.1) · CWE-1104",
+        _PROJ,
     ),
 ]
 

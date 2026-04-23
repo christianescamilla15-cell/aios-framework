@@ -455,3 +455,44 @@ patterns:
     auto_fix_allowed: false
     fix_template: "iam_policy_scoping"
     tags: ["cwe-269", "amx-least-privilege", "g07"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # v3.5.0 sprint 2 · 4 detectores refinados AMX (23-abr-2026)
+  # Patrones observados en baseline 6 apps Revenue Accounting
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: AMX_VBNET_HARDCODED_IP_URL
+    description: "URL con IP hardcoded en VB.NET (SABRE/notify endpoints) · rotar a config + DNS"
+    matches:
+      - rule_id: "AMX-VBNET-HARDCODED-IP-IN-URL"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "url_to_config_dns"
+    tags: ["cwe-319", "vbnet", "sabre", "amx-revenue-accounting"]
+
+  - id: AMX_DBCNX_VB_CONNSTR
+    description: "Connection string literal con Password inline en VB.NET · mover a Secrets Manager"
+    matches:
+      - rule_id: "AMX-DBCNX-VB-HARDCODED-CONNSTR"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "connstr_to_secrets_manager"
+    tags: ["cwe-522", "vbnet", "credentials", "amx-secrets-manager"]
+
+  - id: AMX_APPSETTINGS_CONNSTR_NO_SM
+    description: "appsettings.json con ConnectionStrings literal sin token Secrets Manager"
+    matches:
+      - rule_id: "AMX-APPSETTINGS-CONNSTR-NO-SECRETS-MANAGER"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "appsettings_secrets_manager_token"
+    tags: ["cwe-522", "aspnetcore", "credentials", "amx-secrets-manager"]
+
+  - id: AMX_NETFX_EOL
+    description: ".NET Framework ≤ v4.7 · EOL Microsoft · migrar a .NET 8 LTS o mínimo 4.8.1"
+    matches:
+      - rule_id: "AMX-NETFX-EOL-HIGH"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "upgrade_targetframework"
+    tags: ["cwe-1104", "dotnet-eol", "dependency-refresh"]

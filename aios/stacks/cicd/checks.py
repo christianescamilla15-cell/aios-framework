@@ -54,4 +54,40 @@ def run_checks(root: Path) -> List[Dict]:
     has_readme = (root / "README.md").exists()
     results.append({"check": "README.md exists", "status": "pass" if has_readme else "warn"})
 
+    # v3.5.0 sprint 4 · compliance AMX F01 (badge) + F07 (JIRA traceability)
+    # Inspirado en workflow f01-compliance-badge.yml / f07-*.yml de CS_Scripts.
+    # Severidad LOW · gobernanza, no bloquea release técnicamente.
+    if has_readme:
+        readme_text = (root / "README.md").read_text(encoding="utf-8", errors="ignore")
+        f01_present = (
+            "F01_BADGE_START" in readme_text
+            or "F01%20Compliance" in readme_text
+            or "F01 Compliance" in readme_text
+        )
+        results.append({
+            "check": "AMX-COMPLIANCE-F01-BADGE",
+            "status": "pass" if f01_present else "info",
+            "detail": (
+                "[OK] Badge F01 presente en README (compliance AMX)"
+                if f01_present else
+                "[..] Sin badge F01 en README · opcional · agrega workflow "
+                "f01-compliance-badge.yml de CS_Scripts si aplica gobernanza"
+            ),
+        })
+        f07_present = (
+            "F07_BADGE_START" in readme_text
+            or "F07%20JIRA" in readme_text
+            or "F07 JIRA" in readme_text
+        )
+        results.append({
+            "check": "AMX-COMPLIANCE-F07-JIRA",
+            "status": "pass" if f07_present else "info",
+            "detail": (
+                "[OK] Badge F07 JIRA Traceability presente"
+                if f07_present else
+                "[..] Sin badge F07 · opcional · mide trazabilidad de "
+                "commits con tickets JIRA [A-Z]+-\\d+"
+            ),
+        })
+
     return results

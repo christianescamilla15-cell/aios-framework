@@ -1091,6 +1091,68 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "No rate limit · Express route mutating sin middleware rateLimit",
         _JSTS,
     ),
+    # ═════════════════════════════════════════════════════════════════
+    # v2.5.0 · Cat B detectors derivados del analisis NoShow 25 findings
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-664",
+        re.compile(
+            r"""(?s)(?:foreach|for)\s*\([^)]+\)\s*\{[^{}]{0,600}?"""
+            r"""\.(?:Remove(?:At)?|Clear)\s*\("""
+        ),
+        "STATIC-REMOVE-IN-ITERATION-CSHARP",
+        "HIGH",
+        "Collection modification durante iteracion · InvalidOperationException "
+        "en runtime · usar ToList() snapshot o filtro declarativo",
+        _CS,
+    ),
+    (
+        "CWE-362",
+        re.compile(
+            r"""(?:private|public|internal)\s+static\s+"""
+            r"""(?!readonly\s+(?:Lazy<|ImmutableDictionary|ImmutableList|"""
+            r"""ImmutableArray|ReadOnlyDictionary))"""
+            r"""[A-Z]\w+\s+_?[Ii]nstance\b"""
+        ),
+        "STATIC-SINGLETON-NO-THREADSAFETY-CSHARP",
+        "MEDIUM",
+        "Singleton static mutable sin Lazy<T> / lock · race condition "
+        "potencial bajo concurrencia",
+        _CS,
+    ),
+    (
+        "CWE-755",
+        re.compile(
+            r"""catch\s*\(\s*(?:System\.)?Exception(?:\s+\w+)?\s*\)"""
+        ),
+        "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP",
+        "MEDIUM",
+        "Catch generico de Exception · oculta errores especificos · "
+        "preferir exceptions tipadas + log estructurado",
+        _CS,
+    ),
+    (
+        "CWE-1176",
+        re.compile(r"""\.ToList\(\)"""),
+        "STATIC-EXCESSIVE-TOLIST-CSHARP",
+        "LOW",
+        "Materializacion eager de IEnumerable · memory/CPU overhead si "
+        "se encadena · evaluar si se puede mantener lazy",
+        _CS,
+    ),
+    (
+        "CWE-1188",
+        re.compile(
+            r"""\b(?:Soap|Sabre|SFTP|WebService|Session)\w*"""
+            r"""(?:Client|Adapter)\.\w+\s*\("""
+        ),
+        "STATIC-MISSING-RETRY-EXTERNAL-CALL-CSHARP",
+        "MEDIUM",
+        "Llamada a servicio externo (Sabre/SFTP/SOAP Client/Adapter) · "
+        "verificar wrapper de retry (Polly / try-retry-backoff) · "
+        "fallas transitorias no mitigadas",
+        _CS,
+    ),
 ]
 
 

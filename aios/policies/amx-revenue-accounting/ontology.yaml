@@ -311,3 +311,52 @@ patterns:
     auto_fix_allowed: true
     fix_template: "bcrypt_argon2_migration"
     tags: ["cwe-327", "crypto"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # v2.5.0 · Cat B detectores nuevos (derivados audit NoShow 25)
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: CWE_664_REMOVE_IN_ITERATION
+    description: "Collection modification durante iteracion · CWE-664"
+    matches:
+      - rule_id: "STATIC-REMOVE-IN-ITERATION-CSHARP"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "tolist_snapshot_or_linq_filter"
+    tags: ["cwe-664", "runtime-exception"]
+
+  - id: CWE_362_STATIC_SINGLETON_RACE
+    description: "Singleton static sin thread-safety · CWE-362"
+    matches:
+      - rule_id: "STATIC-SINGLETON-NO-THREADSAFETY-CSHARP"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "lazy_t_double_check_locking"
+    tags: ["cwe-362", "race-condition"]
+
+  - id: CWE_755_GENERIC_EXCEPTION_CATCH
+    description: "Catch generico de Exception · CWE-755"
+    matches:
+      - rule_id: "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP"
+    classification: "unclear"
+    auto_fix_allowed: false
+    fix_template: "specific_exception_with_logging"
+    tags: ["cwe-755", "error-handling"]
+
+  - id: CWE_1176_EXCESSIVE_TOLIST
+    description: "Materializacion eager de IEnumerable · CWE-1176"
+    matches:
+      - rule_id: "STATIC-EXCESSIVE-TOLIST-CSHARP"
+    classification: "unclear"
+    auto_fix_allowed: false
+    fix_template: "keep_ienumerable_lazy"
+    tags: ["cwe-1176", "performance-smell"]
+
+  - id: CWE_1188_MISSING_RETRY_EXTERNAL
+    description: "Servicio externo sin retry wrapper · CWE-1188"
+    matches:
+      - rule_id: "STATIC-MISSING-RETRY-EXTERNAL-CALL-CSHARP"
+    classification: "unclear"
+    auto_fix_allowed: false
+    fix_template: "polly_retry_policy"
+    tags: ["cwe-1188", "resilience"]

@@ -1292,6 +1292,22 @@ def main():
                    help="Filtra findings bajo este nivel")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
+    # v2.6.0 · Ensemble OSS scanner (Semgrep/Gitleaks/TruffleHog/Bandit/Checkov/Trivy)
+    p = sub.add_parser("ensemble",
+                       help="Corre herramientas OSS ortogonales (Semgrep · "
+                            "Gitleaks · TruffleHog · Bandit · Checkov · Trivy) "
+                            "y consolida findings para elevar recall")
+    p.add_argument("--root", default=".",
+                   help="Directorio a escanear (default: cwd)")
+    p.add_argument("--tools", default="",
+                   help="CSV de tools a correr (default: auto-detect)")
+    p.add_argument("--timeout", type=int, default=600,
+                   help="Timeout por tool en segundos (default 600)")
+    p.add_argument("--severity-min", default="INFO",
+                   choices=["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"],
+                   help="Filtra findings bajo este nivel")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # v2.4.0 · RFC-004d · Runtime Data File Scanner
     p = sub.add_parser("runtime-data",
                        help="Escanea archivos runtime (HTML/TXT/logs/CSV/EML) "
@@ -1527,6 +1543,8 @@ def main():
         "exfil": cmd_exfil,
         # v2.4.0 · RFC-004d · Runtime Data File Scanner
         "runtime-data": cmd_runtime_data,
+        # v2.6.0 · Ensemble OSS scanner
+        "ensemble": cmd_ensemble,
     }
 
     if args.command in commands:
@@ -2205,6 +2223,77 @@ def cmd_runtime_data(args):
                     print(f"      · {f.file}:{f.line} · sample={f.sample}")
                 if len(fs) > 10:
                     print(f"      ... +{len(fs) - 10} more")
+            print()
+    print()
+
+
+def cmd_ensemble(args):
+    """v2.6.0 · Ensemble OSS scanner wrapper."""
+    import json as _json
+    from pathlib import Path as _Path
+    from aios.core.ensemble_scanner import EnsembleScanner
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    if not root.exists():
+        print(f"  ERROR · root no existe: {args.root}")
+        return
+
+    tools = [t.strip() for t in (args.tools or "").split(",") if t.strip()] or None
+    scanner = EnsembleScanner(root, tools=tools, timeout_per_tool=args.timeout)
+    print(f"  Tools a correr: {scanner.tools or '(ninguno disponible)'}")
+    report = scanner.scan()
+
+    severity_order = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    min_idx = severity_order.index(args.severity_min)
+    filtered = [
+        f for f in report.findings
+        if severity_order.index(f.severity) >= min_idx
+    ]
+
+    if args.format == "json":
+        out = report.to_dict()
+        out["findings"] = [f.to_dict() for f in filtered]
+        out["by_severity"] = {
+            s: sum(1 for f in filtered if f.severity == s)
+            for s in severity_order
+        }
+        print(_json.dumps(out, indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Ensemble OSS Scan · v2.6.0")
+    print("  " + "─" * 68)
+    print(f"  Root          : {report.root}")
+    print(f"  Tools run     : {', '.join(report.tools_run) or 'ninguno'}")
+    if report.tools_skipped:
+        print("  Tools skipped :")
+        for t, reason in report.tools_skipped.items():
+            print(f"    · {t:<12} {reason}")
+    print()
+    print("  Per-tool counts:")
+    for t, c in report.per_tool_counts.items():
+        print(f"    {t:<12} {c}")
+    print()
+    by_sev = {s: sum(1 for f in filtered if f.severity == s) for s in severity_order}
+    print(f"  Findings filtered (min={args.severity_min}):")
+    for s in reversed(severity_order):
+        count = by_sev.get(s, 0)
+        if count > 0:
+            print(f"    {s:10s} : {count}")
+    print()
+    if filtered:
+        # Top 15 por severity
+        for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"):
+            sev_findings = [f for f in filtered if f.severity == sev]
+            if not sev_findings:
+                continue
+            print(f"  ═══ {sev} ({len(sev_findings)}) ═══")
+            for f in sev_findings[:15]:
+                print(f"    · [{f.tool}] {f.rule_id} · {f.cwe}")
+                print(f"      {f.file}:{f.line}")
+                print(f"      → {f.message[:160]}")
             print()
     print()
 

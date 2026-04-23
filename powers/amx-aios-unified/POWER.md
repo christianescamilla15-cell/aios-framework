@@ -1,6 +1,6 @@
 ---
 displayName: AMX AIOS Unified v3.3
-description: Pack AMX unificado v3.3.0 · spec-driven dev + security gate (85 detectores · 28 CWEs) + cross-copy drift + PII runtime scan + ensemble OSS + LLM classifier RAG · compliant retro 20-abr
+description: Pack AMX unificado v3.3.1 · spec-driven dev + security gate (85 detectores · 28 CWEs) + cross-copy drift + PII runtime scan + ensemble OSS + LLM classifier RAG · compliant retro 20-abr
 keywords:
   - aeromexico
   - amx
@@ -16,7 +16,7 @@ keywords:
   - pii-scan
 ---
 
-# AMX AIOS Unified Power · v3.3.0
+# AMX AIOS Unified Power · v3.3.1
 
 Pack unificado que expone **AIOS · Mythos · Arena · Nemesis** como un solo Power de Kiro. Cubre el ciclo completo de desarrollo moderno AMX · ahora con **4 detectores únicos vs SAST comercial** (drift · credential byte-identity · third-party exfil · runtime PII) + LLM classifier Nivel 2 con RAG.
 
@@ -40,7 +40,7 @@ Cumple retro 20-abr: sin ECS · sin SES · sin SNS · KMS + Akamai + observabili
 
 | Tool | Framework | Uso |
 |---|---|---|
-| `security_scan(project_path)` | Mythos | Corre scanner embebido · retorna findings + severity · v3.3.0 detecta PII logs · host key · SMTP TLS · substring identity · `.Hours` misuse · IP literals |
+| `security_scan(project_path)` | Mythos | Corre scanner embebido · retorna findings + severity · v3.3.1 detecta PII logs · host key · SMTP TLS · substring identity · `.Hours` misuse · IP literals |
 | `release_gate_check(project_path)` | AIOS | Release gate completo · 10 checks AMX (incluye behavior preservation · SITL queue · domain ontology) |
 | `arena_list_targets()` | Arena | Lista TUTs disponibles |
 | `arena_run(target, max_rounds, target_url?)` | Arena | Corre self-play contra un TUT |
@@ -107,7 +107,7 @@ El Power expone **steering rules** (carpeta `steering/`) que el agente sigue aut
   ```bash
   pip install -e /path/to/aios-framework
   # o vía tag:
-  pip install git+https://github.com/christianescamilla15-cell/aios-framework.git@v3.3.0
+  pip install git+https://github.com/christianescamilla15-cell/aios-framework.git@v3.3.1
   ```
 - Verificar que `aios-mcp` esté en PATH: `which aios-mcp`
 - **Opcional**: Ollama (`curl -fsSL https://ollama.com/install.sh | sh`) + `ollama pull gemma3` para LLM classifier local
@@ -132,14 +132,14 @@ Sobre **ATOS-NOSHOW-ROBOT** (.NET 4.7.2 legacy · 1.5 KLoC · 24 archivos .cs):
 | Técnico excl. governance | **65%** (15/23) | 2nd clean session |
 | Irreductible (compliance · meta · deploy drift) | **18%** | Rice's theorem + governance |
 
-**Bonus · el framework encuentra bugs que el humano NO listó**: DR-25 (.Hours vs .TotalHours revenue silencioso) · DR-18 (substring name matching ticket mis-attribution). Ambos ahora scanner-directo en v3.3.0.
+**Bonus · el framework encuentra bugs que el humano NO listó**: DR-25 (.Hours vs .TotalHours revenue silencioso) · DR-18 (substring name matching ticket mis-attribution). Ambos ahora scanner-directo en v3.3.1.
 
 ### Benchmarks industria (estado-del-arte)
 
 - SAST comercial publicado: 11-46% recall (EASE 2024 · 4 tools individuales)
 - CodeQL F1 OWASP Benchmark: 74.4% (Konvu 2026 · con 68% FPR)
 - IRIS (CodeQL+GPT-4): 27-46% por CWE (arXiv 2405.17238)
-- **AIOS v3.3.0: 53-65% sobre código real con 18% irreductible documentado**
+- **AIOS v3.3.1: 53-65% sobre código real con 18% irreductible documentado**
 
 Narrativa defendible: 2-3x mejor que SAST comercial sobre código real · SIN prometer el 99.99% que la literatura no permite (Rice's theorem).
 
@@ -187,7 +187,7 @@ Después: `Ctrl+Shift+P` → `Developer: Reload Window` en Kiro para que el MCP 
 
 **Safety**: si `KCB_SESSION_ID` no está set, el decorator es no-op · la instrumentación nunca rompe el tool (exceptions swallowed).
 
-## Changelog v1.7.1 → v3.3.0
+## Changelog v1.7.1 → v3.3.1
 
 - **v2.2.0** · RFC-004a + 004b · Cross-Copy Drift + Credential Byte-Identity (únicos vs SAST comercial)
 - **v2.4.0** · RFC-004c + 004d · Third-Party Exfil + Runtime PII scanner
@@ -198,11 +198,11 @@ Después: `Ctrl+Shift+P` → `Developer: Reload Window` en Kiro para que el MCP 
 - **v3.0.0** · EVIDENCE_BUNDLE consolidado · 8-layer pipeline
 - **v3.1.0** · 5 fixes + 6 detectores (PII log · sensitive log · host key · SMTP TLS · stack exposure · throw-ex)
 - **v3.2.0** · Iterative multi-strategy saturation scanner
-- **v3.3.0** · 3 detectores revenue-críticos (`.Hours` misuse · IP literal · substring name matching)
+- **v3.3.1** · 3 detectores revenue-críticos (`.Hours` misuse · IP literal · substring name matching)
 
 ## Origen y autoría
 
 - **Autor:** Christian Hernández Escamilla · eTride
-- **Repo fuente:** `github.com/christianescamilla15-cell/aios-framework` (rama `feat/am-kiro-compat` · tag `v3.3.0`)
+- **Repo fuente:** `github.com/christianescamilla15-cell/aios-framework` (rama `feat/am-kiro-compat` · tag `v3.3.1`)
 - **Compatible con:** AM-KIRO framework AMX (`github.com/OYN-AMX/am-kiro` · sesión Ciber 20-abr)
-- **Versión:** 3.3.0
+- **Versión:** 3.3.1

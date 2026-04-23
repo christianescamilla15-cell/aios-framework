@@ -45,7 +45,18 @@ _RUNTIME_EXTS = {
     ".html", ".htm", ".txt", ".log", ".csv", ".tsv", ".dat",
     ".eml", ".msg", ".json", ".xml",  # incluyen payloads
     ".out", ".dump", ".bak",
+    ".err",  # logs rotados sin numero
 }
+
+# v3.3.1 · detección de logs ROTADOS que no matchean _RUNTIME_EXTS
+# por el suffix final (ej. noShow.log.1, app.log.2026-04-22, service.log.10)
+# Issue real descubierto en NoShow: logs rotados quedaban fuera del scan
+# · ~2.3M PNRs perdidos en una corrida fresca.
+_ROTATED_LOG_PAT = re.compile(
+    r"""\.(?:log|out|err|txt|csv|dat)"""
+    r"""(?:\.\d+|\.\d{4}-\d{2}-\d{2}|\.\d{8}|\.old|\.prev|\.backup)$""",
+    re.IGNORECASE,
+)
 
 # Paths que indican "runtime data" aun cuando la extensión sea ambigua
 _RUNTIME_PATH_HINTS = (
@@ -169,6 +180,9 @@ def _redact(value: str, keep: int = 4) -> str:
 
 def _is_runtime_data_file(path: Path) -> bool:
     if path.suffix.lower() in _RUNTIME_EXTS:
+        return True
+    # v3.3.1 · detecta logs rotados (noShow.log.1 · app.log.2026-04-22)
+    if _ROTATED_LOG_PAT.search(path.name):
         return True
     parts_lower = [p.lower() for p in path.parts]
     return any(h in parts_lower for h in _RUNTIME_PATH_HINTS)

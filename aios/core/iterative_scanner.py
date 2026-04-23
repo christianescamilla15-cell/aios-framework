@@ -519,6 +519,32 @@ class IterativeScanner:
             elif report.iterations_run == len(self.strategies):
                 report.stop_reason = "All strategies exhausted"
 
+        # v3.3.1 · advertencia operativa cuando solo 1 estrategia fue
+        # productiva · indica que faltan tools o LLM para multi-strategy
+        # real. Detecta el caso gotcha del user: iterate con regex solo
+        # satura en iter 1 porque ensemble/taint/LLM no aportan.
+        productive = sum(
+            1 for it in report.per_iteration
+            if it.new_findings_this_iteration > 0
+        )
+        if productive <= 1 and report.iterations_run > 1:
+            hints = []
+            if "ensemble" in self.strategies:
+                hints.append("instalar semgrep/gitleaks/trufflehog "
+                             "(`pip install semgrep bandit` o brew)")
+            if "llm_deep_review" in self.strategies:
+                hints.append("activar llm_classifier en aios-config.json "
+                             "o exportar ANTHROPIC_API_KEY")
+            if "cross_file_taint" in self.strategies:
+                hints.append("cross_file_taint solo dispara sobre "
+                             "credenciales hardcoded en source · "
+                             "no aplica a configs externas")
+            if hints:
+                report.stop_reason += (
+                    f" · solo {productive} estrategia productiva · "
+                    f"para multi-strategy real: " + " · ".join(hints)
+                )
+
         report.all_findings = list(all_findings.values())
         return report
 

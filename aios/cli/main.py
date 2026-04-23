@@ -1278,6 +1278,34 @@ def main():
                    help="Regex pattern para ontology proposed (override auto-extract)")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
+    # v2.3.0 · RFC-004c · Third-Party Exfil Heuristic
+    p = sub.add_parser("exfil",
+                       help="Detecta emails/URLs/hosts hacia dominios no "
+                            "corporativos en configs + codigo (data exfil heuristic)")
+    p.add_argument("--root", default=".",
+                   help="Directorio a escanear (default: cwd)")
+    p.add_argument("--corporate", default="",
+                   help="CSV de dominios corporativos whitelisted "
+                        "(default: aeromexico.com.mx,am.com.mx,aeromexicocargo.com)")
+    p.add_argument("--severity-min", default="INFO",
+                   choices=["INFO", "MEDIUM", "HIGH"],
+                   help="Filtra findings bajo este nivel")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v2.4.0 · RFC-004d · Runtime Data File Scanner
+    p = sub.add_parser("runtime-data",
+                       help="Escanea archivos runtime (HTML/TXT/logs/CSV/EML) "
+                            "en busca de PII · PNRs · credit cards · JWTs · "
+                            "credentials fuera del CWE scan estandar")
+    p.add_argument("--root", default=".",
+                   help="Directorio a escanear (default: cwd)")
+    p.add_argument("--severity-min", default="INFO",
+                   choices=["INFO", "MEDIUM", "HIGH"],
+                   help="Filtra findings bajo este nivel")
+    p.add_argument("--max-mb", type=int, default=4,
+                   help="MB maximos por archivo (default 4)")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # status
     p = sub.add_parser("status", help="Show project status")
     p.add_argument("--root", default=".")
@@ -1495,6 +1523,10 @@ def main():
         "review": cmd_review,
         # v2.2.0 · RFC-004a + 004b · Cross-Copy Drift Detector
         "drift": cmd_drift,
+        # v2.3.0 · RFC-004c · Third-Party Exfil Heuristic
+        "exfil": cmd_exfil,
+        # v2.4.0 · RFC-004d · Runtime Data File Scanner
+        "runtime-data": cmd_runtime_data,
     }
 
     if args.command in commands:
@@ -2046,6 +2078,134 @@ def cmd_checkpoint(args):
         print(f"    next_action: {args.next_action}")
     if args.last_commit:
         print(f"    last_commit: {args.last_commit}")
+    print()
+
+
+def cmd_exfil(args):
+    """v2.3.0 · RFC-004c · third-party exfil heuristic."""
+    import json
+    from pathlib import Path as _Path
+    from aios.core.exfil_detector import ExfilDetector
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    if not root.exists():
+        print(f"  ERROR · root no existe: {args.root}")
+        return
+
+    corp = [d.strip() for d in (args.corporate or "").split(",") if d.strip()] or None
+    report = ExfilDetector(root, corporate_domains=corp).detect()
+
+    severity_order = ["INFO", "MEDIUM", "HIGH"]
+    min_idx = severity_order.index(args.severity_min)
+    filtered = [
+        f for f in report.findings
+        if severity_order.index(f.severity) >= min_idx
+    ]
+
+    if args.format == "json":
+        out = report.to_dict()
+        out["findings"] = [f.to_dict() for f in filtered]
+        out["by_severity"] = {
+            s: sum(1 for f in filtered if f.severity == s)
+            for s in severity_order
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Third-Party Exfil Heuristic · RFC-004c")
+    print("  " + "─" * 68)
+    print(f"  Root                : {report.root}")
+    print(f"  Corporate whitelist : {', '.join(report.corporate_domains)}")
+    print(f"  Files scanned       : {report.files_scanned}")
+    print()
+    by_sev = {s: sum(1 for f in filtered if f.severity == s) for s in severity_order}
+    print(f"  Findings by severity (min={args.severity_min}):")
+    for s in reversed(severity_order):
+        count = by_sev.get(s, 0)
+        if count > 0:
+            print(f"    {s:10s} : {count}")
+    print()
+    if filtered:
+        for sev in ("HIGH", "MEDIUM", "INFO"):
+            sev_findings = [f for f in filtered if f.severity == sev]
+            if not sev_findings:
+                continue
+            print(f"  ═══ {sev} ({len(sev_findings)}) ═══")
+            for f in sev_findings[:30]:
+                print(f"    · [{f.kind}] {f.domain} (env_hint={f.env_hint})")
+                print(f"      {f.file}:{f.line}")
+                print(f"      → {f.recipient}")
+                print(f"      ctx: {f.context[:120]}")
+                print()
+    print()
+
+
+def cmd_runtime_data(args):
+    """v2.4.0 · RFC-004d · runtime data file scanner."""
+    import json
+    from pathlib import Path as _Path
+    from aios.core.runtime_data_scanner import RuntimeDataScanner
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    if not root.exists():
+        print(f"  ERROR · root no existe: {args.root}")
+        return
+
+    max_bytes = max(1, args.max_mb) * 1024 * 1024
+    report = RuntimeDataScanner(root, max_file_bytes=max_bytes).scan()
+
+    severity_order = ["INFO", "MEDIUM", "HIGH"]
+    min_idx = severity_order.index(args.severity_min)
+    filtered = [
+        f for f in report.findings
+        if severity_order.index(f.severity) >= min_idx
+    ]
+
+    if args.format == "json":
+        out = report.to_dict()
+        out["findings"] = [f.to_dict() for f in filtered]
+        out["by_severity"] = {
+            s: sum(1 for f in filtered if f.severity == s)
+            for s in severity_order
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Runtime Data Scanner · RFC-004d")
+    print("  " + "─" * 68)
+    print(f"  Root          : {report.root}")
+    print(f"  Files scanned : {report.files_scanned}")
+    print()
+    by_sev = {s: sum(1 for f in filtered if f.severity == s) for s in severity_order}
+    print(f"  Findings by severity (min={args.severity_min}):")
+    for s in reversed(severity_order):
+        count = by_sev.get(s, 0)
+        if count > 0:
+            print(f"    {s:10s} : {count}")
+    print()
+    if filtered:
+        for sev in ("HIGH", "MEDIUM", "INFO"):
+            sev_findings = [f for f in filtered if f.severity == sev]
+            if not sev_findings:
+                continue
+            # Group by kind dentro del severity
+            by_kind: dict[str, list] = {}
+            for f in sev_findings:
+                by_kind.setdefault(f.kind, []).append(f)
+            print(f"  ═══ {sev} ({len(sev_findings)}) ═══")
+            for kind, fs in by_kind.items():
+                print(f"    [{kind}] · {len(fs)} findings")
+                for f in fs[:10]:
+                    print(f"      · {f.file}:{f.line} · sample={f.sample}")
+                if len(fs) > 10:
+                    print(f"      ... +{len(fs) - 10} more")
+            print()
     print()
 
 

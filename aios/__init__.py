@@ -12,7 +12,7 @@ try:
         __version__ = _pkg_version("aios-kiro")
     except PackageNotFoundError:
         # Fallback · package aún no instalado (dev local fresh clone)
-        __version__ = "2.2.0"
+        __version__ = "2.4.0"
 except ImportError:
     # Python < 3.8 fallback (no deberia ocurrir · requires-python >= 3.10)
-    __version__ = "2.2.0"
+    __version__ = "2.4.0"

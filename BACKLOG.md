@@ -298,7 +298,7 @@ Detecta secretos **byte-idénticos** entre `prod.config` y `test.config` · indi
 
 **Por qué es valioso**: este es el clásico "test ambiente compartido" que explota muchos breaches · ningún SAST comercial lo detecta de forma automatizada.
 
-### RFC-004c · THIRD-PARTY-EXFIL-HEURISTIC
+### RFC-004c · THIRD-PARTY-EXFIL-HEURISTIC · CERRADO v2.3.0
 
 Detecta distribución de datos a dominios no-corporativos desde código de producción. Caso NoShow:
 - Dist lists con emails `@miatech.net` (third-party · no AMX)
@@ -307,7 +307,9 @@ Detecta distribución de datos a dominios no-corporativos desde código de produ
 
 **Caveat**: puede tener FPs para integraciones legítimas (auditores · partners). Solución: whitelist explícita por proyecto.
 
-### RFC-004d · RUNTIME-DATA-FILE-SCANNER
+**Entregado** · `aios/core/exfil_detector.py` + CLI `aios exfil --corporate ...` · detecta emails · URLs · smtp/ftp hosts no whitelisted · env_hint automático (prod/test/dev) · severity HIGH en prod · MEDIUM genérico · INFO en test.
+
+### RFC-004d · RUNTIME-DATA-FILE-SCANNER · CERRADO v2.4.0
 
 Extiende el scan a archivos que hoy quedan fuera por diseño pero contienen data sensible:
 - `Email.html` templates (pueden tener PII · placeholders vs real)
@@ -316,11 +318,13 @@ Extiende el scan a archivos que hoy quedan fuera por diseño pero contienen data
 
 **Implementación**: categoria nueva `runtime_data` con detectores específicos · scan opt-in con `--include-runtime-data`. No cambiar default (evita noise).
 
+**Entregado** · `aios/core/runtime_data_scanner.py` + CLI `aios runtime-data` · 10 detectores: PNR · email · PAN (Luhn-checked) · CURP · RFC-MX · SSN · passport · phone · JWT · session token · IP privada · extensiones HTML/TXT/LOG/CSV/EML/DAT + path hints (`files/`, `templates/`, `logs/`).
+
 ### Prioridad
 
-- **Tier 1** (v2.2.0): 004a + 004b · son los 2 más impactantes · requieren rediseño minor del scanner (workspace-level vs file-level).
-- **Tier 2** (v2.3.0): 004c · corporate_domains whitelist + heuristic simple.
-- **Tier 3** (v2.4.0): 004d · scan extendido a runtime data · requiere nuevos detectores MIME-aware.
+- **Tier 1** (v2.2.0 · CERRADO): 004a + 004b · son los 2 más impactantes · requieren rediseño minor del scanner (workspace-level vs file-level).
+- **Tier 2** (v2.3.0 · CERRADO): 004c · corporate_domains whitelist + heuristic simple.
+- **Tier 3** (v2.4.0 · CERRADO): 004d · scan extendido a runtime data · nuevos detectores PII + PAN + tokens.
 
 ### Impacto esperado al cerrar RFC-004
 

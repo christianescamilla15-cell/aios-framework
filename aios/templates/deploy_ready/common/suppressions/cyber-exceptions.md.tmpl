@@ -1,0 +1,76 @@
+# CYBER Exceptions Registry · {{APP_NAME}}
+
+Registro formal de excepciones (vulns no aplicables o false-positives) para los 4 escaneos CYBER · requiere aprobación Miguel Rachid (Gerente Ciberseguridad AMX) · política v2.0 §3.3.
+
+## Proceso de excepción
+
+1. Scan reporta finding HIGH/CRITICAL
+2. eTrive determina si es applicable (remediar) o no (excepción justificada)
+3. Si excepción: redactar entrada en este archivo + correo a Miguel Rachid con justificación
+4. Luis Fernando Lira Guzmán (day-to-day cyber) puede pre-approvar si no-crítico
+5. Miguel Rachid aprueba formal · guardar correo adjunto al commit
+6. Excepción válida por 90 días · re-review en cada scan post-aprobación
+
+## Template de entrada
+
+```markdown
+### EXC-XXX · <rule_id> · <scanner>
+
+- **Severity:** HIGH/CRITICAL
+- **File/Resource:** ruta:línea o ARN
+- **Rule:** <scanner>:<rule_id>
+- **CVSS:** X.X
+- **Justification:** <razón por la cual no aplica o es false positive>
+- **Compensating controls:** <controles alternativos si aplica>
+- **Approved by:** Miguel Rachid · fecha YYYY-MM-DD
+- **Approval email ref:** <subject o ID mensaje>
+- **Expiry:** YYYY-MM-DD (90 días)
+- **Re-review trigger:** <evento que requiere re-evaluación · ej. upgrade libreria X>
+```
+
+## Excepciones activas
+
+_(Ninguna al momento · {{APP_NAME_SHORT}} se está refactorizando limpiamente a .NET 8 · target 0 findings HIGH/CRITICAL sin excepciones.)_
+
+## Excepciones esperadas post-migración .NET 8
+
+### EXC-PLACEHOLDER-1 · SABRE SOAP TLS 1.0 (si aplica)
+
+- **Severity:** MEDIUM-HIGH (depende WIZ/Veracode rule)
+- **Justification:** SABRE externo puede requerir TLS 1.0/1.1 legacy · fuera de nuestro control · es dependencia de terceros
+- **Compensating controls:** TLS handshake restringido SOLO al endpoint SABRE conocido · Security Group egress whitelist · audit log
+- **Expected expiry:** hasta que SABRE upgrade a TLS 1.2+
+- **Requires approval:** Miguel Rachid + nota al ADR
+
+### EXC-PLACEHOLDER-2 · .NET 8 CVE drift (potencial)
+
+- **Severity:** variable
+- **Justification:** CVEs nuevos en .NET 8 base image que Microsoft aún no parcha
+- **Compensating controls:** monitoreo Trivy semanal · upgrade runtime trimestral
+- **Approval:** caso por caso · Lira/Rachid
+
+## Vulns pre-migración (INVÁLIDAS · deben remediar · NO excepciones)
+
+Las siguientes NO son excepcionales · deben resolverse en el refactor:
+
+| Vuln | CWE | Razón NO-excepción |
+|---|---|---|
+| V-CR-01 · vuelo 829 hardcoded | 1188 | Bug negocio reales · debe eliminarse |
+| V-CR-02/03/04 · credenciales plaintext | 798 | Secrets Manager resuelve · no hay justificación |
+| V-HI-03 · IPs hardcoded | 547 | DNS interno resuelve · no hay justificación |
+| V-HI-01 · ATOS5246 (si existe) | 798 | Secrets Manager resuelve |
+| C-GAP-01 · .NET 4.7.2 EOL | — | Migración obligatoria · sin opción alternativa |
+
+## Aprobaciones firmadas
+
+_(Llenar post aprobaciones Miguel Rachid · archivo evidencia correos en `suppressions/approvals/`.)_
+
+| # | EXC ID | Aprobador | Fecha | Expira | Evidencia |
+|---|---|---|---|---|---|
+| — | — | — | — | — | — |
+
+## Referencias
+
+- Policy AMX v2.0 §3.3 · loop iterativo cyber
+- RUNBOOK · `../runbook/RUNBOOK.md`
+- Policy AMX v2.0 §exceptions · `ai-system/06_amx_policy.md`

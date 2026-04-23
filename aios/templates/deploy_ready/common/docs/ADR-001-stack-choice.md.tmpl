@@ -1,0 +1,156 @@
+# ADR-001 · Migración {{APP_NAME_SHORT}} · .NET Framework 4.7.2 → .NET 8 LTS
+
+| Campo | Valor |
+|---|---|
+| **Estado** | Propuesto · pendiente firma Gate 3 |
+| **Fecha** | 2026-04-21 |
+| **Autores** | Christian Hernández (Líder Técnico Etrive) |
+| **Aprobadores requeridos** | Arquitectura AMX (Toño IT Drive) + Borde Arquitectura (Israel Miguel) |
+| **App scope** | {{APP_NAME}} (#10) |
+| **Tags** | migración · runtime · EOL · compliance |
+
+## Contexto
+
+{{APP_NAME}} es un Windows Service (.NET WinExe) que procesa vuelos post-salida para identificar no-shows, consumiendo SABRE SOAP y alimentando reportes por SFTP + email. Corre actualmente en **.NET Framework 4.7.2**, que:
+
+- Tiene EOL declarado enero-2026 (compliance gap C-GAP-01)
+- No recibe parches de seguridad post-EOL
+- Ata el deployment a Windows Server (no cross-platform)
+- Impide containerización liviana (Windows base images 3-5 GB vs Linux 100-200 MB)
+- Bloquea uso de EKS Linux (mandatory para T1 según policy v2.0 §1.1)
+
+La decisión de migración NO es opcional · es obligatoria por EOL + policy AMX.
+
+## Opciones evaluadas
+
+### Opción A · .NET 8 LTS · Linux container · EKS (**RECOMENDADA**)
+
+Migrar el código .NET Framework 4.7.2 a .NET 8 LTS cross-platform. Empaquetar en container Linux Alpine o Ubuntu slim. Deployar en EKS Fargate.
+
+**Pros:**
+- ✅ Compliance AMX T1 · policy v2.0 §1.1 (EKS o Serverless obligatorio · EC2 prohibido)
+- ✅ Resuelve EOL permanentemente · .NET 8 LTS soporte hasta noviembre-2026 (y .NET 10 LTS ya publicado)
+- ✅ Container image pequeño (150-200 MB vs 3-5 GB Windows)
+- ✅ Startup rápido · auto-scaling EKS eficiente
+- ✅ Mismo ecosistema que el resto del scope Revenue Accounting (ARC · BSP · ASR migrando a Linux containers)
+- ✅ Herramental DevOps estándar · CloudWatch agent Linux · observability unificada
+- ✅ Menor costo compute (Linux Fargate ~30% más barato que Windows Fargate)
+- ✅ Semgrep `p/csharp` + Veracode .NET Core rules · cobertura SAST completa
+
+**Cons:**
+- ⚠ Esfuerzo de migración: Quartz.NET / Topshelf / System.ServiceProcess → BackgroundService/IHostedService + cron externo
+- ⚠ Dependencias legacy (.NET Framework GAC · System.Web · APIs Windows-only) deben reemplazarse
+- ⚠ Librería `log4net` → `Serilog` o `ILogger<T>` estándar
+- ⚠ Testing paralelo obligatorio 4-8 semanas antes de cutover
+
+**Esfuerzo estimado:** 4-6 semanas · 1 dev senior + 1 dev mid · incluyendo pruebas paralelas
+**Riesgo:** MEDIO · código pequeño (24 .cs files · ~1167 LOC) · patrones comunes · sin COM interop
+
+### Opción B · Container Windows Server + .NET Framework 4.7.2 (status quo containerizado)
+
+Containerizar el código existente en Windows Server Core base image. Deployar en EC2 Windows o Windows Fargate.
+
+**Pros:**
+- ✅ Sin refactor · mismo código binario
+- ✅ Compatibilidad 100% con APIs Windows y librerías legacy
+- ✅ Menor esfuerzo inicial (1-2 semanas para containerizar)
+
+**Cons:**
+- 🔴 **VIOLA policy AMX v2.0 §1.1** · T1 apps NO permiten EC2/Windows Fargate · mandatory EKS o Serverless
+- 🔴 **NO resuelve EOL** · compliance gap persiste · auditores flaggean post enero-2026
+- 🔴 Windows Server base image 3-5 GB · pull time prolongado · CI/CD lento
+- 🔴 Licenciamiento Windows Server Datacenter · costo adicional
+- 🔴 EKS no soporta nodos Windows Fargate · solo Windows EC2 (prohibido por policy)
+- 🔴 .NET Framework end-of-support limita uso de librerías modernas (parsers JSON · ORM · observability)
+- 🔴 Ciberseguridad · Veracode .NET Framework rules menos precisas que .NET Core/8
+- 🔴 Inconsistente con resto del scope Revenue Accounting (otros apps migrando Linux)
+
+**Esfuerzo estimado:** 1-2 semanas containerización + licensing
+**Riesgo:** ALTO · violación compliance + deuda técnica acumulada
+
+### Opción C · Migración .NET 8 + refactor arquitectónico completo (descartada)
+
+Rewriting desde cero con hexagonal architecture, event-driven, EF Core, etc.
+
+**Descartada** porque:
+- Multiplicar esfuerzo x3-4 sin beneficio demostrable antes del cutover .NET EOL
+- Alto riesgo regresión funcional · reportes {{APP_NAME_SHORT}} son críticos negocio
+- La app es pequeña · no justifica re-arquitectura · solo re-plataforma
+
+## Decisión
+
+**OPCIÓN A** · Migrar a .NET 8 LTS · Linux container · EKS Fargate.
+
+**Justificación:**
+1. Única opción que cumple policy AMX v2.0 (EKS mandatory T1)
+2. Única opción que resuelve EOL permanentemente
+3. Ratio costo-beneficio superior (menor costo infra · menor deuda técnica)
+4. Consistente con el resto del scope Revenue Accounting
+
+## Plan de ejecución (alineado con Plan Maestro General)
+
+### Semana 1-2 · Preparación
+- Upgrade solution Visual Studio · targetFramework `net8.0`
+- Reemplazar `System.ServiceProcess` → `IHostedService` + `BackgroundService`
+- Reemplazar `log4net` → `Serilog` (structured logging para CloudWatch)
+- Reemplazar SABRE SOAP wrapper (.NET Framework WCF) → `System.ServiceModel.Primitives` (.NET Core compatible) o refactor a HttpClient + XML parsing
+- Reemplazar `Quartz.NET` 2.x → Quartz.NET 3.x (.NET 8 compatible) o CronJob EKS
+
+### Semana 3 · Migración core
+- Recompilar módulos Business · Data · NoshowWS
+- Adaptar `App.config` → `appsettings.json` + `IOptions<T>`
+- Eliminar credenciales hardcoded · reemplazar con `Secrets Manager` injected via AWS SDK
+- Eliminar vuelo 829 hardcoded (V-CR-01) · reemplazar con parámetro runtime
+
+### Semana 4-5 · Testing paralelo
+- Unit tests xUnit ≥60% cobertura
+- Regression tests: vuelo 829 NO reintroducido · secrets NO hardcoded · 3 IPs NO presentes
+- Integration test SABRE con mock server
+- Dataset histórico 6 meses · validación equivalencia funcional legacy vs .NET 8
+
+### Semana 6 · Cutover
+- Deploy paralelo legacy + nueva versión (ventana 4-8 sem per policy)
+- Monitoring comparativo
+- Cutover full · decommission legacy
+
+## Consecuencias
+
+### Positivas
+- Compliance policy AMX cumplido desde día 1 de PROD
+- Eliminada deuda EOL por 3-4 años (.NET 8 LTS soporte nov-2026; .NET 10 LTS publicado · upgrade path)
+- Reducción superficie ataque (containers Linux · menos CVEs que Windows Server Core)
+- CI/CD unificado con resto del scope Revenue Accounting
+
+### Negativas · riesgos gestionados
+- **R1** · regresión funcional por diferencias .NET Framework vs .NET 8 · mitigar con tests paralelos 4-8 semanas
+- **R2** · librerías legacy sin reemplazo directo (ej. SABRE .NET Framework SDK si existe) · mitigar con adapter pattern + HttpClient
+- **R3** · curva aprendizaje equipo Miatech · mitigar con pair programming semana 1-2
+
+## Métricas de éxito
+
+| Métrica | Target |
+|---|---|
+| Tests unitarios cobertura | ≥60% |
+| Regresión tests vuelo 829 bloqueados | 100% pass |
+| Regresión tests secrets | 100% pass |
+| Paridad funcional legacy ↔ .NET 8 | ≥99% match en 6 meses dataset |
+| Container image size | ≤250 MB |
+| Cold start EKS Fargate | ≤5 seg |
+
+## Aprobaciones
+
+| Rol | Nombre | Firma | Fecha |
+|---|---|---|---|
+| Líder Técnico Etrive | Christian Hernández | _________ | 2026-04-__ |
+| Arquitectura AMX | Toño (IT Drive) | _________ | 2026-04-__ |
+| Borde Arquitectura | Israel Miguel González | _________ | 2026-04-__ |
+| Sponsor AMX | Elías J. Tapia Corona | _________ | 2026-04-__ |
+
+## Referencias
+
+- Policy AMX v2.0 §1.1 · `ai-system/06_amx_policy.md`
+- Fase 1 discovery {{APP_NAME_SHORT}} · `apps/{{APP_ID}}/fase-1-discovery/`
+- Vulns catalog · `apps/{{APP_ID}}/fase-1-discovery/05_vulns.md`
+- Mythos scan post-fixes · 4/4 CRITICAL detectados · run `{{APP_ID}}-csharp-20260421T224616Z-43ad1d`
+- .NET 8 LTS support lifecycle · Microsoft official
+- ADR-002 · compute choice (EKS vs Lambda vs EC2)

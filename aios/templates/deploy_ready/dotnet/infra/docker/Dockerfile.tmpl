@@ -1,0 +1,77 @@
+# {{APP_NAME}} · .NET 8 · multi-stage build · Alpine-based
+# Hardening AMX: non-root user · read-only rootfs (via K8s) · distroless-like minimal
+# Policy AMX v2.0 §10 · Golden Image / AMI custom AMX (cuando esté disponible · usar ESA como base image)
+
+# syntax=docker/dockerfile:1.7
+
+# ---- Build stage ---------------------------------------------------------
+ARG DOTNET_SDK_IMAGE=mcr.microsoft.com/dotnet/sdk:8.0-alpine
+ARG DOTNET_RUNTIME_IMAGE=mcr.microsoft.com/dotnet/runtime:8.0-alpine
+
+FROM ${DOTNET_SDK_IMAGE} AS build
+WORKDIR /src
+
+# Copy solution + projects to maximize layer caching
+COPY {{APP_NAME_PASCAL}}.sln .
+COPY src/{{APP_NAME_PASCAL}}.Domain/*.csproj src/{{APP_NAME_PASCAL}}.Domain/
+COPY src/{{APP_NAME_PASCAL}}.Adapters.Sabre/*.csproj src/{{APP_NAME_PASCAL}}.Adapters.Sabre/
+COPY src/{{APP_NAME_PASCAL}}.Adapters.Sftp/*.csproj src/{{APP_NAME_PASCAL}}.Adapters.Sftp/
+COPY src/{{APP_NAME_PASCAL}}.Adapters.Email/*.csproj src/{{APP_NAME_PASCAL}}.Adapters.Email/
+COPY src/{{APP_NAME_PASCAL}}.Data/*.csproj src/{{APP_NAME_PASCAL}}.Data/
+COPY src/{{APP_NAME_PASCAL}}.Infrastructure/*.csproj src/{{APP_NAME_PASCAL}}.Infrastructure/
+COPY src/{{APP_NAME_PASCAL}}.WorkerService/*.csproj src/{{APP_NAME_PASCAL}}.WorkerService/
+
+RUN dotnet restore src/{{APP_NAME_PASCAL}}.WorkerService/{{APP_NAME_PASCAL}}.WorkerService.csproj \
+    --runtime linux-musl-x64
+
+# Copy sources and build
+COPY src/ src/
+WORKDIR /src/src/{{APP_NAME_PASCAL}}.WorkerService
+RUN dotnet publish {{APP_NAME_PASCAL}}.WorkerService.csproj \
+    --configuration Release \
+    --runtime linux-musl-x64 \
+    --self-contained false \
+    --no-restore \
+    --output /app/publish \
+    /p:PublishReadyToRun=true
+
+# ---- Runtime stage -------------------------------------------------------
+FROM ${DOTNET_RUNTIME_IMAGE} AS runtime
+
+# Non-root user · UID 1001 matches K8s SecurityContext
+RUN apk add --no-cache \
+        icu-libs \
+        tzdata \
+        curl \
+        ca-certificates \
+    && addgroup -g 1001 -S app \
+    && adduser -u 1001 -S app -G app \
+    && rm -rf /var/cache/apk/*
+
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
+    DOTNET_RUNNING_IN_CONTAINER=true \
+    DOTNET_EnableDiagnostics=0 \
+    TZ=America/Mexico_City \
+    ASPNETCORE_ENVIRONMENT=Production
+
+WORKDIR /app
+COPY --from=build --chown=app:app /app/publish .
+
+USER 1001
+
+# Healthcheck · validates Sabre/SQL/Secrets reachable before entering ExecuteAsync
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
+    CMD ["dotnet", "{{APP_NAME_PASCAL}}.WorkerService.dll", "--health-check"]
+
+ENTRYPOINT ["dotnet", "{{APP_NAME_PASCAL}}.WorkerService.dll"]
+
+# ---- Image labels --------------------------------------------------------
+LABEL org.opencontainers.image.source="https://github.com/aeromexico/revenue-accounting" \
+      org.opencontainers.image.title="{{APP_NAME}}" \
+      org.opencontainers.image.description=".NET 8 · Linux · AMX Revenue Accounting" \
+      org.opencontainers.image.vendor="Aeroméxico" \
+      org.opencontainers.image.licenses="Proprietary" \
+      amx.app.id="{{APP_ID}}" \
+      amx.app.tier="T1" \
+      amx.policy.version="2.0" \
+      amx.stack="dotnet8-linux-alpine"

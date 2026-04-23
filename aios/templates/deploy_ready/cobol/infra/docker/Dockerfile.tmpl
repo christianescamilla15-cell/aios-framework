@@ -1,0 +1,57 @@
+# {{APP_NAME}} · COBOL · GnuCOBOL on Ubuntu slim
+# CAVEAT: container principalmente para build/CI · producción real corre en IBM AS400/z/OS (Miatech)
+# Decisión canónica policy AMX v2.0 §13 · COBOL → Python equivalencia funcional (NO traducción línea a línea)
+# Este Dockerfile provee entorno para lint + compile baseline. Runtime productivo out-of-scope.
+
+# syntax=docker/dockerfile:1.7
+
+ARG UBUNTU_IMAGE=ubuntu:24.04
+
+FROM ${UBUNTU_IMAGE} AS build
+WORKDIR /build
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+ && apt-get install -y --no-install-recommends \
+        gnucobol3 \
+        libgmp-dev \
+        build-essential \
+        ca-certificates \
+        make \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY src/ src/
+# Compile all .cbl files (best-effort · AS400 CICS calls may fail, that's expected)
+RUN find src -name "*.cbl" -type f | while read f; do \
+        echo "Compiling $f"; \
+        cobc -x -o "/tmp/$(basename "$f" .cbl)" "$f" 2>&1 | tee -a /build/compile.log || true; \
+    done
+
+FROM ${UBUNTU_IMAGE} AS runtime
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+ && apt-get install -y --no-install-recommends \
+        gnucobol3 \
+        libgmp-dev \
+        ca-certificates \
+        tzdata \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd -u 1001 -s /bin/bash -m app
+
+ENV TZ=America/Mexico_City
+
+WORKDIR /app
+COPY --from=build --chown=app:app /build/src/ ./src/
+COPY --from=build --chown=app:app /build/compile.log ./compile.log
+
+USER 1001
+
+# No ENTRYPOINT estándar · CI usa este contenedor para compile/lint · no para runtime
+CMD ["cat", "compile.log"]
+
+LABEL org.opencontainers.image.title="{{APP_NAME}} (COBOL baseline)" \
+      org.opencontainers.image.vendor="Aeroméxico" \
+      amx.app.id="{{APP_ID}}" \
+      amx.app.tier="{{TIER}}" \
+      amx.policy.version="2.0" \
+      amx.stack="cobol-gnucobol3-ubuntu24" \
+      amx.note="build-only · production runtime in IBM AS400/zOS (Miatech)"

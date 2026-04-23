@@ -1,0 +1,201 @@
+# {{APP_NAME}} · Kubernetes Deployment · EKS Fargate (service · no-batch)
+# Workload: {{WORKLOAD_TYPE}} · Tier: {{TIER}}
+# Policy AMX v2.0 §1.1 · EKS mandatory T1
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{APP_ID}}-prod
+  labels:
+    amx.app: {{APP_ID}}
+    amx.tier: "{{TIER}}"
+    amx.policy.version: "2.0"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{APP_ID}}-sa
+  namespace: {{APP_ID}}-prod
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::{{AWS_ACCOUNT_ID}}:role/amx-r-{{APP_ID_SHORT}}-prod
+  labels:
+    amx.app: {{APP_ID}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{APP_ID}}-config
+  namespace: {{APP_ID}}-prod
+data:
+  appsettings.Production.json: |
+    {
+      "Environment": "Production",
+      "App": "{{APP_NAME}}"
+    }
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: {{APP_ID}}-secrets
+  namespace: {{APP_ID}}-prod
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: {{APP_ID}}-secrets
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: amx/{{APP_ID_SHORT}}/app-secrets
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{APP_ID}}
+  namespace: {{APP_ID}}-prod
+  labels:
+    amx.app: {{APP_ID}}
+    amx.tier: "{{TIER}}"
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: {{APP_ID}}
+  template:
+    metadata:
+      labels:
+        app: {{APP_ID}}
+        amx.app: {{APP_ID}}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{APP_ID}}-sa
+      automountServiceAccountToken: true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{APP_ID_SHORT}}
+          image: {{AWS_ACCOUNT_ID}}.dkr.ecr.{{AWS_REGION}}.amazonaws.com/amx-{{APP_ID_SHORT}}:IMAGE_TAG
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: ENV
+              value: Production
+            - name: TZ
+              value: America/Mexico_City
+            - name: AWS_REGION
+              value: {{AWS_REGION}}
+          envFrom:
+            - secretRef:
+                name: {{APP_ID}}-secrets
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: {{APP_ID}}-config
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{APP_ID}}
+  namespace: {{APP_ID}}-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: {{APP_ID}}
+  ports:
+    - port: 80
+      targetPort: 8080
+      name: http
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{APP_ID}}-hpa
+  namespace: {{APP_ID}}-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{APP_ID}}
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{APP_ID}}-pdb
+  namespace: {{APP_ID}}-prod
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: {{APP_ID}}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{APP_ID}}-quota
+  namespace: {{APP_ID}}-prod
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    limits.cpu: "8"
+    limits.memory: "16Gi"

@@ -1,0 +1,72 @@
+// Regression test · V-CR-01 · vuelo 829 hardcoded NO debe reintroducirse
+// Ejecuta en CI · bloquea merge si falla
+// Policy AMX v2.0 + AIOS pre-commit hook activo
+
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using Xunit;
+
+namespace {{APP_NAME_PASCAL}}.Tests.Regression;
+
+public class NoVuelo829BlockTest
+{
+    private static readonly string[] SourceExtensions = { ".cs", ".config", ".json", ".xml" };
+
+    // Patterns that would indicate the hardcoded flight 829 bug (V-CR-01) reintroduced.
+    // Must stay in sync with AMX_FORBIDDEN_REGEX in Mythos policy.py
+    private static readonly Regex[] ForbiddenPatterns =
+    {
+        new(@"flight\s*=?\s*.*""829""", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"flight\.flightNumber\s*=\s*""829""", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"FLIGHT_NUMBER\s*=\s*""829""", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+    };
+
+    [Fact(DisplayName = "V-CR-01 · no source file should hardcode flight number 829")]
+    public void NoHardcodedFlight829InAnySourceFile()
+    {
+        var root = FindRepoRoot();
+        Assert.NotNull(root);
+
+        var offenders = Directory
+            .EnumerateFiles(root!, "*", SearchOption.AllDirectories)
+            .Where(p => SourceExtensions.Contains(Path.GetExtension(p).ToLower()))
+            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar))
+            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "obj" + Path.DirectorySeparatorChar))
+            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "packages" + Path.DirectorySeparatorChar))
+            .Where(p => !p.Contains(Path.DirectorySeparatorChar + "tests" + Path.DirectorySeparatorChar)) // skip tests that check for the pattern
+            .Where(FileContainsHardcodedFlight829)
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            $"V-CR-01 regression detected · hardcoded flight 829 in {offenders.Count} file(s):\n" +
+            string.Join("\n", offenders.Select(o => $"  - {o}")) +
+            "\n\nEl vuelo 829 NO debe venir hardcoded · usar valor del PNR runtime.");
+    }
+
+    private static bool FileContainsHardcodedFlight829(string path)
+    {
+        try
+        {
+            var content = File.ReadAllText(path);
+            return ForbiddenPatterns.Any(p => p.IsMatch(content));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string? FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+        while (dir != null)
+        {
+            if (File.Exists(Path.Combine(dir.FullName, "{{APP_NAME_PASCAL}}.sln")))
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        return null;
+    }
+}

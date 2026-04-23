@@ -1,0 +1,52 @@
+# {{APP_NAME}} · Java · multi-stage build · Amazon Corretto 21 Alpine
+# Hardening AMX: non-root · read-only rootfs via K8s · distroless-like minimal
+# Policy AMX v2.0 §10
+
+# syntax=docker/dockerfile:1.7
+
+ARG JDK_IMAGE=amazoncorretto:21-alpine-jdk
+ARG JRE_IMAGE=amazoncorretto:21-alpine
+
+# ---- Build stage ---------------------------------------------------------
+FROM ${JDK_IMAGE} AS build
+WORKDIR /build
+
+RUN apk add --no-cache maven
+
+# Layer cache: copy pom first
+COPY pom.xml .
+COPY .mvn/ .mvn/
+RUN mvn -B -ntp dependency:go-offline
+
+COPY src/ src/
+RUN mvn -B -ntp clean package -DskipTests \
+ && cp target/*.jar /build/app.jar
+
+# ---- Runtime stage -------------------------------------------------------
+FROM ${JRE_IMAGE} AS runtime
+
+RUN apk add --no-cache tzdata curl ca-certificates \
+ && addgroup -g 1001 -S app \
+ && adduser -u 1001 -S app -G app \
+ && rm -rf /var/cache/apk/*
+
+ENV TZ=America/Mexico_City \
+    JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError" \
+    SPRING_PROFILES_ACTIVE=production
+
+WORKDIR /app
+COPY --from=build --chown=app:app /build/app.jar app.jar
+
+USER 1001
+
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
+    CMD ["sh", "-c", "wget -qO- http://localhost:8080/actuator/health/liveness || exit 1"]
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
+LABEL org.opencontainers.image.title="{{APP_NAME}}" \
+      org.opencontainers.image.vendor="Aeroméxico" \
+      amx.app.id="{{APP_ID}}" \
+      amx.app.tier="{{TIER}}" \
+      amx.policy.version="2.0" \
+      amx.stack="java21-corretto-alpine"

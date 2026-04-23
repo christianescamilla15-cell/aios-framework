@@ -1,0 +1,147 @@
+# {{APP_NAME}} · CI Pipeline · Java (Maven)
+# Policy AMX v2.0
+
+name: ci-{{APP_ID}}
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "apps/{{APP_ID}}/**"
+      - ".github/workflows/ci-{{APP_ID}}.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "apps/{{APP_ID}}/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: ci-{{APP_ID}}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_DIR: "apps/{{APP_ID}}/deploy-ready"
+  JAVA_VERSION: "21"
+
+jobs:
+  build-test:
+    name: Build + Tests (Java Maven)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: corretto
+          cache: maven
+
+      - name: Build + test
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          mvn -B -ntp clean verify \
+            -Dmaven.test.failure.ignore=false \
+            -Djacoco.destFile=target/jacoco.exec
+
+      - name: Publish Surefire / Jacoco
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-{{APP_ID}}
+          path: |
+            ${{ env.APP_DIR }}/target/surefire-reports/
+            ${{ env.APP_DIR }}/target/site/jacoco/
+
+      - name: Coverage gate (Jacoco 60%)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          PCT=$(awk -F',' 'NR>1 {covered+=$5; missed+=$4} END {printf "%.0f", 100*covered/(covered+missed)}' target/site/jacoco/jacoco.csv 2>/dev/null || echo 0)
+          echo "Coverage: $PCT%"
+          [[ $PCT -ge 60 ]] || { echo "::error::coverage $PCT% < 60% gate"; exit 1; }
+
+  mythos-scan:
+    name: Mythos Scan (AMX policy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: |
+          pip install -e mythos/
+          pip install semgrep bandit
+      - id: mythos
+        run: |
+          set +e
+          python -m mythos_core.cli scan {{APP_ID}}-{{PRIMARY_STACK}}
+          echo "verdict=$?" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mythos-{{APP_ID}}
+          path: mythos/mythos-memory/runs/{{APP_ID}}-*/
+      - name: Fail on HIGH/CRITICAL
+        if: steps.mythos.outputs.verdict == '2'
+        run: exit 1
+
+  semgrep:
+    name: Semgrep multi-config
+    runs-on: ubuntu-latest
+    container: { image: returntocorp/semgrep:latest }
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          semgrep \
+            --config p/owasp-top-ten \
+            --config p/java \
+            --config p/spring \
+            --sarif --output semgrep.sarif \
+            --error \
+            ${{ env.APP_DIR }} || true
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: semgrep.sarif, category: semgrep-{{APP_ID}} }
+
+  container-build:
+    name: Container build + Trivy
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.APP_DIR }}
+          file: ${{ env.APP_DIR }}/infra/docker/Dockerfile
+          push: false
+          load: true
+          tags: amx-{{APP_ID_SHORT}}:ci
+      - uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: amx-{{APP_ID_SHORT}}:ci
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: trivy.sarif, category: trivy-{{APP_ID}} }
+
+  ci-gate:
+    name: CI Gate (AMX policy)
+    runs-on: ubuntu-latest
+    needs: [build-test, mythos-scan, semgrep, container-build]
+    if: always()
+    steps:
+      - run: |
+          if [[ "${{ needs.build-test.result }}" != "success" ]] \
+             || [[ "${{ needs.mythos-scan.result }}" != "success" ]] \
+             || [[ "${{ needs.container-build.result }}" != "success" ]]; then
+            echo "::error::CI gate FAILED · merge blocked"
+            exit 1
+          fi

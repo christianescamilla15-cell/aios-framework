@@ -1,0 +1,176 @@
+# ADR-002 · {{APP_NAME_SHORT}} · Compute Choice · EKS Fargate vs Lambda vs EC2
+
+| Campo | Valor |
+|---|---|
+| **Estado** | Propuesto · pendiente firma Gate 3 |
+| **Fecha** | 2026-04-21 |
+| **Autores** | Christian Hernández (Líder Técnico Etrive) |
+| **Aprobadores requeridos** | Arquitectura AMX (Toño) + Borde Arquitectura (Israel Miguel) |
+| **App scope** | {{APP_NAME}} (#10) · post-migración .NET 8 (ADR-001) |
+| **Depende de** | ADR-001 · migración .NET 8 confirmada |
+| **Tags** | compute · aws · tier · policy |
+
+## Contexto
+
+Post migración .NET 8 Linux container (ADR-001), debemos definir **dónde corre** el workload en AWS. {{APP_NAME}} tiene estas características:
+
+- **Patrón de ejecución:** Batch diario (cron · mainCron `0 50 6 1/1 * ? *` · 6:50 AM)
+- **Duración de ejecución:** ~15-45 min por corrida (estimado · sin medición oficial)
+- **Trigger:** Scheduler interno (Quartz.NET) — podría externalizarse a EventBridge
+- **I/O heavy:** SABRE SOAP (secuencial · múltiples vuelos) · SFTP upload · SQL Server reads
+- **CPU:** medio-bajo (no número-crunching · principalmente orquestación + I/O)
+- **Memoria:** baja-media (~500 MB - 2 GB estimado)
+- **Estado:** Stateless por corrida (estado persiste en AIDX SQL Server · no en memoria)
+- **Criticidad:** T1 propuesto (batch que alimenta decisiones negocio · no 24x7)
+
+Policy AMX v2.0 §1.1 para T1: **EKS o Serverless obligatorio · EC2 prohibido.**
+
+## Opciones evaluadas
+
+### Opción A · EKS Fargate · CronJob (**RECOMENDADA**)
+
+Kubernetes CronJob en cluster EKS Fargate compartido. Pod se instancia 6:50 AM diario, ejecuta, termina.
+
+**Pros:**
+- ✅ Compliance policy AMX T1 (EKS mandatory)
+- ✅ Consistente con resto del scope Revenue Accounting (ARC · BSP · ASR en EKS)
+- ✅ Shared cluster · minimiza costo vs pods dedicados por app
+- ✅ CronJob Kubernetes nativo · no hay que mantener scheduler custom
+- ✅ Observability unificada · mismo CloudWatch · Prometheus · Grafana que otros workloads
+- ✅ Secrets Manager CSI driver · inyección automática credenciales
+- ✅ KMS CMK por servicio · CNI + EBS + Secrets cada uno con su CMK
+- ✅ Rolling deploy · rollback simple · estándar GitOps
+- ✅ Kubectl · kubefwd familiar al equipo DevOps
+- ✅ Escalable si el batch crece (parallel pods por región o segmento)
+
+**Cons:**
+- ⚠ Cold start Fargate pod ~20-40 seg (aceptable para batch diario)
+- ⚠ Overhead complejidad operativa (cluster management) · mitigado por cluster compartido con Platform Team
+- ⚠ Tiempo de corrida > 15 min no aplica a Lambda (prohibitivo) · EKS es la única opción viable
+
+**Costo estimado mensual:** ~$15-30 USD (Fargate 1 vCPU · 2 GB RAM · 30 min x 30 días)
+**Compliance:** 🟢 AMX T1 ✓ · SOX audit trail ✓ · Zero Trust compatible ✓
+
+### Opción B · AWS Lambda (container image)
+
+Lambda con container image .NET 8. Invoked via EventBridge scheduled rule.
+
+**Pros:**
+- ✅ Compliance policy AMX (Serverless permitido T1)
+- ✅ Cold start rápido (~2-5 seg con provisioned concurrency · 10-20 seg sin)
+- ✅ Cero overhead operativo · fully managed
+- ✅ Billing por invocación (potencialmente más barato si duración real < 15 min)
+- ✅ EventBridge trigger nativo · reemplaza Quartz.NET por completo
+- ✅ Integración Secrets Manager nativa
+
+**Cons:**
+- 🔴 **Lambda max execution 15 minutos** · {{APP_NAME_SHORT}} puede correr 15-45 min · requiere refactor a chunking / Step Functions (esfuerzo adicional 2-3 semanas)
+- 🔴 I/O SABRE SOAP secuencial puede exceder 15 min en días de alto volumen
+- ⚠ Ephemeral storage 10 GB max · OK para {{APP_NAME_SHORT}} pero menos flexible
+- ⚠ Divergencia arquitectónica con resto del scope (ARC · BSP en EKS · {{APP_NAME_SHORT}} sería outlier)
+- ⚠ Debugging más complejo · solo CloudWatch Logs Insights (vs kubectl logs · exec)
+- ⚠ Observability menos rica · no métricas custom Prometheus sin tercer servicio
+
+**Costo estimado mensual:** ~$5-15 USD (si cabe en 15 min) · pero si requiere Step Functions + Lambda chunks · $20-40
+**Compliance:** 🟢 AMX T1 ✓ pero con caveat duración
+
+### Opción C · EC2 auto-scaling group · Windows Server o Linux
+
+Mantener compute tradicional · EC2 con launch template .NET 8 runtime. Cron cron o systemd timer.
+
+**Pros:**
+- ✅ Modelo operativo familiar · debugging directo SSH
+- ✅ Sin cold start · proceso persistente
+- ✅ Flexibilidad total runtime (cualquier lib · cualquier tiempo ejecución)
+
+**Cons:**
+- 🔴 **VIOLA policy AMX v2.0 §1.1** · T1 prohibe EC2
+- 🔴 Overhead operativo alto (patching · AMI · SSM)
+- 🔴 Costo fijo 24/7 (~$50-100 USD/mes) para batch de 30 min/día · wasteful
+- 🔴 Sin auto-scaling útil (batch no escala horizontal de forma natural · 1 instancia suele bastar)
+- 🔴 Requiere scheduler custom (cron + scripts · más superficie de mantenimiento)
+- 🔴 Inconsistente con roadmap modernización AMX
+
+**Descartada** · no cumple policy.
+
+## Tabla comparativa
+
+| Criterio | A · EKS Fargate | B · Lambda | C · EC2 |
+|---|---|---|---|
+| Compliance AMX T1 | 🟢 | 🟢 (con caveat duración) | 🔴 VIOLA |
+| Consistencia con scope | 🟢 | 🟡 | 🔴 |
+| Costo operativo mensual | $15-30 | $5-15 o $20-40 | $50-100 |
+| Overhead operativo | Bajo (cluster compartido) | Mínimo | Alto |
+| Flexibilidad duración | Ilimitada | 15 min max | Ilimitada |
+| Observability | Rica (Prometheus + CW) | Media (CW Logs) | Rica (CW + custom) |
+| Cold start | 20-40 seg | 2-20 seg | N/A |
+| Rollback | Standard GitOps | Version alias | AMI swap |
+| Esfuerzo migración | Bajo | Alto (si chunking) | Medio |
+
+## Decisión
+
+**OPCIÓN A · EKS Fargate CronJob.**
+
+**Justificación:**
+1. Única opción sin caveats de compliance
+2. Única opción sin caveat de duración de ejecución
+3. Consistencia arquitectónica con resto del scope Revenue Accounting
+4. Observability + operaciones unificadas (menos cognitive overhead equipo)
+5. Costo competitivo dado el workload
+
+## Plan de ejecución
+
+### Pre-requisitos
+- Cluster EKS AMX Platform Team (esperar confirmación disponibilidad · si no existe · solicitar vía Gate 5 AWS account + Diego Zarate VPC + Platform Team EKS setup)
+- Namespace dedicado `{{APP_ID}}-prod` · `{{APP_ID}}-staging`
+- Service Account `{{APP_ID}}-sa` con IRSA (IAM Roles for Service Accounts) bound a rol `amx-r-{{APP_ID_SHORT}}-prod`
+
+### Implementación
+- Kubernetes manifests · `infra/k8s/` (ver `cronjob.yaml`)
+- Helm chart opcional si Platform Team usa Helm/ArgoCD
+- Secrets vía External Secrets Operator + Secrets Manager
+- Container image registry: ECR AMX · tag semver
+
+### Networking
+- Egress: SABRE externo (whitelist VPC endpoint o NAT) · SFTP externo · SMTP relay AMX interno · SQL Server AIDX via Direct Connect
+- Ingress: NO (batch sin API pública · Akamai N/A para esta app)
+
+## Consecuencias
+
+### Positivas
+- Compliance AMX cumplido
+- Pipeline estándar GitOps (ArgoCD o Flux) · menos scripting custom
+- Secrets rotación automatizada via Secrets Manager
+- Observability unificada con equipo Platform
+
+### Negativas · riesgos gestionados
+- **R1** · cluster EKS compartido · contención recursos en incidentes · mitigar con ResourceQuotas por namespace
+- **R2** · aprendizaje Kubernetes para devs Miatech · mitigar con templates + runbook + Platform Team support
+- **R3** · dependencia cluster shared state · mitigar con multi-AZ EKS + Fargate backup region
+
+## Métricas de éxito
+
+| Métrica | Target |
+|---|---|
+| Job completion rate | ≥99.5% |
+| Avg execution time | ≤30 min |
+| Pod cold start | ≤45 seg |
+| Failed runs con alerta | 100% (PagerDuty integration) |
+| Resource limits respected | No OOM kills · no CPU throttling |
+
+## Aprobaciones
+
+| Rol | Nombre | Firma | Fecha |
+|---|---|---|---|
+| Líder Técnico Etrive | Christian Hernández | _________ | 2026-04-__ |
+| Arquitectura AMX | Toño (IT Drive) | _________ | 2026-04-__ |
+| Borde Arquitectura | Israel Miguel González | _________ | 2026-04-__ |
+| CI/CD owner | Diego Zarate | _________ | 2026-04-__ |
+
+## Referencias
+
+- Policy AMX v2.0 §1.1 · `ai-system/06_amx_policy.md`
+- ADR-001 · migración .NET 8
+- EKS Fargate pricing · AWS official
+- Lambda limits · AWS official (15 min max execution)
+- Kubernetes CronJob documentation

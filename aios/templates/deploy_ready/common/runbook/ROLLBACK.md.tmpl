@@ -1,0 +1,125 @@
+# Rollback Plan · {{APP_NAME}}
+
+Plan formal de rollback en caso de fallo post-deploy. Alineado con policy AMX v2.0 §Gates release · MIGRATION mode (paralelismo 4-8 sem + phased rollout).
+
+## Ventana de riesgo post-deploy
+
+| Período post-deploy | Monitoreo | Acción si incidente |
+|---|---|---|
+| 0-1h | Smoke test automático + manual | Rollback automático si smoke falla |
+| 1-24h | Observación primer run cron diario | Rollback si job falla 2x consecutivos |
+| 24h-1 sem | Paridad funcional con legacy | Rollback si divergencia > 1% |
+| 1-4 sem | Paralelismo legacy + nueva versión | Continuar hasta cutover firmado |
+| 4-8 sem | Full cutover · legacy decommissioned | Rollback requiere re-levantar legacy |
+
+## Tipos de rollback
+
+### Tipo 1 · Rollback inmediato (minutos · zero data loss)
+
+**Cuándo:** Primer deploy · smoke test falla · versión nueva rompe runtime.
+
+**Pasos:**
+
+```bash
+# 1. Identificar última versión estable
+kubectl get replicaset -n {{APP_ID}}-prod -o wide | head -10
+
+# 2. Revertir a versión previa (Kubernetes rollback nativo)
+#    Para CronJob · editar image tag o aplicar manifest previo
+kubectl set image cronjob/{{APP_ID}} \
+  {{APP_ID_SHORT}}-processor=<ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/amx-{{APP_ID_SHORT}}:<PREVIOUS_TAG> \
+  -n {{APP_ID}}-prod
+
+# 3. Si hay job en ejecución · matarlo antes de rollback
+kubectl delete job <failing-job-name> -n {{APP_ID}}-prod --grace-period=30
+
+# 4. Verificar CronJob actualizado
+kubectl describe cronjob {{APP_ID}} -n {{APP_ID}}-prod | grep -i image
+
+# 5. Disparar job manual con versión previa · smoke test
+kubectl create job rollback-smoke-$(date +%s) \
+  --from=cronjob/{{APP_ID}} \
+  -n {{APP_ID}}-prod
+```
+
+**Validación:** job exit 0 + CSV en SFTP + email enviado.
+
+### Tipo 2 · Rollback post-paralelismo (horas · paridad verificada)
+
+**Cuándo:** Durante ventana paralelismo (4-8 sem) · divergencia funcional detectada.
+
+**Pasos:**
+
+1. Detener nuevo cronjob: `kubectl patch cronjob {{APP_ID}} -p '{"spec":{"suspend":true}}' -n {{APP_ID}}-prod`
+2. Verificar que legacy sigue corriendo (Windows Service en servidor actual)
+3. Documentar divergencia en Slack + ServiceNow ticket
+4. Analizar causa raíz (logs · métricas · datasets comparados)
+5. Fix en branch · CI + CYBER scans completos · re-deploy
+
+### Tipo 3 · Rollback post-cutover (disruption · alta prioridad)
+
+**Cuándo:** Legacy ya decomisionado · bug crítico descubierto post-cutover.
+
+**Pasos:**
+
+1. Declarar SEV-1 · war room Slack `#{{APP_ID_SHORT}}-incidents`
+2. Rollback Tipo 1 inmediato (a última versión estable previa)
+3. Paralelo: re-provisionar legacy en AWS (si aún tenemos imagen AMI/backup)
+4. Si legacy no disponible: ejecutar manualmente scripts legacy hasta resolver
+5. Post-mortem obligatorio · root cause + regression test añadido
+6. Comunicación a stakeholders Revenue Protection team
+
+## Data considerations
+
+{{APP_NAME_SHORT}} NO persiste estado propio (stateless por corrida). Histórico vive en AIDX SQL Server (Miatech owned). Por tanto:
+
+- Rollback NO requiere restauración de datos
+- Rollback NO causa pérdida de información (siempre que SABRE PNR histórico siga accesible · 30+ días)
+- Si un run falló parcialmente · rerun completo post-rollback reconstruye el output
+
+## Rollback CI/CD pipeline
+
+Si el problema es en pipeline (no en runtime):
+
+- Revertir commit culpable: `git revert <commit>`
+- Force pipeline re-run: workflow_dispatch manual
+- Si CYBER scan detecta nueva vuln: flow normal refactor → re-scan (no rollback necesario)
+
+## Secrets rotation rollback
+
+Si rotación Secrets Manager rompe la app:
+
+```bash
+# AWS Secrets Manager tiene versionado nativo · reutilizar AWSPREVIOUS
+aws secretsmanager update-secret-version-stage \
+  --secret-id amx/{{APP_ID_SHORT}}/aidx-connstring \
+  --version-stage AWSCURRENT \
+  --move-to-version-id <PREVIOUS_VERSION_ID> \
+  --remove-from-version-id <CURRENT_VERSION_ID>
+
+# ExternalSecrets Operator re-sync automático (refresh-interval 1h)
+# O trigger manual:
+kubectl delete externalsecret {{APP_ID}}-secrets -n {{APP_ID}}-prod
+kubectl apply -f apps/{{APP_ID}}/deploy-ready/infra/k8s/cronjob.yaml
+```
+
+## Autoridades de rollback
+
+| Tipo | Aprobación requerida |
+|---|---|
+| Tipo 1 (smoke test fail) | On-call (auto · dentro 1h post-deploy) |
+| Tipo 2 (paralelismo) | Christian + Luis Ertuche |
+| Tipo 3 (post-cutover) | Christian + Víctor Araiza + Miguel Rachid (si tiene impacto security) |
+
+## Comunicación post-rollback
+
+- Slack `#{{APP_ID_SHORT}}-incidents` + `#etrive-sre`
+- Email a stakeholders Revenue Protection (si impactó reporte diario)
+- ServiceNow incident ticket cerrado con summary
+- Post-mortem calendarizado < 72h post-incidente (SEV-1/2)
+
+## Referencias
+
+- RUNBOOK · `RUNBOOK.md`
+- Policy AMX v2.0 §MIGRATION
+- BIA §escenarios-falla

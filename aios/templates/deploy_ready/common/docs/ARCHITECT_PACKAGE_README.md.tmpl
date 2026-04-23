@@ -1,0 +1,160 @@
+# {{APP_NAME}} · Paquete Deploy-Ready AWS · Gate 1-4
+
+Paquete completo preparado para Aeroméxico Revenue Accounting Modernization · aplicativo {{APP_NAME}} (#10). Alineado con policy AMX v2.0 (21-abr-2026) y flujo aprobación v2.0 (9 gates · retro arquitectos 20-abr).
+
+**Audiencia primaria:** Borde de Arquitectura AMX (Israel Miguel González Sandoval) · Gate 4 · revisión de diseño.
+**Audiencia secundaria:** Miguel Rachid (Ciberseguridad · gate 8-9) · Diego Zarate (Red · VPC · gate 6) · Antonio H. Oropeza (KMS · gate 7).
+
+---
+
+## Checklist de entregables por Gate (flujo v2.0)
+
+### FASE 0 · Prerrequisitos (externos al paquete)
+
+- [ ] Correo @aeromexico activo · Víctor Araiza + RH
+- [ ] VPN corporativa AMX · Luis Ertuche
+- [ ] Licencia Kiro aprobada · Selena ITERA ✅ (20-abr)
+- [ ] GitHub Enterprise acceso r/o · Rigoberto Texmayer
+- [ ] Okta + Verify 2FA · Security AMX
+
+### FASE 1 · DISEÑO (gates bloqueantes · 1 mes de freno si se saltan)
+
+| Gate | Entregable | Archivo en este paquete | Estado |
+|---|---|---|---|
+| **G1** · óptimo | Proyecto registrado | `docs/G1_optimo_registro.md` | 🟡 template listo · Carina debe registrar |
+| **G2** · C4 + LeanIX | 4 diagramas navegables | `docs/C4_*.drawio` (Context · Container · Component · Code) | 🟢 drawio listos · pendiente subir LeanIX |
+| **G3** · ADR | ADR formal · opción A vs B | `docs/ADR-001-*.md` · `docs/ADR-002-*.md` | 🟢 listos para firma |
+| **G4** · Borde Arq | OK diseño · pase a infra | `docs/G4_board_review_checklist.md` | 🟢 paquete para revisión |
+
+### FASE 2 · INFRAESTRUCTURA (post G4)
+
+| Gate | Entregable | Archivo | Estado |
+|---|---|---|---|
+| **G5** · Cuenta AWS | Ticket GateOne + cuenta | `docs/G5_aws_account_request.md` | 🟢 plantilla ticket |
+| **G6** · VPC | VPC · subnets · Direct Connect | `infra/cloudformation/vpc-placeholder.yaml` | 🟡 placeholder · Diego Zarate dueño |
+| **G7** · KMS | CMK 1 por servicio | `infra/cloudformation/kms-cmks.yaml` | 🟢 definidas 4 CMKs |
+
+### FASE 3 · CYBER (iterativo)
+
+| Gate | Entregable | Archivo | Estado |
+|---|---|---|---|
+| **G8** · Escaneos | 4 escaneos (WIZ→Veracode→Prisma→Tenable) | `pipelines/cyber-scan.yml` | 🟢 pipeline con secuencia correcta |
+| **G9** · Miguel Rachid | Gate final · OK producción | `suppressions/cyber-exceptions.md` | 🟡 template excepciones |
+
+### FASE 4 · PRODUCCIÓN
+
+- DORA Metrics · `runbook/OBSERVABILITY.md`
+- Runbook operativo · `runbook/RUNBOOK.md`
+- Rollback plan · `runbook/ROLLBACK.md`
+
+---
+
+## Estructura del paquete
+
+```
+deploy-ready/
+├── ARCHITECT_PACKAGE_README.md      ← estás aquí
+├── docs/
+│   ├── C4_01_Context.drawio          ← Nivel 1 · sistema en entorno
+│   ├── C4_02_Container.drawio        ← Nivel 2 · servicios internos
+│   ├── C4_03_Component.drawio        ← Nivel 3 · componentes clave
+│   ├── C4_04_Code.drawio             ← Nivel 4 · estructura código
+│   ├── ADR-001-migracion-dotnet8.md  ← migración 4.7.2 → 8 LTS
+│   ├── ADR-002-compute-choice.md     ← EKS vs Lambda vs EC2
+│   ├── BIA_{{APP_NAME_SHORT}}.md                 ← Business Impact Analysis
+│   ├── G1_optimo_registro.md         ← plantilla registro proyecto
+│   ├── G4_board_review_checklist.md  ← checklist Israel Miguel
+│   ├── G5_aws_account_request.md     ← template ticket
+│   └── SERVICIOS_AWS_Y_KMS.md        ← lista servicios + CMKs
+├── infra/
+│   ├── cloudformation/
+│   │   ├── vpc-placeholder.yaml      ← referencia VPC Diego
+│   │   ├── kms-cmks.yaml             ← 4 CMKs (1 por servicio)
+│   │   ├── iam-roles-amx-r.yaml      ← roles amx-r-* enforced SCPs
+│   │   ├── eks-cluster.yaml          ← EKS Linux para .NET 8
+│   │   └── akamai-config.md          ← {{APP_NAME_SHORT}} no expone público · N/A
+│   └── docker/
+│       ├── Dockerfile                ← multi-stage · .NET 8 Alpine
+│       └── .dockerignore
+├── pipelines/
+│   ├── ci.yml                        ← build + test + Mythos scan
+│   ├── cd.yml                        ← deploy EKS Blue/Green
+│   └── cyber-scan.yml                ← 4 scans secuencia + loop
+├── tests/
+│   ├── unit/                         ← xUnit .NET 8 · placeholders
+│   └── regression/
+│       ├── NoVuelo829BlockTest.cs    ← bloquea regresión V-CR-01
+│       └── NoSecretsInlineTest.cs    ← baseline secrets V-CR-02/03/04
+├── runbook/
+│   ├── RUNBOOK.md                    ← operación diaria
+│   ├── ROLLBACK.md                   ← plan rollback fased
+│   └── OBSERVABILITY.md              ← CloudWatch + DORA placeholders
+└── suppressions/
+    ├── aios-suppressions.json        ← heredado de fase-1-discovery
+    └── cyber-exceptions.md           ← template excepciones Rachid
+```
+
+---
+
+## Contexto de la app
+
+- **Stack actual:** .NET Framework 4.7.2 · C# · WinExe (Windows Service) · EOL enero-2026
+- **Stack target:** .NET 8 LTS · Linux Container · EKS
+- **Integraciones:** SABRE SOAP · SFTP · SQL Server (AIDX) · SMTP relay AMX
+- **Criticidad propuesta:** T1 (batch diario · alimenta decisiones negocio · no 24x7)
+- **Vulnerabilidades conocidas:** 4 CRITICAL · 8 HIGH · 8 MEDIUM · 5 compliance gaps (ver `apps/{{APP_ID}}/fase-1-discovery/05_vulns.md`)
+- **Cobertura scan Mythos:** 4/4 CRITICAL detectados (vuelo 829 + 4 credenciales plaintext · post P1 fixes)
+
+## Decisiones clave documentadas
+
+- **ADR-001** · Migración .NET 4.7.2 → .NET 8 LTS · decisión: **OPCIÓN A** (Linux container)
+- **ADR-002** · Compute · decisión: **OPCIÓN A** (EKS Fargate) · consistente con Tier T1 mandatory
+
+## Cómo navegar para Gate 4 · Borde de Arquitectura
+
+**Flujo sugerido de revisión (30-45 min):**
+
+1. Leer este README (10 min · visión global)
+2. Revisar `docs/C4_01_Context.drawio` + `C4_02_Container.drawio` (10 min)
+3. Leer `docs/ADR-001-migracion-dotnet8.md` + `ADR-002-compute-choice.md` (15 min)
+4. Cross-check `docs/SERVICIOS_AWS_Y_KMS.md` contra servicios prohibidos (5 min)
+5. Validar checklist `docs/G4_board_review_checklist.md` (5 min)
+
+## Validaciones automatizadas incluidas
+
+El pipeline `pipelines/ci.yml` ejecuta contra cada PR:
+- Build .NET 8
+- Tests unitarios (xUnit)
+- Tests regresión (vuelo 829 · secrets · 3 IPs)
+- Mythos scan (verdict FAIL si HIGH/CRITICAL no suprimidos)
+- Semgrep multi-config (OWASP + C# + Java + Python)
+- Upload SARIF a GitHub Code Scanning
+
+El pipeline `pipelines/cyber-scan.yml` ejecuta pre-release:
+- WIZ → Veracode → Prisma → Tenable (secuencia AMX oficial)
+- Loop iterativo · re-scan post-patch
+- 0 HIGH/CRITICAL required · excepciones via Miguel Rachid correo
+
+## Contactos clave
+
+- **Diseño · arquitectura:** Israel Miguel González Sandoval (Borde Arq · principal)
+- **AWS · KMS:** Antonio Hernández Oropeza
+- **Red · VPC:** Diego Zarate
+- **Ciberseguridad:** Miguel Rachid (Gerente) · Luis Fernando Lira Guzmán (day-to-day)
+- **DevOps · SRE:** Martín Alexis Martínez Hernández (Alexis)
+- **Líder AMX directo:** Víctor Araiza
+- **Program Manager AMX:** Luis Ertuche
+
+---
+
+## Versionado
+
+- **v1.0** · 21-abr-2026 · Christian Hernández · paquete inicial {{APP_NAME_SHORT}} pilot · post pre-flight AIOS + Mythos cobertura CRITICAL 4/4
+
+## Referencias cruzadas
+
+- Policy AMX v2.0: [`ai-system/06_amx_policy.md`](../../../ai-system/06_amx_policy.md)
+- Flujo aprobación v2.0: `sesiones/20-abr_Ciber_Madurez/Flujo_Aprobacion_Diagramas_AMX.drawio`
+- Fase 1 discovery {{APP_NAME_SHORT}}: [`apps/{{APP_ID}}/fase-1-discovery/`](../fase-1-discovery/)
+- Mythos scan {{APP_NAME_SHORT}}: `mythos/mythos-memory/runs/{{APP_ID}}-csharp-*/`
+- Plan Maestro General: `excel/Plan_Maestro_General.xlsx` (23 sem · 50 act)

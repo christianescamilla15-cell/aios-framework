@@ -1,0 +1,112 @@
+# {{APP_NAME}} · CI Pipeline · COBOL (GnuCOBOL baseline)
+# NOTA: CI es best-effort · COBOL productivo corre en IBM AS400/z/OS (Miatech).
+# Pipeline enfocado en: syntax check · grep-based lint · Mythos scan.
+
+name: ci-{{APP_ID}}
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "apps/{{APP_ID}}/**"
+      - ".github/workflows/ci-{{APP_ID}}.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "apps/{{APP_ID}}/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+env:
+  APP_DIR: "apps/{{APP_ID}}/deploy-ready"
+
+jobs:
+  syntax-check:
+    name: COBOL syntax check (GnuCOBOL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GnuCOBOL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gnucobol3 libgmp-dev
+
+      - name: Syntax check (-fsyntax-only)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          shopt -s globstar nullglob
+          fail=0
+          for f in src/**/*.cbl src/**/*.cob; do
+            [ -f "$f" ] || continue
+            echo "── Checking: $f"
+            cobc -fsyntax-only "$f" || fail=1
+          done
+          exit $fail
+
+  grep-lint:
+    name: Grep-based regression (secrets · IPs · forbidden)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run regression tests (shell)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          bash tests/regression/run_regression.sh
+
+  mythos-scan:
+    name: Mythos Scan (AMX policy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: |
+          pip install -e mythos/
+          pip install semgrep bandit
+      - id: mythos
+        run: |
+          set +e
+          python -m mythos_core.cli scan {{APP_ID}}-{{PRIMARY_STACK}}
+          echo "verdict=$?" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mythos-{{APP_ID}}
+          path: mythos/mythos-memory/runs/{{APP_ID}}-*/
+      - name: Fail on HIGH/CRITICAL
+        if: steps.mythos.outputs.verdict == '2'
+        run: exit 1
+
+  semgrep:
+    name: Semgrep (generic patterns + secrets)
+    runs-on: ubuntu-latest
+    container: { image: returntocorp/semgrep:latest }
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          semgrep \
+            --config p/owasp-top-ten \
+            --config p/secrets \
+            --sarif --output semgrep.sarif \
+            ${{ env.APP_DIR }} || true
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: semgrep.sarif, category: semgrep-{{APP_ID}} }
+
+  ci-gate:
+    name: CI Gate (AMX policy)
+    runs-on: ubuntu-latest
+    needs: [syntax-check, grep-lint, mythos-scan]
+    if: always()
+    steps:
+      - run: |
+          if [[ "${{ needs.syntax-check.result }}" != "success" ]] \
+             || [[ "${{ needs.grep-lint.result }}" != "success" ]] \
+             || [[ "${{ needs.mythos-scan.result }}" != "success" ]]; then
+            echo "::error::CI gate FAILED · merge blocked"
+            exit 1
+          fi

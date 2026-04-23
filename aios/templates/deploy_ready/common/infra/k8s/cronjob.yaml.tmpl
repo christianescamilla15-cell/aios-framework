@@ -1,0 +1,214 @@
+# {{APP_NAME}} · Kubernetes CronJob · EKS Fargate
+# Schedule: 6:50 AM CDT daily (UTC-6 → 12:50 UTC)
+# Policy AMX v2.0 §1.1 · EKS mandatory para T1
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{APP_ID}}-prod
+  labels:
+    amx.app: {{APP_ID}}
+    amx.tier: "T1"
+    amx.policy.version: "2.0"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{APP_ID}}-sa
+  namespace: {{APP_ID}}-prod
+  annotations:
+    # IRSA · vinculado a rol amx-r-{{APP_ID_SHORT}}-prod (creado por CloudFormation iam-roles-amx-r.yaml)
+    eks.amazonaws.com/role-arn: arn:aws:iam::{{AWS_ACCOUNT_ID}}:role/amx-r-{{APP_ID_SHORT}}-prod
+  labels:
+    amx.app: {{APP_ID}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{APP_ID}}-config
+  namespace: {{APP_ID}}-prod
+data:
+  appsettings.Production.json: |
+    {
+      "Logging": {
+        "LogLevel": {
+          "Default": "Information",
+          "Microsoft": "Warning",
+          "Microsoft.EntityFrameworkCore": "Warning"
+        }
+      },
+      "{{APP_NAME_SHORT}}": {
+        "SabreEndpoint": "https://sabre-sws.example.aeromexico.com",
+        "SftpHost": "sftp-corp.internal.aeromexico.com",
+        "SftpPort": 22,
+        "SftpRemotePath": "/CADUCOS",
+        "SmtpHost": "smtp-relay.internal.aeromexico.com",
+        "SmtpPort": 25,
+        "FromAddress": "am{{APP_ID_SHORT}}@aeromexico.com",
+        "Recipients": [
+          "nsalgadog@aeromexico.com",
+          "rgarciagarci@aeromexico.com",
+          "avergarav@aeromexico.com"
+        ],
+        "AidxConnectionStringSecretKey": "aidx-connstring",
+        "SabreCredentialsSecretKey": "sabre-credentials",
+        "SftpKeySecretKey": "sftp-private-key"
+      }
+    }
+---
+# External Secret · syncs from AWS Secrets Manager
+# Requiere External Secrets Operator instalado en cluster (platform team responsibility)
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: {{APP_ID}}-secrets
+  namespace: {{APP_ID}}-prod
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: {{APP_ID}}-secrets
+    creationPolicy: Owner
+  data:
+    - secretKey: aidx-connstring
+      remoteRef:
+        key: amx/{{APP_ID_SHORT}}/aidx-connstring
+    - secretKey: sabre-credentials
+      remoteRef:
+        key: amx/{{APP_ID_SHORT}}/sabre-credentials
+    - secretKey: sftp-private-key
+      remoteRef:
+        key: amx/{{APP_ID_SHORT}}/sftp-private-key
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{APP_ID}}
+  namespace: {{APP_ID}}-prod
+  labels:
+    amx.app: {{APP_ID}}
+    amx.tier: "T1"
+spec:
+  # 6:50 AM CDT (UTC-6) = 12:50 UTC
+  schedule: "50 12 * * *"
+  timeZone: "America/Mexico_City"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 300
+
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600   # 1h hard timeout
+      ttlSecondsAfterFinished: 86400  # cleanup after 24h
+
+      template:
+        metadata:
+          labels:
+            app: {{APP_ID}}
+            amx.app: {{APP_ID}}
+          annotations:
+            prometheus.io/scrape: "false"  # batch · no scraping endpoint
+        spec:
+          serviceAccountName: {{APP_ID}}-sa
+          restartPolicy: OnFailure
+          automountServiceAccountToken: true
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            fsGroup: 1001
+            seccompProfile:
+              type: RuntimeDefault
+
+          containers:
+            - name: {{APP_ID_SHORT}}-processor
+              image: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/amx-{{APP_ID_SHORT}}:IMAGE_TAG
+              imagePullPolicy: Always
+
+              env:
+                - name: ASPNETCORE_ENVIRONMENT
+                  value: Production
+                - name: TZ
+                  value: America/Mexico_City
+                - name: DOTNET_RUNNING_IN_CONTAINER
+                  value: "true"
+                - name: AWS_REGION
+                  value: us-east-1
+                - name: NOSHOW_RUN_ID
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+
+              envFrom:
+                - secretRef:
+                    name: {{APP_ID}}-secrets
+
+              volumeMounts:
+                - name: config
+                  mountPath: /app/appsettings.Production.json
+                  subPath: appsettings.Production.json
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu: "1000m"
+                  memory: "2Gi"
+                  ephemeral-storage: "2Gi"
+
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+
+              livenessProbe:
+                exec:
+                  command:
+                    - dotnet
+                    - {{APP_NAME_PASCAL}}.WorkerService.dll
+                    - --health-check
+                initialDelaySeconds: 30
+                periodSeconds: 60
+                timeoutSeconds: 10
+                failureThreshold: 3
+
+          volumes:
+            - name: config
+              configMap:
+                name: {{APP_ID}}-config
+            - name: tmp
+              emptyDir:
+                medium: Memory
+                sizeLimit: 512Mi
+
+          # Fargate profile selector (no node affinity required · fargate-profile selects namespace)
+          tolerations:
+            - key: "eks.amazonaws.com/compute-type"
+              value: fargate
+              effect: NoSchedule
+---
+# Resource quota · evita consumo excesivo si el batch se dispara
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{APP_ID}}-quota
+  namespace: {{APP_ID}}-prod
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: "4Gi"
+    limits.cpu: "4"
+    limits.memory: "8Gi"
+    count/cronjobs.batch: "2"
+    count/jobs.batch: "10"

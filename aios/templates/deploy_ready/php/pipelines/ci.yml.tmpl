@@ -1,0 +1,166 @@
+# {{APP_NAME}} · CI Pipeline · PHP 8.3
+# Policy AMX v2.0
+
+name: ci-{{APP_ID}}
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "apps/{{APP_ID}}/**"
+      - ".github/workflows/ci-{{APP_ID}}.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "apps/{{APP_ID}}/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: ci-{{APP_ID}}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_DIR: "apps/{{APP_ID}}/deploy-ready"
+  PHP_VERSION: "8.3"
+
+jobs:
+  build-test:
+    name: Build + Tests (PHPUnit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ env.PHP_VERSION }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, pdo_mysql, opcache, intl
+          coverage: xdebug
+          tools: composer:v2, phpunit, phpstan, phpcs
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('**/composer.lock') }}
+
+      - name: Install deps
+        working-directory: ${{ env.APP_DIR }}
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Lint · phpcs PSR12
+        working-directory: ${{ env.APP_DIR }}
+        run: vendor/bin/phpcs --standard=PSR12 src/ || true
+
+      - name: Static analysis · phpstan
+        working-directory: ${{ env.APP_DIR }}
+        run: vendor/bin/phpstan analyse src/ --level=5 || true
+
+      - name: PHPUnit + coverage
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          vendor/bin/phpunit \
+            --coverage-clover coverage.xml \
+            --log-junit test-results.xml \
+            --coverage-text
+
+      - name: Coverage gate 60%
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          PCT=$(php -r '$x = simplexml_load_file("coverage.xml"); $m=$x->project->metrics; echo intval(100*intval($m["coveredstatements"])/max(1,intval($m["statements"])));')
+          echo "Coverage: $PCT%"
+          [[ $PCT -ge 60 ]] || { echo "::error::coverage $PCT% < 60% gate"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-{{APP_ID}}
+          path: |
+            ${{ env.APP_DIR }}/test-results.xml
+            ${{ env.APP_DIR }}/coverage.xml
+
+  mythos-scan:
+    name: Mythos Scan (AMX policy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: |
+          pip install -e mythos/
+          pip install semgrep bandit
+      - id: mythos
+        run: |
+          set +e
+          python -m mythos_core.cli scan {{APP_ID}}-{{PRIMARY_STACK}}
+          echo "verdict=$?" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mythos-{{APP_ID}}
+          path: mythos/mythos-memory/runs/{{APP_ID}}-*/
+      - name: Fail on HIGH/CRITICAL
+        if: steps.mythos.outputs.verdict == '2'
+        run: exit 1
+
+  semgrep:
+    name: Semgrep multi-config
+    runs-on: ubuntu-latest
+    container: { image: returntocorp/semgrep:latest }
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          semgrep \
+            --config p/owasp-top-ten \
+            --config p/php \
+            --config p/secrets \
+            --sarif --output semgrep.sarif \
+            --error \
+            ${{ env.APP_DIR }} || true
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: semgrep.sarif, category: semgrep-{{APP_ID}} }
+
+  container-build:
+    name: Container build + Trivy
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.APP_DIR }}
+          file: ${{ env.APP_DIR }}/infra/docker/Dockerfile
+          push: false
+          load: true
+          tags: amx-{{APP_ID_SHORT}}:ci
+      - uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: amx-{{APP_ID_SHORT}}:ci
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: trivy.sarif, category: trivy-{{APP_ID}} }
+
+  ci-gate:
+    name: CI Gate (AMX policy)
+    runs-on: ubuntu-latest
+    needs: [build-test, mythos-scan, semgrep, container-build]
+    if: always()
+    steps:
+      - run: |
+          if [[ "${{ needs.build-test.result }}" != "success" ]] \
+             || [[ "${{ needs.mythos-scan.result }}" != "success" ]] \
+             || [[ "${{ needs.container-build.result }}" != "success" ]]; then
+            echo "::error::CI gate FAILED · merge blocked"
+            exit 1
+          fi

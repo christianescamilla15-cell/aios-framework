@@ -1,0 +1,312 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  {{APP_NAME}} · 4 KMS Customer Managed Keys (CMK) · 1 por servicio.
+  Policy AMX v2.0 §5 · rotación automática · principals amx-r-* enforced.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+  AppName:
+    Type: String
+    Default: {{APP_ID_SHORT}}
+  AccountId:
+    Type: String
+    Description: AWS account ID (AMX org member account)
+  PrincipalRoleArn:
+    Type: String
+    Description: ARN of the application IRSA role (amx-r-{{APP_ID_SHORT}}-{env})
+  AdminPrincipalArn:
+    Type: String
+    Description: ARN del equipo Seguridad AWS AMX (rol admin KMS)
+    # Ejemplo: arn:aws:iam::{org-account}:role/amx-r-kms-admin
+
+Mappings:
+  EnvTier:
+    dev:     { Tier: T2 }
+    staging: { Tier: T2 }
+    prod:    { Tier: T1 }
+
+Resources:
+  # ─────────────────────────────────────────────────────────────
+  # CMK 1 · ECR · container image encryption
+  # ─────────────────────────────────────────────────────────────
+  KmsKeyEcr:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub "CMK for ECR · amx-{{APP_ID_SHORT}} · ${Environment}"
+      EnableKeyRotation: true
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: SYMMETRIC_DEFAULT
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: amx-{{APP_ID_SHORT}}-ecr-key-policy
+        Statement:
+          - Sid: EnableIAMUserPermissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AccountId}:root"
+            Action: kms:*
+            Resource: "*"
+          - Sid: AllowKmsAdmin
+            Effect: Allow
+            Principal:
+              AWS: !Ref AdminPrincipalArn
+            Action:
+              - kms:Create*
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:Delete*
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+            Resource: "*"
+          - Sid: AllowECRUseOfKey
+            Effect: Allow
+            Principal:
+              Service: ecr.amazonaws.com
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+          - Sid: AllowAppPrincipalToUseCmk
+            Effect: Allow
+            Principal:
+              AWS: !Ref PrincipalRoleArn
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+      Tags:
+        - Key: Name
+          Value: !Sub "amx-kms-ecr-${AppName}-${Environment}"
+        - Key: App
+          Value: !Ref AppName
+        - Key: Tier
+          Value: !FindInMap [EnvTier, !Ref Environment, Tier]
+        - Key: Policy
+          Value: amx-v2.0
+        - Key: Service
+          Value: ecr
+
+  KmsKeyEcrAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/amx-kms-ecr-${AppName}-${Environment}"
+      TargetKeyId: !Ref KmsKeyEcr
+
+  # ─────────────────────────────────────────────────────────────
+  # CMK 2 · Secrets Manager · credentials encryption
+  # ─────────────────────────────────────────────────────────────
+  KmsKeySecrets:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub "CMK for Secrets Manager · amx-{{APP_ID_SHORT}} · ${Environment}"
+      EnableKeyRotation: true
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: SYMMETRIC_DEFAULT
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: RootAccount
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AccountId}:root" }
+            Action: kms:*
+            Resource: "*"
+          - Sid: Admin
+            Effect: Allow
+            Principal: { AWS: !Ref AdminPrincipalArn }
+            Action:
+              - kms:Create*
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ScheduleKeyDeletion
+            Resource: "*"
+          - Sid: SecretsManagerUseCmk
+            Effect: Allow
+            Principal: { Service: secretsmanager.amazonaws.com }
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:CreateGrant
+              - kms:DescribeKey
+            Resource: "*"
+          - Sid: AppPrincipalDecrypt
+            Effect: Allow
+            Principal: { AWS: !Ref PrincipalRoleArn }
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+            Resource: "*"
+      Tags:
+        - { Key: Name, Value: !Sub "amx-kms-secrets-${AppName}-${Environment}" }
+        - { Key: App, Value: !Ref AppName }
+        - { Key: Tier, Value: !FindInMap [EnvTier, !Ref Environment, Tier] }
+        - { Key: Policy, Value: amx-v2.0 }
+        - { Key: Service, Value: secretsmanager }
+
+  KmsKeySecretsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/amx-kms-secrets-${AppName}-${Environment}"
+      TargetKeyId: !Ref KmsKeySecrets
+
+  # ─────────────────────────────────────────────────────────────
+  # CMK 3 · CloudWatch Logs + Metrics encryption
+  # ─────────────────────────────────────────────────────────────
+  KmsKeyLogs:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub "CMK for CloudWatch Logs · amx-{{APP_ID_SHORT}} · ${Environment}"
+      EnableKeyRotation: true
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: SYMMETRIC_DEFAULT
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: RootAccount
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AccountId}:root" }
+            Action: kms:*
+            Resource: "*"
+          - Sid: Admin
+            Effect: Allow
+            Principal: { AWS: !Ref AdminPrincipalArn }
+            Action:
+              - kms:Create*
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ScheduleKeyDeletion
+            Resource: "*"
+          - Sid: CloudWatchLogsUseCmk
+            Effect: Allow
+            Principal: { Service: !Sub "logs.${AWS::Region}.amazonaws.com" }
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+            Condition:
+              ArnLike:
+                kms:EncryptionContext:aws:logs:arn: !Sub "arn:aws:logs:${AWS::Region}:${AccountId}:log-group:/amx/{{APP_ID_SHORT}}/*"
+          - Sid: AppPrincipalPutLogs
+            Effect: Allow
+            Principal: { AWS: !Ref PrincipalRoleArn }
+            Action:
+              - kms:Encrypt
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+      Tags:
+        - { Key: Name, Value: !Sub "amx-kms-logs-${AppName}-${Environment}" }
+        - { Key: App, Value: !Ref AppName }
+        - { Key: Tier, Value: !FindInMap [EnvTier, !Ref Environment, Tier] }
+        - { Key: Policy, Value: amx-v2.0 }
+        - { Key: Service, Value: cloudwatch-logs }
+
+  KmsKeyLogsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/amx-kms-logs-${AppName}-${Environment}"
+      TargetKeyId: !Ref KmsKeyLogs
+
+  # ─────────────────────────────────────────────────────────────
+  # CMK 4 · EBS · Fargate ephemeral storage encryption
+  # ─────────────────────────────────────────────────────────────
+  KmsKeyEbs:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub "CMK for EBS ephemeral storage · amx-{{APP_ID_SHORT}} · ${Environment}"
+      EnableKeyRotation: true
+      KeyUsage: ENCRYPT_DECRYPT
+      KeySpec: SYMMETRIC_DEFAULT
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: RootAccount
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AccountId}:root" }
+            Action: kms:*
+            Resource: "*"
+          - Sid: Admin
+            Effect: Allow
+            Principal: { AWS: !Ref AdminPrincipalArn }
+            Action:
+              - kms:Create*
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ScheduleKeyDeletion
+            Resource: "*"
+          - Sid: EbsServiceLinked
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AccountId}:role/aws-service-role/ec2.amazonaws.com/AWSServiceRoleForEC2" }
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+              - kms:CreateGrant
+            Resource: "*"
+      Tags:
+        - { Key: Name, Value: !Sub "amx-kms-ebs-${AppName}-${Environment}" }
+        - { Key: App, Value: !Ref AppName }
+        - { Key: Tier, Value: !FindInMap [EnvTier, !Ref Environment, Tier] }
+        - { Key: Policy, Value: amx-v2.0 }
+        - { Key: Service, Value: ebs }
+
+  KmsKeyEbsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/amx-kms-ebs-${AppName}-${Environment}"
+      TargetKeyId: !Ref KmsKeyEbs
+
+Outputs:
+  KmsKeyEcrArn:       { Value: !GetAtt KmsKeyEcr.Arn,     Export: { Name: !Sub "${AWS::StackName}-KmsEcrArn" } }
+  KmsKeySecretsArn:   { Value: !GetAtt KmsKeySecrets.Arn, Export: { Name: !Sub "${AWS::StackName}-KmsSecretsArn" } }
+  KmsKeyLogsArn:      { Value: !GetAtt KmsKeyLogs.Arn,    Export: { Name: !Sub "${AWS::StackName}-KmsLogsArn" } }
+  KmsKeyEbsArn:       { Value: !GetAtt KmsKeyEbs.Arn,     Export: { Name: !Sub "${AWS::StackName}-KmsEbsArn" } }

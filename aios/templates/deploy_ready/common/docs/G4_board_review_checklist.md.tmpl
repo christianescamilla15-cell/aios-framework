@@ -1,0 +1,165 @@
+# Gate 4 · Borde de Arquitectura · Checklist de revisión
+
+Checklist pre-diseñado para la sesión de revisión con Israel Miguel González Sandoval (Borde Arquitectura principal) + José Luis Reyes López + José Luis Martínez Espíritu (Seguridad).
+
+**⚠ Riesgo explícito (Antonio retro 20-abr):** saltarse este gate → **~1 mes de freno** para el equipo. Sesión obligatoria antes de pedir infraestructura (Gate 5-7).
+
+---
+
+## Paquete entregado
+
+| Entregable | Archivo | Estado |
+|---|---|---|
+| C4 Context (L1) | `docs/C4_{{APP_NAME_SHORT}}.drawio` · página 1 | ✅ |
+| C4 Container (L2) | `docs/C4_{{APP_NAME_SHORT}}.drawio` · página 2 | ✅ |
+| C4 Component (L3) | `docs/C4_{{APP_NAME_SHORT}}.drawio` · página 3 | ✅ |
+| C4 Code (L4) | `docs/C4_{{APP_NAME_SHORT}}.drawio` · página 4 | ✅ |
+| ADR-001 migración .NET 8 | `docs/ADR-001-migracion-dotnet8.md` | ✅ |
+| ADR-002 compute EKS Fargate | `docs/ADR-002-compute-choice.md` | ✅ |
+| BIA Tecnológico | `docs/BIA_{{APP_NAME_SHORT}}.md` | ✅ |
+| Lista servicios AWS + KMS | `docs/SERVICIOS_AWS_Y_KMS.md` | ✅ |
+| Lista roles IAM amx-r-* | `docs/SERVICIOS_AWS_Y_KMS.md` §Roles | ✅ |
+| CI/CD pipelines | `pipelines/` (ci · cd · cyber-scan) | ✅ |
+| Tests regresión | `tests/regression/` (vuelo 829 · secrets · IPs) | ✅ |
+| Runbook + rollback | `runbook/` | ✅ |
+
+## Checklist · qué valida el Board (del drawio de aprobación)
+
+### Servicios prohibidos
+
+- [ ] ¿Arquitectura usa ECS? · **NO** · ver `SERVICIOS_AWS_Y_KMS.md` §servicios-prohibidos
+- [ ] ¿Usa SES para email? · **NO** · usa SMTP relay AMX interno
+- [ ] ¿Usa SNS para email? · **NO** · solo para eventos (si aplica)
+- [ ] ¿Usa EC2 para T1? · **NO** · usa EKS Fargate (policy §1.1)
+
+### KMS
+
+- [ ] ¿CMKs definidas por servicio? · **SÍ** · 4 CMKs (ECR · Secrets · CW Logs · EBS)
+- [ ] ¿Aliases con convención AMX? · **SÍ** · `alias/amx-kms-{service}-{{APP_ID_SHORT}}`
+- [ ] ¿Rotación configurada? · **SÍ** · anual automática
+- [ ] ¿Key policies con principals correctos? · **SÍ** · ver `infra/cloudformation/kms-cmks.yaml`
+
+### IAM
+
+- [ ] ¿Roles con prefijo `amx-r-*`? · **SÍ** · 3 roles (prod · deploy · staging)
+- [ ] ¿Least privilege? · **SÍ** · ver `infra/cloudformation/iam-roles-amx-r.yaml`
+- [ ] ¿IRSA configurado? · **SÍ** · ServiceAccount bound a rol
+- [ ] ¿Sin permisos admin? · **SÍ**
+
+### Networking
+
+- [ ] ¿VPC coordinada con Diego Zarate? · **PENDIENTE** · coordinar post-Gate 4
+- [ ] ¿Direct Connect para AIDX? · **SÍ** · pre-existente
+- [ ] ¿Akamai configurado si aplica? · **N/A** · sin endpoints públicos
+- [ ] ¿Multi-AZ? · **SÍ** · EKS multi-AZ estándar
+
+### Tipo aplicativo + Tier
+
+- [ ] ¿Tier declarado? · **T1** (eTrive propone) · **T2** (Luis verbal) · **pendiente doc Dynamo**
+- [ ] ¿Compliance mapping? · **SÍ** · SOX potencial · LFPDPPP sí · PCI N/A
+- [ ] ¿BIA firmado? · **PENDIENTE** · owner funcional sin asignar
+
+### Plan · timeline · recursos
+
+- [ ] ¿Alineado con Plan Maestro General? · **SÍ** · 4-6 semanas ADR-001 cabe en ventana
+- [ ] ¿Cutover plan? · **SÍ** · paralelo legacy + nueva 4-8 semanas (policy §9)
+- [ ] ¿DR definido? · **SÍ** · multi-región failover · RTO 24-48h
+- [ ] ¿Tests regresión incluidos? · **SÍ** · vuelo 829 + secrets + IPs en CI
+- [ ] ¿Rollback plan? · **SÍ** · `runbook/ROLLBACK.md`
+
+### Seguridad · vulns pendientes
+
+- [ ] ¿V-CR-01 vuelo 829 bloqueado? · **SÍ** · test regresión + AIOS pre-commit
+- [ ] ¿V-CR-02/03/04 credenciales a Secrets Manager? · **SÍ** · ADR-001 §plan-ejecución
+- [ ] ¿V-HI-03 3 IPs a DNS internal (Route53)? · **PENDIENTE** · post-Gate 6 VPC
+- [ ] ¿.NET EOL resuelto? · **SÍ** · migración .NET 8 LTS (ADR-001)
+- [ ] ¿PII redaction en logs? · **SÍ** · Serilog filter
+
+### Observability
+
+- [ ] ¿CloudWatch configurado? · **SÍ** · logs + custom metrics
+- [ ] ¿DORA metrics? · **SÍ** · placeholders pipeline `runbook/OBSERVABILITY.md`
+- [ ] ¿Dashboards compartidos con Platform Team? · **SÍ** · Grafana común
+
+### CYBER readiness
+
+- [ ] ¿Pipeline con 4 escaneos secuencia correcta? · **SÍ** · WIZ → Veracode → Prisma → Tenable
+- [ ] ¿Loop iterativo scan → fix → re-scan? · **SÍ** · `pipelines/cyber-scan.yml`
+- [ ] ¿0 HIGH/CRITICAL gate? · **SÍ** · exit code 2 si no cumple
+- [ ] ¿Excepciones template? · **SÍ** · `suppressions/cyber-exceptions.md`
+
+### Mythos scan baseline (evidencia objetiva)
+
+- [ ] ¿Scan ejecutado contra código actual? · **SÍ** · run `{{APP_ID}}-csharp-20260421T224616Z-43ad1d`
+- [ ] ¿4/4 CRITICAL detectados? · **SÍ** · vuelo 829 + creds SABRE/SFTP/SQL
+- [ ] ¿3/3 IPs detectadas? · **SÍ** · App.config
+- [ ] ¿Verdict FAIL bloquea release hoy? · **SÍ** (correcto · refactor pendiente)
+
+---
+
+## Preguntas anticipadas del Board + respuestas preparadas
+
+### Q1 · ¿Por qué EKS y no Lambda?
+**R:** {{APP_NAME_SHORT}} puede correr 15-45 min (Lambda max 15 min). Step Functions chunking agrega complejidad. EKS consistente con resto scope. Ver ADR-002 §opciones.
+
+### Q2 · ¿Por qué .NET 8 y no mantener .NET 4.7.2 containerizado?
+**R:** Policy AMX §1.1 exige EKS Linux para T1 · .NET 4.7.2 solo corre en Windows · Windows Fargate prohibido por policy. Plus EOL enero-2026 (C-GAP-01). Ver ADR-001 §opciones.
+
+### Q3 · ¿Por qué T1 y no T2 como dijo Luis?
+**R:** Propuesta eTrive prudente dado SOX/LFPDPPP potenciales. Arquitectura EKS Fargate funciona para T1 o T2. Ajustable si doc Dynamo confirma T2 · pero downgrade sin impacto arquitectónico. Ver BIA §clasificación-tier.
+
+### Q4 · ¿Cómo manejan credenciales hoy?
+**R:** Hoy plaintext en App.config (V-CR-02/03/04 CRITICAL). Refactor migra a Secrets Manager + IRSA · eliminación completa hardcoded. Scan Mythos baseline disponible como evidencia.
+
+### Q5 · ¿Qué pasa si SABRE cambia el SOAP endpoint?
+**R:** Adapter pattern isola · `ISabreAdapter` · cambio solo en `{{APP_NAME_PASCAL}}.Adapters.Sabre`. Sin tocar Domain. Polly + circuit breaker manejan transients.
+
+### Q6 · ¿DR testado?
+**R:** Plan definido (multi-región us-east-1/us-east-2). Primer DR drill post-deploy cutover (pendiente calendario Platform Team).
+
+### Q7 · ¿Coste mensual?
+**R:** ~$60-100 USD/mes · ahorro 50-70% vs baseline EC2 Windows actual. Ver `SERVICIOS_AWS_Y_KMS.md` §costo.
+
+### Q8 · ¿Tiempo total implementación?
+**R:** 6 semanas (4-5 refactor + 1 paralelismo + cutover). Plan Maestro General tiene slot asignado Sprint X (ajustar post-Gate 4 confirmación).
+
+---
+
+## Acciones post-Gate 4 (si aprobado)
+
+1. Levantar ticket Gate 5 (Cuenta AWS · Víctor Araiza)
+2. Coordinar VPC con Diego Zarate
+3. Arrancar refactor .NET 8 (equipo Miatech + eTrive)
+4. Paralelo: configurar CI/CD pipelines en GitHub Enterprise
+5. Baseline scan Mythos en CI · confirmar bloqueo vuelo 829 + secrets
+
+## Acciones si Borde Arq pide ajustes
+
+1. Documentar cambios en addendum ADR
+2. Re-generar C4 diagrams si arquitectura cambia
+3. Re-correr Mythos scan para baseline actualizado
+4. Agendar re-review Gate 4
+
+---
+
+## Firmas (post-sesión)
+
+| Rol | Nombre | Firma | Fecha |
+|---|---|---|---|
+| Borde Arq principal | Israel Miguel González | _________ | 2026-__-__ |
+| Seguridad | José Luis Reyes López | _________ | 2026-__-__ |
+| Seguridad | José Luis Martínez Espíritu | _________ | 2026-__-__ |
+| eTrive Líder Técnico | Christian Hernández | _________ | 2026-__-__ |
+
+**Resultado Board:** [ ] Aprobado · [ ] Aprobado con observaciones · [ ] Rechazado (requiere re-review)
+
+**Observaciones del Board:** _(llenar en sesión)_
+
+---
+
+## Referencias
+
+- Flujo aprobación v2.0 · `sesiones/20-abr_Ciber_Madurez/Flujo_Aprobacion_Diagramas_AMX.drawio`
+- Policy AMX v2.0 · `ai-system/06_amx_policy.md`
+- Pre-flight AIOS · `sesiones/21-abr_preflight_aios/REPORTE_AIOS.md`
+- Prueba E2E Mythos · `sesiones/21-abr_preflight_aios/PRUEBA_E2E_NOSHOW.md`

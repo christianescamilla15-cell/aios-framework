@@ -1,0 +1,179 @@
+# Observability · {{APP_NAME}}
+
+Plan de observabilidad alineado con policy AMX v2.0 + DORA Metrics + roadmap madurez Q2-Q4 (Alexis DevOps).
+
+## Stack de observabilidad
+
+| Capa | Herramienta | Implementación |
+|---|---|---|
+| Logs | CloudWatch Logs · log group `/amx/{{APP_ID_SHORT}}/{env}/*` | Serilog JSON sink · PII redaction |
+| Metrics custom | CloudWatch Metrics namespace `AMX/{{APP_NAME_SHORT}}/{env}` | `ICloudWatchMetricsPublisher` · batch send |
+| Traces | (opcional v2) · AWS X-Ray | out-of-scope v1 · cron jobs trazas limitadas |
+| Dashboards | Grafana (Platform Team) | shared panels con ARC · BSP · ASR |
+| Alerting | CloudWatch Alarms → PagerDuty | SEV-1/2/3 mapping |
+| SARIF findings | GitHub Code Scanning | uploads de Mythos · Semgrep · Trivy · WIZ · Veracode · Prisma · Tenable |
+
+## Structured logging · Serilog config
+
+```csharp
+// En Program.cs ({{APP_NAME_PASCAL}}.WorkerService)
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "{{APP_ID}}")
+    .Enrich.WithProperty("Environment", env)
+    .Enrich.WithProperty("RunId", Environment.GetEnvironmentVariable("NOSHOW_RUN_ID"))
+    .Filter.ByExcluding(Matching.FromSource("Microsoft.EntityFrameworkCore.Database.Command"))  // reduce noise
+    .WriteTo.Console(new Serilog.Formatting.Json.JsonFormatter())  // CloudWatch agent picks up stdout
+    .WriteTo.CloudWatchLogs(
+        logGroup: $"/amx/{{APP_ID_SHORT}}/{env}",
+        createLogGroup: false,
+        encrypt: true,
+        kmsKeyArn: "arn:aws:kms:us-east-1:ACCOUNT_ID:alias/amx-kms-logs-{{APP_ID_SHORT}}-" + env)
+    .Destructure.With(new PiiRedactor())  // Custom destructurer redacts email · PNR · names
+    .CreateLogger();
+```
+
+## PII Redaction (LFPDPPP compliance)
+
+```csharp
+public class PiiRedactor : IDestructuringPolicy
+{
+    private static readonly Regex EmailRegex = new(@"[\w\.\-]+@[\w\.\-]+\.\w+", RegexOptions.Compiled);
+    private static readonly Regex PnrRegex  = new(@"\b[A-Z]{6}\b", RegexOptions.Compiled);
+    // Names: redact only in specific keyed properties · too aggressive otherwise
+
+    public bool TryDestructure(object value, ILogEventPropertyValueFactory propertyValueFactory, out LogEventPropertyValue result)
+    {
+        if (value is string s)
+        {
+            s = EmailRegex.Replace(s, m => "***@***.***");
+            s = PnrRegex.Replace(s, "***PNR***");
+            result = new ScalarValue(s);
+            return true;
+        }
+        result = null!;
+        return false;
+    }
+}
+```
+
+## Métricas custom (CloudWatch · namespace `AMX/{{APP_NAME_SHORT}}/{env}`)
+
+| Metric | Unit | Dimensions | Alertas |
+|---|---|---|---|
+| `FlightsProcessed` | Count | `Environment`, `ProcessDate` | — |
+| `{{APP_NAME_SHORT}}sDetected` | Count | `Environment`, `FlightNumber` | — |
+| `PnrsFetched` | Count | `Environment` | — |
+| `JobDuration` | Seconds | `Environment`, `Outcome` | > 60 min · alert SEV-2 |
+| `SabreApiCalls` | Count | `Environment`, `Operation`, `Success` | — |
+| `SabreApiErrors` | Count | `Environment`, `ErrorType` | rate > 5/min · SEV-2 |
+| `SftpUploads` | Count | `Environment`, `Success` | success=false 1x · SEV-2 |
+| `EmailsSent` | Count | `Environment` | 0 en una corrida · SEV-2 |
+| `CredentialsFetchErrors` | Count | `Environment` | > 0 · SEV-1 |
+
+## DORA Metrics
+
+Track 4 DORA metrics alineado con madurez Alexis:
+
+### 1 · Deployment Frequency
+
+- Source: GitHub Actions `cd-{{APP_ID_SHORT}}` runs with `deploy.result=success`
+- Emitida a CloudWatch: `DeploymentsPerDay`
+- Target post-madurez: diaria (vs mensual baseline)
+
+### 2 · Lead Time for Changes
+
+- Source: `commit_timestamp` → `prod_deploy_timestamp`
+- Calculado en CD workflow step final
+- Target: < 1 día
+
+### 3 · Change Failure Rate
+
+- Source: count(rollbacks + post-deploy hotfixes) / count(deploys)
+- Tracked via label de PR (`rollback`, `hotfix`)
+- Target: < 15%
+
+### 4 · Mean Time To Recovery (MTTR)
+
+- Source: PagerDuty incident acknowledge → resolve
+- Target: < 1h para SEV-1 · < 4h SEV-2
+
+## Dashboards · plantilla Grafana
+
+Paneles sugeridos (compartidos con Platform Team · archivo JSON exportable en v2):
+
+1. **Run overview** · últimos 7 días · success/fail · duración
+2. **SABRE health** · API calls · errors · latency
+3. **SFTP/Email** · success rate · volumen
+4. **Resources** · CPU/memory/ephemeral storage consumo por run
+5. **DORA metrics panel** · shared con resto del scope Revenue Accounting
+6. **Error budget** · consumo mensual vs target 99.5%
+
+## Health checks
+
+```csharp
+// En Program.cs
+builder.Services.AddHealthChecks()
+    .AddCheck<SabreHealthCheck>("sabre", failureStatus: HealthStatus.Unhealthy, tags: new[] { "ready" })
+    .AddCheck<SftpHealthCheck>("sftp", failureStatus: HealthStatus.Degraded, tags: new[] { "ready" })
+    .AddDbContextCheck<AidxDbContext>("sql", failureStatus: HealthStatus.Unhealthy, tags: new[] { "ready" })
+    .AddCheck<SecretsHealthCheck>("secrets", failureStatus: HealthStatus.Unhealthy, tags: new[] { "ready" });
+```
+
+El container responde a `--health-check` CLI arg · usado por Docker HEALTHCHECK + K8s livenessProbe.
+
+## Cobertura compliance logs
+
+| Regulación | Log requirement | Implementación |
+|---|---|---|
+| **SOX** (si aplica) | Audit trail de cambios data financiera | CloudWatch Logs retention 7 años · S3 archive Object Lock |
+| **LFPDPPP** | PII redaction · access logs | Serilog PiiRedactor + CloudWatch Logs ACL |
+| **AMX retention** | 5 años mínimo | S3 archive post 1 año · Object Lock compliance mode |
+
+## Alarms definidas
+
+```yaml
+# CloudWatch Alarms (referencia · YAML en infra/cloudformation/alarms.yaml pendiente)
+- AlarmName: {{APP_ID_SHORT}}-job-failed-2x
+  MetricName: JobDuration
+  Dimensions: [{Name: Outcome, Value: Failed}]
+  Statistic: Sum
+  Period: 86400  # 24h
+  Threshold: 2
+  ComparisonOperator: GreaterThanOrEqualToThreshold
+  AlarmActions: [PagerDutyTopic]
+  Severity: SEV-1
+
+- AlarmName: {{APP_ID_SHORT}}-no-run-26h
+  MetricName: JobDuration
+  Statistic: SampleCount
+  Period: 93600  # 26h
+  Threshold: 1
+  ComparisonOperator: LessThanThreshold
+  AlarmActions: [PagerDutyTopic]
+  Severity: SEV-1
+
+- AlarmName: {{APP_ID_SHORT}}-sabre-error-rate
+  MetricName: SabreApiErrors
+  Statistic: Sum
+  Period: 300
+  Threshold: 5
+  ComparisonOperator: GreaterThanThreshold
+  AlarmActions: [SlackWarningTopic]
+  Severity: SEV-2
+```
+
+## Roadmap post-v1
+
+- v2 · AWS X-Ray traces · correlación SABRE · SFTP · SQL
+- v2 · Prometheus metrics scraping (sidecar if viable)
+- v2 · OpenTelemetry auto-instrumentation
+- v3 · Anomaly detection ML (volumen vuelos · {{APP_ID_SHORT}} rate)
+
+## Referencias
+
+- RUNBOOK · `RUNBOOK.md`
+- ROLLBACK · `ROLLBACK.md`
+- Policy AMX v2.0 §10 (DORA metrics · observability)

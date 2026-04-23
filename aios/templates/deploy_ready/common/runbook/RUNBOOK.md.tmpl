@@ -1,0 +1,133 @@
+# Runbook · {{APP_NAME}} · Operación diaria
+
+Documento operativo para SRE / on-call. Cubre diagnósticos comunes, comandos útiles, y flujo de respuesta a incidentes.
+
+## Resumen del servicio
+
+| Campo | Valor |
+|---|---|
+| **App** | {{APP_NAME}} (#10) |
+| **Tier** | {{TIER}} · rationale: {{TIER_RATIONALE}} |
+| **Compute** | EKS Fargate CronJob |
+| **Namespace** | `{{APP_ID}}-prod` · `{{APP_ID}}-staging` |
+| **Schedule** | 6:50 AM CDT (12:50 UTC) diario |
+| **Duración típica** | 15-45 min |
+| **Dependencias upstream** | SABRE SOAP · SQL Server AIDX · Secrets Manager |
+| **Dependencias downstream** | SFTP corporativo · SMTP relay AMX |
+| **On-call primario** | eTrive SRE rotation |
+| **On-call secundario** | Alexis Martínez (DevOps) |
+| **Escalation** | Christian Hernández → Luis Ertuche |
+
+## Endpoints de observabilidad
+
+| Recurso | URL / comando |
+|---|---|
+| CloudWatch Logs | `/amx/{{APP_ID_SHORT}}/prod/*` log group |
+| CloudWatch Metrics namespace | `AMX/{{APP_NAME_SHORT}}/prod` |
+| Grafana dashboard | _(pendiente · platform team)_ |
+| PagerDuty service | _(pendiente configurar)_ |
+
+## Comandos útiles kubectl
+
+```bash
+# Set context
+aws eks update-kubeconfig --region us-east-1 --name amx-platform-shared
+
+# Ver estado CronJob
+kubectl get cronjob {{APP_ID}} -n {{APP_ID}}-prod
+
+# Ver últimos jobs (últimos 3 runs)
+kubectl get jobs -n {{APP_ID}}-prod --sort-by=.metadata.creationTimestamp | tail -5
+
+# Ver logs del último run
+JOB=$(kubectl get jobs -n {{APP_ID}}-prod --sort-by=.metadata.creationTimestamp -o name | tail -1)
+kubectl logs $JOB -n {{APP_ID}}-prod
+
+# Ver pod activo (si corriendo)
+kubectl get pods -n {{APP_ID}}-prod -l app={{APP_ID}}
+
+# Describe para debugging
+kubectl describe cronjob {{APP_ID}} -n {{APP_ID}}-prod
+kubectl describe pod <pod-name> -n {{APP_ID}}-prod
+
+# Disparar run manual (ad-hoc · NO automático)
+kubectl create job manual-run-$(date +%s) \
+  --from=cronjob/{{APP_ID}} \
+  -n {{APP_ID}}-prod
+
+# Verificar Secret sincronizado (sin revelar valores)
+kubectl get secret {{APP_ID}}-secrets -n {{APP_ID}}-prod -o jsonpath='{.data}' | jq 'keys'
+
+# ExternalSecret status (si ESO instalado)
+kubectl get externalsecret -n {{APP_ID}}-prod
+kubectl describe externalsecret {{APP_ID}}-secrets -n {{APP_ID}}-prod
+```
+
+## Diagnóstico de falla · runbook por síntoma
+
+### Síntoma A · Job se ejecutó pero exit code ≠ 0
+
+1. `kubectl logs <pod>` → buscar stack trace
+2. Identificar componente (Sabre · SFTP · SQL · email)
+3. Si SABRE timeout → confirmar SABRE externo saludable (status page AMX)
+4. Si SFTP fail → verificar conectividad `telnet sftp-corp.internal.aeromexico.com 22`
+5. Si SQL fail → verificar Direct Connect + credenciales (Secrets Manager)
+6. Si aborta por invariante (vuelo 829 guard) → PR bloqueado · revisar código
+
+### Síntoma B · CronJob no se disparó en su horario
+
+1. `kubectl get cronjob {{APP_ID}} -n {{APP_ID}}-prod` → verificar `Suspend: False`
+2. `kubectl describe cronjob {{APP_ID}} -n {{APP_ID}}-prod` → eventos recientes
+3. Verificar node/fargate capacity en cluster
+4. Verificar `schedule: "50 12 * * *"` (timezone: America/Mexico_City)
+
+### Síntoma C · Secret no disponible
+
+1. `kubectl get externalsecret {{APP_ID}}-secrets -n {{APP_ID}}-prod` → estado sync
+2. Verificar Secret Manager en AWS: `aws secretsmanager list-secrets --filters Key=name,Values=amx/{{APP_ID_SHORT}}/`
+3. Verificar IRSA role: `kubectl describe sa {{APP_ID}}-sa -n {{APP_ID}}-prod`
+4. Si rotación automática · trigger manual sync
+
+### Síntoma D · Pod OOM killed
+
+1. `kubectl describe pod <pod>` → razón: `OOMKilled`
+2. Aumentar `resources.limits.memory` en `cronjob.yaml` (incremento 1Gi)
+3. Re-deploy · observar siguientes runs
+4. Investigar posible memory leak · profile con dotMemory si persiste
+
+### Síntoma E · Cold start lento (> 60 seg)
+
+1. Revisar Fargate profile region/AZ
+2. Verificar ECR image pull latency
+3. Considerar pre-warm (out-of-scope v1 · batch tolera 45 seg cold start)
+
+## Alerts (CloudWatch Alarms)
+
+| Alarm | Criteria | Action |
+|---|---|---|
+| {{APP_NAME_SHORT}}-Job-Failed | Job status=Failed 2 runs consecutivos | PagerDuty SEV-1 |
+| {{APP_NAME_SHORT}}-Job-TooLong | Duration > 60 min | PagerDuty SEV-2 |
+| {{APP_NAME_SHORT}}-Job-NoRun | No job en 26h desde último success | PagerDuty SEV-1 (cron muerto) |
+| {{APP_NAME_SHORT}}-Errors | error logs > 100 en 1h | Slack warning |
+| {{APP_NAME_SHORT}}-Secrets-Miss | IRSA auth fail | SEV-1 (credenciales rotadas sin sync) |
+
+## Comunicación
+
+- **Incidentes SEV-1:** crear war room en Slack `#{{APP_ID_SHORT}}-incidents`
+- **SEV-2:** notificar en `#etrive-sre` + abrir ticket ServiceNow
+- **SEV-3:** issue en GitHub + slack async
+- **Escalation** si no hay resolución en 1h: Líder Técnico (Christian) → Program Manager (Luis Ertuche)
+
+## Validación post-fix
+
+1. Correr smoke test ad-hoc (ver comando arriba · `manual-run-*`)
+2. Verificar output CSV SFTP presente
+3. Verificar email recibido por stakeholders
+4. Cerrar ticket con summary + causa raíz
+
+## Referencias
+
+- ROLLBACK · `ROLLBACK.md`
+- OBSERVABILITY · `OBSERVABILITY.md`
+- BIA · `../docs/BIA_{{APP_NAME_SHORT}}.md`
+- Policy AMX v2.0 · `ai-system/06_amx_policy.md`

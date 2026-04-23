@@ -1,0 +1,222 @@
+# {{APP_NAME}} · CYBER Scan Pipeline · secuencia obligatoria pre-release
+# Policy AMX v2.0 §3 · WIZ → Veracode → Prisma → Tenable
+# LOOP ITERATIVO · scan → fix → re-scan · criterio: 0 HIGH/CRITICAL
+# Ejecuta en release branch + dispatch manual + schedule semanal
+
+name: cyber-scan-{{APP_ID_SHORT}}
+
+on:
+  push:
+    branches: [release/*]
+  workflow_dispatch:
+    inputs:
+      scan_subset:
+        description: "Subset (wiz · veracode · prisma · tenable · all)"
+        required: true
+        default: all
+        type: choice
+        options: [wiz, veracode, prisma, tenable, all]
+  schedule:
+    # cada lunes 3 AM UTC · detecta drift CVEs
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+  id-token: write  # OIDC to AWS
+
+env:
+  AWS_REGION: us-east-1
+  APP_DIR: "apps/{{APP_ID}}/deploy-ready"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # WIZ · AWS cloud posture (CSPM) · scan #1
+  # ─────────────────────────────────────────────────────────────
+  wiz:
+    name: "1 · WIZ · AWS posture"
+    runs-on: ubuntu-latest
+    if: ${{ inputs.scan_subset == 'wiz' || inputs.scan_subset == 'all' || github.event_name != 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (read-only scan)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AMX_WIZ_SCAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: WIZ scan
+        # Placeholder · AMX provisiona integración WIZ propia · ajustar al action oficial AMX
+        uses: wiz-sec/wiz-cli-action@v1
+        with:
+          scan_type: aws
+          fail_on: HIGH,CRITICAL
+          tag_app: {{APP_ID}}
+        env:
+          WIZ_CLIENT_ID: ${{ secrets.WIZ_CLIENT_ID }}
+          WIZ_CLIENT_SECRET: ${{ secrets.WIZ_CLIENT_SECRET }}
+        continue-on-error: false
+
+      - name: Upload WIZ SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: wiz-report.sarif
+          category: wiz-{{APP_ID_SHORT}}
+
+  # ─────────────────────────────────────────────────────────────
+  # Veracode · SAST C# .NET 8 · scan #2
+  # ─────────────────────────────────────────────────────────────
+  veracode:
+    name: "2 · Veracode · SAST"
+    runs-on: ubuntu-latest
+    needs: wiz
+    if: ${{ (inputs.scan_subset == 'veracode' || inputs.scan_subset == 'all' || github.event_name != 'workflow_dispatch') && always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build Release (produces .dll for Veracode)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          dotnet publish src/{{APP_NAME_PASCAL}}.WorkerService \
+            --configuration Release \
+            --output veracode-upload/
+
+      - name: Package for Veracode
+        run: |
+          zip -r veracode-upload.zip veracode-upload/
+        working-directory: ${{ env.APP_DIR }}
+
+      - name: Veracode Upload + Scan
+        uses: veracode/veracode-uploadandscan-action@v1.0
+        with:
+          appname: "AMX {{APP_NAME}}"
+          createprofile: false
+          filepath: ${{ env.APP_DIR }}/veracode-upload.zip
+          vid: ${{ secrets.VERACODE_API_ID }}
+          vkey: ${{ secrets.VERACODE_API_KEY }}
+          criticality: High
+          scantimeout: 30
+          failbuild: true
+          fail_on_severity: "Very High, High"
+
+      - name: Upload Veracode SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: veracode-report.sarif
+          category: veracode-{{APP_ID_SHORT}}
+
+  # ─────────────────────────────────────────────────────────────
+  # Prisma Cloud · container + compute · scan #3
+  # ─────────────────────────────────────────────────────────────
+  prisma:
+    name: "3 · Prisma · containers"
+    runs-on: ubuntu-latest
+    needs: veracode
+    if: ${{ (inputs.scan_subset == 'prisma' || inputs.scan_subset == 'all' || github.event_name != 'workflow_dispatch') && always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image for Prisma scan
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.APP_DIR }}
+          file: ${{ env.APP_DIR }}/infra/docker/Dockerfile
+          load: true
+          tags: amx-{{APP_ID_SHORT}}:prisma-scan
+
+      - name: Prisma Cloud image scan
+        id: prisma
+        uses: PaloAltoNetworks/prisma-cloud-scan@v1.4.0
+        with:
+          pcc_console_url: ${{ secrets.PRISMA_CONSOLE_URL }}
+          pcc_user: ${{ secrets.PRISMA_USER }}
+          pcc_pass: ${{ secrets.PRISMA_PASS }}
+          image_name: amx-{{APP_ID_SHORT}}:prisma-scan
+          results_file: prisma-results.json
+
+      - name: Convert Prisma to SARIF
+        run: |
+          # helper AMX (pendiente definir) convierte prisma json → sarif
+          echo "TODO · script conversion prisma → sarif"
+
+      - name: Upload Prisma SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: prisma.sarif
+          category: prisma-{{APP_ID_SHORT}}
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────
+  # Tenable · IaC compliance · scan #4
+  # ─────────────────────────────────────────────────────────────
+  tenable:
+    name: "4 · Tenable · IaC"
+    runs-on: ubuntu-latest
+    needs: prisma
+    if: ${{ (inputs.scan_subset == 'tenable' || inputs.scan_subset == 'all' || github.event_name != 'workflow_dispatch') && always() }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tenable IaC scan
+        uses: tenable/terrascan-action@main
+        with:
+          iac_type: all
+          iac_version: v14
+          policy_type: aws
+          only_warn: false
+          iac_dir: ${{ env.APP_DIR }}/infra/cloudformation
+          sarif_upload: true
+
+      - name: Upload Tenable SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: terrascan.sarif
+          category: tenable-{{APP_ID_SHORT}}
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate final · Miguel Rachid approval
+  # ─────────────────────────────────────────────────────────────
+  gate-miguel-rachid:
+    name: "Gate 9 · Miguel Rachid approval"
+    runs-on: ubuntu-latest
+    needs: [wiz, veracode, prisma, tenable]
+    if: always() && github.event_name == 'push'
+    environment:
+      name: cyber-gate-production
+      # Requires manual approval from Miguel Rachid configured in env protection rules
+    steps:
+      - name: Summary
+        run: |
+          echo "# CYBER scans summary · {{APP_NAME_SHORT}}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| 1 · WIZ | ${{ needs.wiz.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 2 · Veracode | ${{ needs.veracode.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 3 · Prisma | ${{ needs.prisma.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 4 · Tenable | ${{ needs.tenable.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Excepciones (si aplica) en \`suppressions/cyber-exceptions.md\`." >> $GITHUB_STEP_SUMMARY
+
+      - name: Require all green
+        run: |
+          if [[ "${{ needs.wiz.result }}" != "success" ]] \
+             || [[ "${{ needs.veracode.result }}" != "success" ]] \
+             || [[ "${{ needs.prisma.result }}" != "success" ]] \
+             || [[ "${{ needs.tenable.result }}" != "success" ]]; then
+            echo "::error::CYBER gate FAILED · loop iterativo · refactor + re-scan"
+            exit 1
+          fi

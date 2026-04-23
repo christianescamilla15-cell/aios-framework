@@ -1,0 +1,248 @@
+# {{APP_NAME}} · CI Pipeline
+# Triggered on PR + push to main/develop
+# Stages: build → test (unit + regression) → Mythos scan → Semgrep → SARIF upload
+# Policy AMX v2.0 · bloquea merge si Mythos verdict = FAIL
+
+name: ci-{{APP_ID_SHORT}}
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "apps/{{APP_ID}}/**"
+      - "mythos/**"
+      - ".github/workflows/ci-{{APP_ID_SHORT}}.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "apps/{{APP_ID}}/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write  # SARIF upload
+
+concurrency:
+  group: ci-{{APP_ID_SHORT}}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  APP_DIR: "apps/{{APP_ID}}/deploy-ready"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Build + Test .NET 8
+  # ─────────────────────────────────────────────────────────────
+  build-test:
+    name: Build + Tests (.NET 8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        working-directory: ${{ env.APP_DIR }}
+        run: dotnet restore {{APP_NAME_PASCAL}}.sln
+
+      - name: Build (Release)
+        working-directory: ${{ env.APP_DIR }}
+        run: dotnet build {{APP_NAME_PASCAL}}.sln --configuration Release --no-restore
+
+      - name: Test (Unit + Regression + Integration)
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          dotnet test {{APP_NAME_PASCAL}}.sln \
+            --configuration Release \
+            --no-build \
+            --verbosity normal \
+            --logger "trx;LogFileName=test-results.trx" \
+            --logger "GitHubActions" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory TestResults \
+            /p:CollectCoverage=true \
+            /p:CoverletOutputFormat=cobertura
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ${{ env.APP_DIR }}/TestResults/
+          retention-days: 14
+
+      - name: Coverage report
+        uses: 5monkeys/cobertura-action@v14
+        if: github.event_name == 'pull_request'
+        with:
+          path: ${{ env.APP_DIR }}/TestResults/**/coverage.cobertura.xml
+          minimum_coverage: 60
+          show_missing: true
+          fail_below_threshold: true
+
+  # ─────────────────────────────────────────────────────────────
+  # Mythos scan · AMX forbidden patterns + secrets + PII
+  # ─────────────────────────────────────────────────────────────
+  mythos-scan:
+    name: Mythos Scan (AMX policy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Mythos + deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e mythos/
+          python -m pip install semgrep bandit
+
+      - name: Mythos config-check
+        run: |
+          python -m mythos_core.cli config-check
+
+      - name: Mythos scan {{APP_ID}}-csharp
+        id: mythos
+        run: |
+          set +e
+          python -m mythos_core.cli scan {{APP_ID}}-csharp
+          echo "verdict_exit=$?" >> $GITHUB_OUTPUT
+
+      - name: Upload Mythos artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mythos-scan-results
+          path: mythos/mythos-memory/runs/{{APP_ID}}-csharp-*/
+          retention-days: 30
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: mythos/mythos-memory/runs/
+          category: mythos-{{APP_ID_SHORT}}
+
+      - name: Fail on verdict FAIL
+        if: steps.mythos.outputs.verdict_exit == '2'
+        run: |
+          echo "::error::Mythos scan FAIL · HIGH/CRITICAL findings encontrados · refactor requerido"
+          exit 1
+
+  # ─────────────────────────────────────────────────────────────
+  # Semgrep · multi-config (OWASP + C# + Java + Python)
+  # ─────────────────────────────────────────────────────────────
+  semgrep:
+    name: Semgrep multi-config
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: returntocorp/semgrep:latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: |
+          semgrep \
+            --config p/owasp-top-ten \
+            --config p/csharp \
+            --config p/java \
+            --config p/python \
+            --sarif --output semgrep.sarif \
+            --error \
+            ${{ env.APP_DIR }}
+        continue-on-error: true
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep-{{APP_ID_SHORT}}
+
+  # ─────────────────────────────────────────────────────────────
+  # Container build + vuln scan (pre-cyber-scan-full · baseline)
+  # ─────────────────────────────────────────────────────────────
+  container-build:
+    name: Container build + Trivy scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [build-test]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.APP_DIR }}
+          file: ${{ env.APP_DIR }}/infra/docker/Dockerfile
+          push: false
+          load: true
+          tags: amx-{{APP_ID_SHORT}}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: amx-{{APP_ID_SHORT}}:ci
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-{{APP_ID_SHORT}}
+
+  # ─────────────────────────────────────────────────────────────
+  # Gate final · require all jobs pass
+  # ─────────────────────────────────────────────────────────────
+  ci-gate:
+    name: CI Gate (AMX policy)
+    runs-on: ubuntu-latest
+    needs: [build-test, mythos-scan, semgrep, container-build]
+    if: always()
+    steps:
+      - name: Require all gates pass
+        run: |
+          echo "build-test: ${{ needs.build-test.result }}"
+          echo "mythos-scan: ${{ needs.mythos-scan.result }}"
+          echo "semgrep: ${{ needs.semgrep.result }}"
+          echo "container-build: ${{ needs.container-build.result }}"
+          if [[ "${{ needs.build-test.result }}" != "success" ]] \
+             || [[ "${{ needs.mythos-scan.result }}" != "success" ]] \
+             || [[ "${{ needs.container-build.result }}" != "success" ]]; then
+            echo "::error::CI gate FAILED · merge blocked"
+            exit 1
+          fi

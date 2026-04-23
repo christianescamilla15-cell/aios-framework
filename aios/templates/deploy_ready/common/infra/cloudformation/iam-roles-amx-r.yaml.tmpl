@@ -1,0 +1,208 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  {{APP_NAME}} · IAM roles con prefijo amx-r-* · policy AMX v2.0 §4.
+  Enforced por SCP a nivel Organization. Least privilege.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+  AppName:
+    Type: String
+    Default: {{APP_ID_SHORT}}
+  AccountId:
+    Type: String
+  OidcProviderArn:
+    Type: String
+    Description: >
+      ARN del OIDC provider del cluster EKS · arn:aws:iam::{acct}:oidc-provider/oidc.eks.{region}.amazonaws.com/id/XXX
+  OidcProviderThumbprint:
+    Type: String
+    Description: Thumbprint del provider · obtenido post cluster creation
+  K8sNamespace:
+    Type: String
+    Default: {{APP_ID}}-prod
+  K8sServiceAccount:
+    Type: String
+    Default: {{APP_ID}}-sa
+  GithubOrg:
+    Type: String
+    Default: aeromexico
+  GithubRepo:
+    Type: String
+    Default: revenue-accounting
+
+Resources:
+  # ─────────────────────────────────────────────────────────────
+  # Rol principal · ejecución pod (IRSA)
+  # ─────────────────────────────────────────────────────────────
+  Role{{APP_NAME_SHORT}}App:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "amx-r-${AppName}-${Environment}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EksIrsaTrust
+            Effect: Allow
+            Principal:
+              Federated: !Ref OidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                !Sub "${OidcProviderArn}:sub": !Sub "system:serviceaccount:${K8sNamespace}:${K8sServiceAccount}"
+                !Sub "${OidcProviderArn}:aud": sts.amazonaws.com
+      ManagedPolicyArns: []
+      Policies:
+        - PolicyName: SecretsReadOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: Read{{APP_NAME_SHORT}}Secrets
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AccountId}:secret:amx/${AppName}/*"
+        - PolicyName: KmsDecrypt
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: DecryptWithAppCmks
+                Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:GenerateDataKey*
+                Resource: "*"
+                Condition:
+                  ForAnyValue:StringLike:
+                    kms:ResourceAliases:
+                      - !Sub "alias/amx-kms-ecr-${AppName}-${Environment}"
+                      - !Sub "alias/amx-kms-secrets-${AppName}-${Environment}"
+                      - !Sub "alias/amx-kms-logs-${AppName}-${Environment}"
+                      - !Sub "alias/amx-kms-ebs-${AppName}-${Environment}"
+        - PolicyName: CloudWatchLogsWrite
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AccountId}:log-group:/amx/${AppName}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                Resource: "*"
+        - PolicyName: CloudWatchMetricsWrite
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: !Sub "AMX/{{APP_NAME_SHORT}}/${Environment}"
+        - PolicyName: EcrPullOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AccountId}:repository/amx-${AppName}"
+      Tags:
+        - { Key: App, Value: !Ref AppName }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: Policy, Value: amx-v2.0 }
+        - { Key: Purpose, Value: app-runtime }
+
+  # ─────────────────────────────────────────────────────────────
+  # Rol deploy · GitHub Actions OIDC
+  # ─────────────────────────────────────────────────────────────
+  Role{{APP_NAME_SHORT}}Deploy:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "amx-r-${AppName}-deploy-${Environment}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: GithubActionsOidcTrust
+            Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "token.actions.githubusercontent.com:aud": sts.amazonaws.com
+              StringLike:
+                "token.actions.githubusercontent.com:sub":
+                  - !Sub "repo:${GithubOrg}/${GithubRepo}:ref:refs/heads/main"
+                  - !Sub "repo:${GithubOrg}/${GithubRepo}:environment:${Environment}"
+      Policies:
+        - PolicyName: EcrPushForDeploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:PutImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:BatchGetImage
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AccountId}:repository/amx-${AppName}"
+        - PolicyName: CloudFormationDeployScoped
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateStack
+                  - cloudformation:UpdateStack
+                  - cloudformation:DeleteStack
+                  - cloudformation:DescribeStack*
+                  - cloudformation:GetTemplate
+                  - cloudformation:ValidateTemplate
+                Resource: !Sub "arn:aws:cloudformation:${AWS::Region}:${AccountId}:stack/amx-${AppName}-*"
+        - PolicyName: EksUpdateLimited
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - eks:DescribeCluster
+                  - eks:ListClusters
+                Resource: "*"
+      Tags:
+        - { Key: App, Value: !Ref AppName }
+        - { Key: Environment, Value: !Ref Environment }
+        - { Key: Policy, Value: amx-v2.0 }
+        - { Key: Purpose, Value: cicd-deploy }
+
+Outputs:
+  AppRoleArn:
+    Value: !GetAtt Role{{APP_NAME_SHORT}}App.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AppRoleArn"
+  DeployRoleArn:
+    Value: !GetAtt Role{{APP_NAME_SHORT}}Deploy.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-DeployRoleArn"

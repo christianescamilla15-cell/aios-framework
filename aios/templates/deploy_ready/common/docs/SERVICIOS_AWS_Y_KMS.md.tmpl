@@ -1,0 +1,149 @@
+# Servicios AWS requeridos + KMS CMKs + Roles IAM · {{APP_NAME}}
+
+Lista completa para Gate 4 (Borde Arquitectura · Israel Miguel) y Gate 7 (KMS tickets · Antonio H. Oropeza).
+
+## Servicios AWS · anti-PROHIBITED validation
+
+### ✅ Servicios requeridos (permitidos)
+
+| Servicio | Uso | Compliance |
+|---|---|---|
+| **EKS Fargate** | Compute CronJob {{APP_NAME_SHORT}} pod | 🟢 T1 mandatory (policy v2.0 §1.1) |
+| **ECR** | Container image registry | 🟢 estándar · encrypted con CMK |
+| **Secrets Manager** | Credenciales SABRE/SFTP/SQL | 🟢 reemplaza hardcoded V-CR-02/03/04 |
+| **CloudWatch Logs** | Structured logs · PII redaction | 🟢 observability · DORA metrics |
+| **CloudWatch Metrics** | Custom metrics (flights · {{APP_ID_SHORT}} · duration) | 🟢 |
+| **IAM** | Roles amx-r-{{APP_ID_SHORT}}-* + IRSA | 🟢 prefix enforced SCP |
+| **KMS** | CMKs por servicio | 🟢 4 CMKs (ver sección abajo) |
+| **Direct Connect** | conectividad AIDX SQL Server on-prem | 🟢 pre-existente · coordinado Diego Zarate |
+| **VPC + Subnets** | network base | 🟢 Diego Zarate setup (Gate 6) |
+| **Security Groups** | egress-only (SABRE · SFTP · SMTP · SQL) | 🟢 |
+| **EventBridge (futuro)** | scheduler alternativo · out-of-scope v1 | 🟡 roadmap |
+
+### 🔴 Servicios PROHIBIDOS · NO usados en {{APP_NAME_SHORT}}
+
+| Servicio | Razón prohibición | Alternativa usada |
+|---|---|---|
+| **ECS / ECS Fargate** | retro 20-abr Antonio · CRITICAL severity | EKS Fargate |
+| **SES** | retro 20-abr · HIGH severity · email transaccional prohibido | SMTP relay AMX interno (MailKit) |
+| **SNS para email** | retro 20-abr · solo para eventos | SMTP relay AMX |
+
+✅ **Validación:** ningún servicio prohibido presente en la arquitectura propuesta.
+
+### 🟡 Servicios opcionales · N/A para {{APP_NAME_SHORT}}
+
+| Servicio | Estado |
+|---|---|
+| **Akamai** | N/A · {{APP_NAME_SHORT}} no expone endpoints públicos (batch · egress only) |
+| **CloudFront** | N/A · mismo motivo |
+| **API Gateway** | N/A · sin API pública |
+| **RDS** | N/A · usa SQL Server AIDX on-prem (Miatech owned) |
+| **S3** | 🟡 potencial · archivo CSV histórico post-proceso · opcional v2 |
+| **SQS** | N/A · sin async messaging en v1 |
+
+## KMS CMKs requeridas · 1 por servicio (policy v2.0 §5)
+
+| # | CMK Alias | Servicio asociado | Uso | Rotación | Owner |
+|---|---|---|---|---|---|
+| 1 | `alias/amx-kms-ecr-{{APP_ID_SHORT}}` | ECR | encrypt container images | auto (annual) | KMS AMX |
+| 2 | `alias/amx-kms-secrets-{{APP_ID_SHORT}}` | Secrets Manager | encrypt credentials | auto | KMS AMX |
+| 3 | `alias/amx-kms-logs-{{APP_ID_SHORT}}` | CloudWatch Logs + Metrics | encrypt log groups | auto | KMS AMX |
+| 4 | `alias/amx-kms-ebs-{{APP_ID_SHORT}}` | EBS (Fargate ephemeral storage) | encrypt at-rest | auto | KMS AMX |
+
+**Nota:** si Platform Team comparte KMS por cluster EKS (vs per-service) · negociar con Antonio H. Oropeza. Por defecto policy dice "una por servicio" · pero algunas orgs consolidan para reducir sprawl. Decisión pendiente en Gate 7.
+
+### Key policies (plantilla · detalle en `infra/cloudformation/kms-cmks.yaml`)
+
+- Principal: `arn:aws:iam::{account}:role/amx-r-{{APP_ID_SHORT}}-prod` · con `kms:Decrypt` + `kms:GenerateDataKey*`
+- Service: los servicios que consumen (ECR · Secrets · CW Logs · EBS)
+- Admin: equipo Seguridad AWS AMX
+
+## Roles IAM · prefijo `amx-r-*` (policy v2.0 §4)
+
+Todos enforced por SCP organizacional.
+
+| Rol | Propósito | Principal | Permisos |
+|---|---|---|---|
+| `amx-r-{{APP_ID_SHORT}}-prod` | ejecución pod Fargate | Fargate pod (IRSA) | Secrets:Read · KMS:Decrypt · CW:PutLogEvents · CW:PutMetricData · ECR:Pull |
+| `amx-r-{{APP_ID_SHORT}}-deploy` | CI/CD deploy permissions | GitHub Actions OIDC | ECR:Push · EKS:Update · CloudFormation deploy scope limited |
+| `amx-r-{{APP_ID_SHORT}}-staging` | ejecución pod staging | Fargate pod staging | same as prod pero contra staging resources |
+
+**Dos roles principales por cuenta AWS** (policy §4.2):
+
+| Rol | Requiere | Uso {{APP_NAME_SHORT}} |
+|---|---|---|
+| **ATR** | YubiKey · privilegios extra | emergency operations · troubleshooting prod |
+| **desarrollo** | standard corporate | day-to-day debugging staging · no modifica KMS |
+
+## Network · VPC + Subnets (Gate 6 · Diego Zarate)
+
+| Componente | Detalle |
+|---|---|
+| **VPC** | `amx-{{APP_ID_SHORT}}-vpc` (o compartida Platform Team) |
+| **Región** | us-east-1 primary · us-east-2 DR (pendiente confirmar) |
+| **Availability Zones** | multi-AZ (2-3 AZs) |
+| **Subnets privadas** | para Fargate pods (no internet gateway directo) |
+| **Subnets públicas** | NAT Gateway para egress SABRE/SFTP externos |
+| **Direct Connect** | acceso AIDX SQL Server on-prem · pre-existente |
+| **VPC Endpoints** | Secrets Manager · ECR · CloudWatch Logs · KMS (reduce NAT cost + mejor latencia) |
+| **Ingress** | NONE (batch · sin API pública) |
+| **Egress** | SABRE (HTTPS) · SFTP endpoint · SMTP relay · SQL Server AIDX |
+
+## Tickets a levantar (secuencia)
+
+### Gate 5 · Cuenta AWS
+
+1. Correo a Víctor Araiza con visto bueno (asunto: "Cuenta AWS {{APP_NAME_SHORT}} · proyecto Revenue Accounting · Tier 1")
+2. Ticket GateOne · adjuntar captura correo · SLA 24h laborales
+3. Recibir ID cuenta AWS por correo
+
+### Gate 6 · VPC + Subnets
+
+1. Coordinar CIDR con Diego Zarate
+2. Ticket VPC setup (o usar VPC Platform Team compartida)
+3. Direct Connect routing a AIDX
+
+### Gate 7 · KMS CMKs (uno por CMK)
+
+Por cada una de las 4 CMKs:
+1. Correo Antonio H. Oropeza + líder AMX (Víctor) con visto bueno
+2. Ticket GateOne · adjuntar captura · especificar alias + propósito
+3. Recibir KMS ID por correo
+
+### Gate 8-9 · CYBER
+
+1. Coordinar con Miguel Rachid · declarar app (T1) + RTO/RPO
+2. Configurar secuencia scans pipeline (WIZ → Veracode → Prisma → Tenable)
+3. Documentar excepciones · aprobación formal escrita
+
+## Estimación costo mensual · baseline (USD)
+
+| Servicio | Estimación | Notas |
+|---|---|---|
+| EKS Fargate pod | $15-25 | 1 vCPU · 2 GB · 30 min/día · 30 días |
+| ECR storage + transfer | $2-5 | ~200 MB image · pulls diarios |
+| Secrets Manager | $1-2 | 3 secrets · rotación trimestral |
+| CloudWatch Logs + Metrics | $5-10 | structured logs · custom metrics |
+| KMS (4 CMKs) | $4 | $1/CMK/mes |
+| VPC · NAT · Data transfer | $30-50 | compartido VPC · prorrateo |
+| Direct Connect share | negligible | pre-existente |
+| **TOTAL** | **~$60-100 USD/mes** | |
+
+Costo comparativo legacy EC2 Windows · ~$200-300/mes · **ahorro 50-70%**.
+
+## Compliance checks automáticos
+
+Pipeline `cyber-scan.yml` incluye:
+- WIZ · detecta si aparece ECS/SES/SNS-email en IaC (red flag)
+- WIZ · verifica KMS CMK encryption presente
+- Tenable · IaC compliance rules amx-r-* prefix
+- Veracode · C# .NET 8 SAST
+- Mythos · AMX forbidden literals/regex + PII
+
+## Referencias
+
+- Policy AMX v2.0 · `ai-system/06_amx_policy.md`
+- `constraints_retro_20abr.py` · source of truth PROHIBITED_AWS_SERVICES + KMS_RULES + IAM_ROLE_RULES
+- ADR-001 · migración .NET 8
+- ADR-002 · compute EKS Fargate
+- BIA {{APP_NAME_SHORT}} · `BIA_{{APP_NAME_SHORT}}.md`

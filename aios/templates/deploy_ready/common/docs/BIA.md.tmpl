@@ -1,0 +1,201 @@
+# BIA Tecnológico · {{APP_NAME}} (#10)
+
+Business Impact Analysis del aplicativo para clasificación Tier, targets RTO/RPO y plan de contingencia.
+
+| Campo | Valor |
+|---|---|
+| **Aplicación** | {{APP_NAME}} |
+| **Código scope** | #10 (Revenue Accounting Modernization) |
+| **Autor** | Christian Hernández · 2026-04-21 |
+| **Revisión pendiente** | Owner funcional (pendiente asignación) + Javier Toledo Tovar (Revenue VP) |
+| **Referencia Dynamo** | Pendiente doc TIERS oficial · Edgar Castillo + Israel Miguel |
+
+## Resumen ejecutivo
+
+- **Tier propuesto:** **T1** (batch crítico · alimenta decisiones negocio · compliance potencial)
+- **RTO objetivo:** ≤ 4 horas (recuperación antes del próximo run diario)
+- **RPO objetivo:** ≤ 24 horas (último run exitoso · dataset histórico preservado en AIDX)
+- **Criticidad:** ALTA · datos financieros indirectos · decisiones revenue protection
+
+## Función de negocio
+
+{{APP_NAME}} procesa diariamente los vuelos del día anterior para:
+
+1. Consultar SABRE SOAP por cada vuelo · identificar pasajeros no-show
+2. Consolidar reporte CSV con passengers {{APP_NAME_SHORT}} + métricas agregadas
+3. Subir CSV vía SFTP al endpoint corporativo (IP `10.19.17.33` hoy · migrará a DNS interno)
+4. Enviar resumen por email a stakeholders (Revenue Protection team)
+5. Persistir histórico en SQL Server AIDX
+
+**Impacto si falla:**
+
+| Duración falla | Impacto |
+|---|---|
+| ≤ 4 horas | Retraso en decisiones Revenue Protection del día · recuperable con rerun mismo día |
+| 4-24 horas | Decisiones del día siguiente sin data actualizada · impacto financiero estimado bajo-medio |
+| > 24 horas | Pérdida ventana reacción no-show del día · posible pérdida revenue recovery (rebooking · compensaciones) · dashboard directivo sin data · impacto alto |
+| > 72 horas | Backlog ingestions · riesgo SLA con stakeholders internos · potencial escalamiento VP Revenue |
+
+## Clasificación Tier · análisis
+
+### Criterios favor T0 (misión crítica 24×7)
+
+- 🔴 **NO aplica** · {{APP_NAME_SHORT}} es batch diario · no requiere 24×7 uptime · downtime programado aceptable
+
+### Criterios favor T1 (satelital crítica · compliance)
+
+- 🟢 Alimenta decisiones Revenue Protection · financieramente significativas
+- 🟢 Datos retenidos pueden ser sujeto SOX (si alimentan reports contables · pendiente confirmar owner)
+- 🟢 PII pasajeros (nombres · emails · PNR) · LFPDPPP aplica
+- 🟢 Integración SABRE · punto crítico del ecosistema Revenue Accounting
+- 🟢 Fallback manual impracticable (volumen · velocidad)
+
+### Criterios favor T2 (operación normal)
+
+- 🟡 Ejecución diaria vs tiempo-real (no hay presión latencia)
+- 🟡 Algún grado de tolerancia si 1-2 días caídos y se compensa con rerun histórico
+- 🟡 SLA interno (no externo cliente-facing)
+
+### Criterios favor T3 (batch no crítico)
+
+- 🔴 **NO aplica** · decisiones negocio dependen del output
+
+**Veredicto eTrive:** **T1** (sobre-clasificación prudente por compliance SOX/LFPDPPP pendiente + criticidad Revenue Protection).
+
+**Inconsistencia a resolver (P0):** Luis Ertuche 21-abr indicó T2. Fer Pérez criterios sugieren T2. Doc Dynamo oficial pendiente · hasta entonces · clasificar T1 para no sub-diseñar. Ver [project_martes_21abr_sesion_completa.md](../../../../home/etriber/.claude/projects/-mnt-c-Users-eTriber-Desktop-amx-hallazgos-audit/memory/project_martes_21abr_sesion_completa.md) sección Tier inconsistencia.
+
+## RTO / RPO
+
+### RTO · Recovery Time Objective
+
+**Target:** ≤ 4 horas desde incidente declarado hasta próximo run exitoso.
+
+**Desglose por componente:**
+
+| Componente | Tiempo recuperación esperado | Dependencia |
+|---|---|---|
+| Container image disponible en ECR | 5 min | CI/CD pipeline estable |
+| EKS pod arranca | 2 min | Cluster EKS saludable |
+| SABRE SOAP accesible | 0 min (externo · fuera de scope) | Conectividad red |
+| SFTP endpoint accesible | 0 min (corporativo) | Diego Zarate VPN · Direct Connect |
+| Secrets Manager disponible | 0 min (managed) | AWS |
+| SQL Server AIDX | variable · dependiente equipo DB | Miatech |
+
+**Path crítico recuperación (post-deploy):**
+1. Rollback vía Helm/Argo (15 min)
+2. Alerta PagerDuty → on-call eTrive (≤10 min)
+3. Análisis causa + fix (30-120 min según causa)
+4. Re-deploy + smoke test (30 min)
+5. Trigger manual cron job recovery (5 min)
+
+**Holgura:** 30 min buffer contra imprevistos.
+
+### RPO · Recovery Point Objective
+
+**Target:** ≤ 24 horas (último run exitoso).
+
+- Datos {{APP_NAME_SHORT}} no se generan en tiempo real · se derivan de SABRE PNRs (fuente de verdad externa)
+- Si run falla · data recoverable via rerun del mismo día
+- Histórico persiste en AIDX · backup diario (dependiente equipo DB Miatech)
+- No hay pérdida permanente de información siempre que SABRE retenga el PNR data (>30 días)
+
+## Dependencias upstream · downstream
+
+### Upstream (consume)
+
+| Sistema | Protocolo | Criticidad | SLA |
+|---|---|---|---|
+| SABRE | SOAP | CRÍTICA | Externo · best effort |
+| SQL Server AIDX | TDS · Direct Connect | ALTA | 99.5% (Miatech owned) |
+| Secrets Manager | API | ALTA | 99.99% (AWS SLA) |
+| SMTP relay AMX interno | SMTP | MEDIA | interno · N/A externo |
+
+### Downstream (provee)
+
+| Consumidor | Protocolo | Impacto si falla |
+|---|---|---|
+| SFTP corporativo | SFTP | Reporte CSV no entregado · stakeholders sin data |
+| Email stakeholders | SMTP | Resumen no recibido · dashboard manual requerido |
+
+## Compliance map
+
+| Regulación | Aplicabilidad | Controles |
+|---|---|---|
+| **SOX** | Potencial · pendiente confirmar owner · si alimenta Oracle contable | Audit trail (CloudWatch) · access controls · change mgmt |
+| **LFPDPPP** (MX) | Sí · PII pasajeros (nombres · emails · PNR) | Redaction en logs · encryption at rest (KMS) · retention policy |
+| **PCI-DSS** | NO evaluable sin review · pero VISIBLE credenciales SABRE/SFTP/SQL plaintext = gap cyber no PCI | Secrets Manager + rotación trimestral |
+| **Retención AMX** | Mínimo 5 años (revenue tax compliance) | SQL Server AIDX + S3 archive post 1 año |
+
+## Escenarios de falla y respuesta
+
+### Escenario 1 · SABRE SOAP down
+
+- **Detección:** exit code ≠ 0 + alerta CloudWatch
+- **Respuesta:** reintentar con backoff (Polly · 3 intentos) · si persiste · alerta eTrive on-call
+- **Recovery:** esperar SABRE recovery (externo) · rerun cron manual post-recovery
+- **Impacto negocio:** 1 día sin data (aceptable)
+
+### Escenario 2 · SFTP upload falla
+
+- **Detección:** SFTP client throws exception
+- **Respuesta:** reintentar 3 veces · si persiste · fallback email con CSV attached al Revenue team
+- **Recovery:** corregir SFTP · rerun upload manual
+
+### Escenario 3 · SQL Server AIDX indisponible
+
+- **Detección:** connection timeout
+- **Respuesta:** abortar run · alerta eTrive + Miatech DB team
+- **Recovery:** post DB recovery · rerun cron manual · dataset completo debe poderse recuperar desde SABRE
+
+### Escenario 4 · Credenciales rotadas sin sync
+
+- **Detección:** SABRE/SFTP/SQL auth fail
+- **Respuesta:** Secrets Manager auto-fetch última versión (si rotación vía Lambda rotador) · si manual · actualizar Secret
+- **Recovery:** ≤ 30 min post actualización Secret
+
+### Escenario 5 · Vuelo 829 regresión reintroducida (paranoia)
+
+- **Detección:** regression test `NoVuelo829BlockTest` falla en CI
+- **Respuesta:** PR bloqueado · no llega a merge
+- **Recovery:** fix código + revisión manual · AIOS hook pre-commit también flaggea
+
+## Plan de recuperación formal (DR)
+
+### Caso catastrófico · región AWS completa down
+
+- **Detección:** AWS Status Dashboard + multi-region health check
+- **Respuesta:** failover a región backup (pendiente definir · probablemente us-east-2 si primaria us-east-1)
+- **RTO DR:** 24-48 horas (aceptable dado batch diario)
+- **RPO DR:** ≤ 24 horas (último run antes del incidente)
+
+### Ownership
+
+- **Primary on-call:** eTrive SRE rotation (pendiente activar)
+- **Secondary:** Alexis Martínez (Gerente DevOps · madurez)
+- **Escalation:** Christian Hernández (Líder Técnico) → Luis Ertuche (Program Manager AMX)
+
+## Presupuesto de incidentes (error budget)
+
+- **Target uptime mensual runs:** 99.5% (≈ 1 run perdido cada 2 meses aceptable)
+- **Severidad mapping:**
+  - SEV-1 · 3+ runs perdidos consecutivos
+  - SEV-2 · 1 run perdido sin recovery en RTO
+  - SEV-3 · run exitoso pero con errores parciales (algunos vuelos skip)
+  - SEV-4 · bug cosmético · no afecta output
+
+## Aprobaciones
+
+| Rol | Nombre | Firma | Fecha |
+|---|---|---|---|
+| Líder Técnico Etrive | Christian Hernández | _________ | 2026-04-__ |
+| Owner funcional | _(pendiente asignación)_ | _________ | 2026-__-__ |
+| Revenue VP | Javier Toledo Tovar | _________ | 2026-__-__ |
+| Borde Arquitectura | Israel Miguel González | _________ | 2026-__-__ |
+
+## Referencias
+
+- Policy AMX v2.0 · `ai-system/06_amx_policy.md`
+- Fase 1 discovery · `apps/{{APP_ID}}/fase-1-discovery/05_vulns.md`
+- ADR-001 · migración .NET 8
+- ADR-002 · compute EKS Fargate
+- Inconsistencia Tier · `project_martes_21abr_sesion_completa.md`

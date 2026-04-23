@@ -1,0 +1,75 @@
+# {{APP_NAME}} · PHP 8.3 FPM Alpine · multi-stage build
+# Hardening AMX: non-root (www-data) · read-only rootfs via K8s · minimal extensions
+# Policy AMX v2.0 §10
+
+# syntax=docker/dockerfile:1.7
+
+ARG PHP_IMAGE=php:8.3-fpm-alpine
+ARG COMPOSER_IMAGE=composer:2.7
+
+# ---- Vendor stage --------------------------------------------------------
+FROM ${COMPOSER_IMAGE} AS vendor
+WORKDIR /app
+COPY composer.json composer.lock* ./
+RUN composer install \
+    --no-dev \
+    --no-scripts \
+    --no-autoloader \
+    --no-interaction \
+    --prefer-dist \
+ && composer dump-autoload --optimize --no-dev
+
+# ---- Runtime stage -------------------------------------------------------
+FROM ${PHP_IMAGE} AS runtime
+
+RUN apk add --no-cache \
+        tzdata \
+        ca-certificates \
+        icu-libs \
+ && docker-php-ext-install \
+        opcache \
+        pdo_mysql \
+ && rm -rf /var/cache/apk/*
+
+# OPcache production config
+COPY <<EOF /usr/local/etc/php/conf.d/opcache.ini
+opcache.enable=1
+opcache.memory_consumption=128
+opcache.max_accelerated_files=10000
+opcache.validate_timestamps=0
+opcache.enable_cli=0
+EOF
+
+# php.ini hardening
+COPY <<EOF /usr/local/etc/php/conf.d/security.ini
+expose_php=Off
+display_errors=Off
+log_errors=On
+error_log=/dev/stderr
+allow_url_fopen=Off
+allow_url_include=Off
+disable_functions=exec,passthru,shell_exec,system,proc_open,popen
+EOF
+
+ENV TZ=America/Mexico_City \
+    APP_ENV=production
+
+WORKDIR /app
+COPY --from=vendor --chown=www-data:www-data /app/vendor/ ./vendor/
+COPY --chown=www-data:www-data src/ ./src/
+COPY --chown=www-data:www-data public/ ./public/
+
+USER www-data
+
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
+    CMD php-fpm-healthcheck || exit 1
+
+EXPOSE 9000
+CMD ["php-fpm", "--nodaemonize"]
+
+LABEL org.opencontainers.image.title="{{APP_NAME}}" \
+      org.opencontainers.image.vendor="Aeroméxico" \
+      amx.app.id="{{APP_ID}}" \
+      amx.app.tier="{{TIER}}" \
+      amx.policy.version="2.0" \
+      amx.stack="php8.3-fpm-alpine"

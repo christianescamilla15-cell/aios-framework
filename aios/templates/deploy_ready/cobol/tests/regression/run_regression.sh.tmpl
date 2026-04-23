@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Regression test · {{APP_NAME}} · COBOL · grep-based baseline
+# Ejecuta en CI · bloquea merge si encuentra violations.
+# Shell script porque COBOL testing con JUnit-like no es estándar.
+
+set -uo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+APP_DIR="$REPO_ROOT"
+
+VIOLATIONS=()
+
+# ── Exts to scan ──
+SCAN_EXTS="cbl|cob|cobol|cpy|CBL|COB"
+
+# ── Regression: inline secrets ──
+SECRET_PATTERNS=(
+    '(PASSWORD|PWD|PASSPHRASE|APIKEY|API_SECRET|SECRET_KEY|TOKEN)\s+VALUE\s+["'"'"'][^"'"'"']{3,}["'"'"']'
+    '(PASSWORD|PWD|PASSPHRASE)\s+PIC\s+[A-Z0-9()]+\s+VALUE\s+["'"'"'][^"'"'"']{3,}["'"'"']'
+)
+
+# ── Regression: hardcoded private IPs ──
+IP_PATTERN='\b(10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]{1,3}\.[0-9]{1,3}|192\.168\.[0-9]{1,3}\.[0-9]{1,3})\b'
+
+scan_pattern() {
+    local rule="$1" pattern="$2"
+    local matches
+    matches=$(find "$APP_DIR/src" -type f 2>/dev/null | grep -E "\.(${SCAN_EXTS})$" | while read -r f; do
+        grep -EHn "$pattern" "$f" 2>/dev/null | head -5
+    done)
+    if [ -n "$matches" ]; then
+        VIOLATIONS+=("[$rule]\n$matches")
+    fi
+}
+
+for i in "${!SECRET_PATTERNS[@]}"; do
+    scan_pattern "AMX-SECRET-COBOL-$i" "${SECRET_PATTERNS[$i]}"
+done
+scan_pattern "AMX-HARDCODED-IP" "$IP_PATTERN"
+
+if [ ${#VIOLATIONS[@]} -eq 0 ]; then
+    echo "✓ Regression OK · 0 violations"
+    exit 0
+fi
+
+echo "✗ Regression FAILED · ${#VIOLATIONS[@]} rule(s) violated:"
+for v in "${VIOLATIONS[@]}"; do
+    echo ""
+    echo -e "$v"
+done
+exit 1

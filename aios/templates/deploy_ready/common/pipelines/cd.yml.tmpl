@@ -1,0 +1,187 @@
+# {{APP_NAME}} · CD Pipeline · deploy EKS Fargate CronJob
+# Triggered on release tag (v*.*.*) o manual dispatch
+# Usa OIDC GitHub Actions → rol amx-r-{{APP_ID_SHORT}}-deploy-{env}
+# Blue/Green via kubectl rollout annotation
+
+name: cd-{{APP_ID_SHORT}}
+
+on:
+  push:
+    tags:
+      - "{{APP_ID_SHORT}}-v*.*.*"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: staging
+        type: choice
+        options: [staging, prod]
+      image_tag:
+        description: "Image tag to deploy (default: derived from git)"
+        required: false
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: amx-{{APP_ID_SHORT}}
+  APP_DIR: "apps/{{APP_ID}}/deploy-ready"
+  EKS_CLUSTER: amx-platform-shared
+
+concurrency:
+  group: cd-{{APP_ID_SHORT}}-${{ github.event.inputs.environment || 'prod' }}
+  cancel-in-progress: false
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Require CI + CYBER green before deploy (policy AMX v2.0)
+  # ─────────────────────────────────────────────────────────────
+  preflight:
+    name: Pre-deploy validation
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.set_tag.outputs.tag }}
+      environment: ${{ steps.set_env.outputs.env }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine environment
+        id: set_env
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "env=prod" >> $GITHUB_OUTPUT
+          else
+            echo "env=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Derive image tag
+        id: set_tag
+        run: |
+          if [[ -n "${{ inputs.image_tag }}" ]]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${GITHUB_REF_NAME#{{APP_ID_SHORT}}-}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=dev-${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify cyber-scan passed for this commit
+        run: |
+          # Cross-check workflow runs · require latest cyber-scan green
+          gh run list --workflow=cyber-scan-{{APP_ID_SHORT}}.yml \
+            --commit ${{ github.sha }} \
+            --status success \
+            --limit 1 --json conclusion \
+            | jq -e '.[0].conclusion == "success"' \
+            || (echo "::error::CYBER scan no ha pasado para este commit · ejecuta cyber-scan-{{APP_ID_SHORT}}.yml primero" && exit 1)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────────────────────────────
+  # Build + push container to ECR
+  # ─────────────────────────────────────────────────────────────
+  build-push:
+    name: Build + push to ECR
+    runs-on: ubuntu-latest
+    needs: preflight
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AMX_ACCOUNT_ID }}:role/amx-r-{{APP_ID_SHORT}}-deploy-${{ needs.preflight.outputs.environment }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build + push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.APP_DIR }}
+          file: ${{ env.APP_DIR }}/infra/docker/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.AMX_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ needs.preflight.outputs.image_tag }}
+            ${{ secrets.AMX_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO }}:${{ needs.preflight.outputs.environment }}-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            amx.app={{APP_ID}}
+            amx.policy.version=2.0
+            amx.env=${{ needs.preflight.outputs.environment }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+  # ─────────────────────────────────────────────────────────────
+  # Deploy to EKS
+  # ─────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to EKS
+    runs-on: ubuntu-latest
+    needs: [preflight, build-push]
+    environment:
+      name: ${{ needs.preflight.outputs.environment }}
+      # Protection rules enforce manual approval for prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AMX_ACCOUNT_ID }}:role/amx-r-{{APP_ID_SHORT}}-deploy-${{ needs.preflight.outputs.environment }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name ${{ env.EKS_CLUSTER }}
+
+      - name: Apply manifests (templated)
+        run: |
+          sed -e "s|ACCOUNT_ID|${{ secrets.AMX_ACCOUNT_ID }}|g" \
+              -e "s|IMAGE_TAG|${{ needs.preflight.outputs.image_tag }}|g" \
+              ${{ env.APP_DIR }}/infra/k8s/cronjob.yaml \
+              | kubectl apply -f -
+
+      - name: Verify CronJob created + schedule active
+        run: |
+          kubectl get cronjob {{APP_ID}} -n {{APP_ID}}-${{ needs.preflight.outputs.environment }}
+          kubectl describe cronjob {{APP_ID}} -n {{APP_ID}}-${{ needs.preflight.outputs.environment }}
+
+      - name: Create release annotation · DORA metrics
+        run: |
+          aws cloudwatch put-metric-data \
+            --region ${{ env.AWS_REGION }} \
+            --namespace "AMX/{{APP_NAME_SHORT}}/${{ needs.preflight.outputs.environment }}" \
+            --metric-name Deployments \
+            --dimensions App={{APP_ID}},Version=${{ needs.preflight.outputs.image_tag }} \
+            --value 1
+
+      - name: Post-deploy smoke test
+        run: |
+          # Trigger ad-hoc job · verify container starts + healthcheck
+          kubectl create job {{APP_ID_SHORT}}-smoke-${{ github.run_id }} \
+            --from=cronjob/{{APP_ID}} \
+            -n {{APP_ID}}-${{ needs.preflight.outputs.environment }}
+          kubectl wait --for=condition=complete \
+            --timeout=600s \
+            job/{{APP_ID_SHORT}}-smoke-${{ github.run_id }} \
+            -n {{APP_ID}}-${{ needs.preflight.outputs.environment }} \
+          || (echo "::error::Smoke test failed · rollback required" && exit 1)
+
+  # ─────────────────────────────────────────────────────────────
+  # Rollback (manual dispatch)
+  # ─────────────────────────────────────────────────────────────
+  # Rollback is a separate workflow file for safety · ver runbook/ROLLBACK.md

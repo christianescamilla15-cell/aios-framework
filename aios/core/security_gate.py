@@ -1209,13 +1209,19 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     (
         "CWE-319",
         re.compile(
-            r"""new\s+SmtpClient\s*\([^)]*\)"""
+            # v3.3.2 fix · solo flag si NO hay evidencia de TLS en el mismo archivo
+            # (EnableSsl · StartTls · SecureSocketOptions) · scope-aware heuristic
+            r"""new\s+SmtpClient\s*\([^)]*\)(?![\s\S]{0,2000}?"""
+            r"""(?:EnableSsl\s*=\s*true|"""
+            r"""SecureSocketOptions\.(?:StartTls|SslOnConnect|Auto)|"""
+            r"""\.ConnectAsync\s*\([^)]*(?:587|StartTls|Ssl)))"""
         ),
         "STATIC-SMTP-NO-TLS-CSHARP",
-        "HIGH",
-        "SmtpClient construido · verificar EnableSsl=true antes de Send "
-        "· cleartext SMTP viola retro 20-abr (port 587 + STARTTLS) · "
-        "CWE-319",
+        "MEDIUM",
+        "SmtpClient construido sin evidencia de TLS en el archivo · "
+        "verificar EnableSsl=true · SecureSocketOptions.StartTls · o "
+        "ConnectAsync(..., 587, StartTls) · cleartext SMTP viola retro "
+        "20-abr · CWE-319 · v3.3.2 scope-aware",
         _CS,
     ),
     (

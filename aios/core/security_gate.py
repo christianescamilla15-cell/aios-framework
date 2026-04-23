@@ -57,7 +57,11 @@ DEFAULT_CONFIG = {
                      ".vs", ".vscode", "bin", "obj",
                      # v3.3.0 fix · NuGet/vendored libs generan FPs de IP
                      # literal en docs XML (log4net remoteAddress multicast)
-                     "packages"],
+                     "packages",
+                     # v3.5.0 · SABRE SOAP auto-generated proxies
+                     # (Reference.vb/.cs de 1-3 MB cada uno en las apps
+                     # VB.NET de Revenue Accounting · ruido sin accionable)
+                     "Service References"],
     "exclude_exts": [".pyc", ".pyo", ".so", ".exe", ".dll", ".bin",
                      ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".min.js",
                      # Docs · markdown y rst no son codigo · evitar FPs
@@ -229,6 +233,51 @@ _PHP = frozenset({".php", ".phtml", ".php3", ".php4", ".php5"})
 _JSTS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
 _NETCFG = frozenset({".config"})  # web.config / app.config de ASP.NET
 _ANY: frozenset[str] | None = None  # aplica a cualquier extension
+
+# v3.5.0 · patterns de logging presentes dentro de un bloque catch
+# Usado por _catch_block_has_logging() para degradar
+# STATIC-GENERIC-EXCEPTION-CATCH-CSHARP de MEDIUM a LOW cuando el
+# catch sí registra la exception (el riesgo real es tragarla en silencio).
+_CATCH_LOG_PATTERNS: re.Pattern = re.compile(
+    r"\b(?:_?[lL]ogger|[lL]og|ILog|_log|ILogger|Serilog|Console|Trace|"
+    r"[lL]og4[Nn]et|NLog)\."
+    r"(?:Log|LogError|LogWarning|LogInformation|LogCritical|LogDebug|"
+    r"LogTrace|Error|Warn|Warning|Info|Information|Fatal|Debug|Trace|"
+    r"WriteLine)\s*\(",
+)
+
+
+def _catch_block_has_logging(content: str, catch_match_end: int,
+                              max_span: int = 2000) -> bool:
+    """v3.5.0 · True si el bloque { ... } que sigue al catch contiene una
+    llamada a logger (Serilog / log4net / ILogger / NLog / Console).
+
+    Reduce FPs de `catch (Exception)` que sí loggea · el riesgo real del
+    CWE-755 es el handler silencioso que oculta fallas en producción.
+    """
+    tail = content[catch_match_end:catch_match_end + max_span]
+    brace_start = tail.find("{")
+    if brace_start < 0:
+        return False
+    depth = 0
+    body_start = -1
+    body_end = -1
+    for i in range(brace_start, len(tail)):
+        ch = tail[i]
+        if ch == "{":
+            if depth == 0:
+                body_start = i + 1
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                body_end = i
+                break
+    if body_start < 0 or body_end < 0:
+        return False
+    block = tail[body_start:body_end]
+    return bool(_CATCH_LOG_PATTERNS.search(block))
+
 
 # (cwe, pattern, rule_id, severity, description, file_exts)
 # file_exts=None → detector corre sobre todo archivo · usar solo para
@@ -1448,7 +1497,10 @@ def _walk_files(root: Path, config: dict):
             continue
         if any(part in skip_dirs for part in path.parts):
             continue
-        if path.suffix.lower() in skip_exts:
+        # v3.5.0 · match por nombre completo para soportar dobles-suffix
+        # como .min.js / .min.css (path.suffix solo retorna el último).
+        name_lc = path.name.lower()
+        if any(name_lc.endswith(ext) for ext in skip_exts):
             continue
         if _match_exclude_files(path, root, skip_files_raw):
             continue
@@ -1521,8 +1573,13 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
             for m in pattern.finditer(scan_content):
                 line_no = scan_content.count("\n", 0, m.start()) + 1
                 snippet = lines_cache[line_no - 1].strip()[:160] if line_no - 1 < len(lines_cache) else ""
+                # v3.5.0 · degradar catch genérico a LOW si hay logging
+                eff_severity = severity
+                if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
+                        _catch_block_has_logging(scan_content, m.end()):
+                    eff_severity = "LOW"
                 _emit_unless_comment(Finding(
-                    cwe=cwe, severity=severity, rule_id=rule_id,
+                    cwe=cwe, severity=eff_severity, rule_id=rule_id,
                     file=rel, line=line_no, snippet=snippet,
                 ))
 
@@ -1686,7 +1743,9 @@ def scan_files(
             continue
         if not fp.is_file():
             continue
-        if fp.suffix.lower() in skip_exts:
+        # v3.5.0 · match por nombre completo para soportar dobles-suffix
+        name_lc = fp.name.lower()
+        if any(name_lc.endswith(ext) for ext in skip_exts):
             continue
         if _match_exclude_files(fp, root, skip_files_raw):
             continue
@@ -1719,8 +1778,13 @@ def scan_files(
                     lines_cache[line_no - 1].strip()[:160]
                     if line_no - 1 < len(lines_cache) else ""
                 )
+                # v3.5.0 · degradar catch genérico a LOW si hay logging
+                eff_severity = severity
+                if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
+                        _catch_block_has_logging(scan_content, m.end()):
+                    eff_severity = "LOW"
                 _emit_unless_comment(Finding(
-                    cwe=cwe, severity=severity, rule_id=rule_id,
+                    cwe=cwe, severity=eff_severity, rule_id=rule_id,
                     file=file_rel, line=line_no, snippet=snippet,
                 ))
 

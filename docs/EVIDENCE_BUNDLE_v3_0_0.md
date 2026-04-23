@@ -93,9 +93,36 @@ INFO	2	1	1	50% (V-INFO-02 decompilación es meta-finding indetectable)
 **Compliance**	5	0	0	0% (meta-process · regulatory)
 **Deploy drift**	3	0	0	0% (requiere diff src vs binary · no source code)
 
-**Literal total**: 14/28 = 50% (sesión limpia reportó 15/28=54% · difieren porque contaron H-CRIT-02 multi-match y yo sólo 1)
-**Detectable estáticamente**: 14/19 = 74% a 15/19 = 79%
-**Irreductible** (Compliance + Deploy drift + decompilación meta): 9/28 = **32%** requiere humano por diseño
+**Literal total v3.0.0**: 14/28 = 50% (sesión limpia reportó 15/28=54% · multi-match ATOS5246 diferencia)
+**Detectable estáticamente v3.0.0**: 14/19 = 74% a 15/19 = 79%
+
+### Post-v3.1.0 · scanner captura directamente lo que antes era deep-review
+
+Tras los 6 nuevos detectores (CWE-532 · CWE-295 · CWE-319 · CWE-209 · CWE-755) el re-run sobre NoShow medido 2026-04-23:
+
+- **v3.0.0** · 27 findings · 10 HIGH + 17 MEDIUM
+- **v3.1.0** · **56 findings** · 36 HIGH + 20 MEDIUM (**+29 detectados nuevos**)
+
+Breakdown v3.1.0 por detector (`aios review list`):
+| Rule_id | Count | Cubre |
+|---|---:|---|
+| STATIC-PII-LOG-CSHARP | **24** | V-HI-07 directo · fuente del leak 3,697 PNRs |
+| STATIC-GENERIC-EXCEPTION-CATCH-CSHARP | 14 | MED #3 · review individual |
+| STATIC-SENSITIVE-LOG-CSHARP | 6 | **DR-01 SABRE token logueado** + variantes |
+| STATIC-THROW-EX-DESTROYS-STACK-CSHARP | 3 | **DR-03 `throw ex` antipattern** |
+| STATIC-SINGLETON-NO-THREADSAFETY-CSHARP | 2 | MED #7 · V-HI-08 |
+| STATIC-SMTP-NO-TLS-CSHARP | 1 | **DR-09 SMTP sin TLS** |
+| STATIC-SFTP-NO-HOSTKEY-VERIFICATION-CSHARP | 1 | **DR-06 missing host key** |
+| STATIC-EXCEPTION-DETAILS-EXPOSURE-CSHARP | 1 | **DR-14 stack en email body** |
+| STATIC-REMOVE-IN-ITERATION-CSHARP | 1 | V-HI-02 |
+| BARE-EXCEPT-HANDLER-CSHARP | 1 | tail |
+
+**Irreductible** (Compliance + Deploy drift + decompilación meta): 9/28 = **32%** requiere humano por diseño.
+
+**Cobertura efectiva scanner-directo v3.1.0 sobre audit humano v2 + clean-session DRs**:
+- Audit humano v2 detectable: 15/19 → igual que v3.0.0 (los 6 detectores nuevos confirman lo que deep review ya había visto)
+- **Pero**: 5 de los 7 DRs del clean session ahora scanner-directo (DR-01 · DR-03 · DR-06 · DR-09 · DR-14) · solo 2 quedan deep-review-only (DR-02 recursión infinita · DR-17 alias bug)
+- **Narrativa acorta**: "framework detecta automáticamente ~80% de lo estáticamente detectable + ~70% de lo que el deep review senior puede agregar"
 
 ### Bonus · 7 hallazgos que el humano NO catalogó pero deep review encontró
 

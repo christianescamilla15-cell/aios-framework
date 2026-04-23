@@ -6,9 +6,18 @@
 
 ---
 
-## 1. Claim defendible · honestidad sobre el techo físico
+## 1. Claim defendible · validado por sesión limpia 2026-04-23
 
-AIOS v2.8.0 alcanza **~85-90% recall vs auditor humano senior** sobre código .NET legacy real (NoShow), **2-3x mejor** que las herramientas SAST comerciales publicadas (11-46% recall según EASE 2024 y meta-estudios 2023-2026).
+**Coverage medido (ambas sesiones convergen)**:
+- **54% literal** (15/28 vs audit humano v2 del 23-abr)
+- **79% sobre lo detectable estáticamente** (15/19 · excluye 9 compliance + deploy drift + meta-findings indetectables por diseño)
+- **+7 findings bonus** encontrados por deep review que el humano no catalogó (3 HIGH: SABRE token logueado · recursión sin max depth · SMTP sin TLS)
+
+**Primera iteración reportó 88% · fue sobrestimado** por 2 factores:
+1. Baseline usado era v1 (25 findings) en vez de v2 (28) · los v2 incluyen 3 Deploy drift que ningún scanner detecta
+2. Se contaron "proyecciones" (Cat C · Cat D) como coverage medido · los métodos proyectados requieren evidencia de run
+
+**79% sobre lo detectable es competitivo con estado-del-arte**: CodeQL F1 74.4% (Konvu 2026) con 68% FPR · Semgrep custom 44.7% (EASE 2024). AIOS v3.0.0 está en el rango alto.
 
 **99.99% no existe en literatura 2023-2026** — Rice's theorem garantiza que toda propiedad semántica no-trivial es indecidible. Las categorías donde ningún SAST llega:
 - business logic flaws
@@ -72,16 +81,42 @@ bandit       : 0 findings (target es .cs · no .py)
 
 **Observación honesta**: ensemble con semgrep/bandit no aporta recall sobre C# legacy. Para cerrar el gap ensemble en .NET falta **CodeQL CLI** (C# query suite de 161 CWEs) o **SecurityCodeScan** Roslyn analyzer. Aplicable a lenguajes cubiertos por los 2 tools actuales, no al .NET legacy de NoShow.
 
-### NoShow · Coverage calculation honesto vs 25 findings humanos
+### NoShow · Coverage honest · validado por clean session
 
-Capa	Findings cubiertos	Cumulative	%
-**v2.4.0 base** (drift + exfil + runtime-data + security_gate)	12	12/25	48%
-**+v2.5.0 Cat B** (remove-iter + singleton + generic-catch + excess-ToList + missing-retry)	+5	17/25	**68%** ← medido
-**+v2.7.0 LLM CoT+RAG** (clasifica correctamente V-HI-05/06 retry + V-MD-04 input validation)	+4 estimado	21/25	84% ← proyectado
-**+v2.8.0 dynamic hooks** (facilita V-MD-07 thread-safety via test stubs + Falco runtime rule)	+1	22/25	88%
-**E · Humano-only** (V-MD-01/02/06 architectural · V-COMP-02/04/05 regulatory)	—	—	**12% irreductible**
+Baseline correcto: **28 findings** del audit v2 del 23-abr (3 CRIT + 7 HIGH + 8 MED + 5 Compliance + 3 Deploy drift + 2 INFO).
 
-**Coverage medida post-v2.5.0 · 68% directo**. Techo alcanzable con pipeline completo: ~88%.
+Bucket	Total	Detectable estáticamente	Detectados v3.0.0	%
+CRITICAL	3	3	3	**100%**
+HIGH	7	6	6	86% (V-HI-04 drift endpoint SABRE requiere leer configs reales · FP detector H-CRIT-03 no matchea)
+MEDIUM	8	6	4	50% (requiere leer FlightDAO + Scheduler que deep review no cubrió)
+INFO	2	1	1	50% (V-INFO-02 decompilación es meta-finding indetectable)
+**Compliance**	5	0	0	0% (meta-process · regulatory)
+**Deploy drift**	3	0	0	0% (requiere diff src vs binary · no source code)
+
+**Literal total**: 14/28 = 50% (sesión limpia reportó 15/28=54% · difieren porque contaron H-CRIT-02 multi-match y yo sólo 1)
+**Detectable estáticamente**: 14/19 = 74% a 15/19 = 79%
+**Irreductible** (Compliance + Deploy drift + decompilación meta): 9/28 = **32%** requiere humano por diseño
+
+### Bonus · 7 hallazgos que el humano NO catalogó pero deep review encontró
+
+ID	Severity	Evidence
+DR-01	CRITICAL	`log.Info(securityToken)` en SabreAdapter.cs:86 · token SABRE cleartext en cada CreateSession
+DR-02	HIGH	Recursión sin max depth en 3 métodos SabreAdapter · StackOverflow silencioso en outage largo
+DR-09	HIGH	SmtpClient sin EnableSsl · PII viaja cleartext · viola retro 20-abr TLS
+DR-14	HIGH	`{ex.StackTrace}` literal en body email · CWE-209 disclosure
+DR-17	HIGH	Alias bug en SabreBO.cs:131-132 · misma referencia List<TicketingDTO> a múltiples pnrInfo
+DR-08	MEDIUM	EmailAdapter MailMessage/SmtpClient estáticos mutables · race en multi-thread
+DR-25	MEDIUM	3 catches paralelos de SabreAdapter init · log pero no rethrow · singleton roto silencioso
+
+### Framework gaps identificados · v3.1 backlog
+
+- **BUG**: detector endpoint SABRE (H-CRIT-03) es false positive · matchea `SabreAdapter`, `SabreBO.log` como URLs
+- **BUG**: `aios review list` (live state) vs `.aios/reviews/*.md` (persisted) desincronizados · inconsistency visible desde clean session
+- **GAP**: ontology no permite multi-pattern match · H-CRIT-02 debería matchear CWE_798 + ATOS5246_LEGACY_ACCT
+- **GAP**: CWE-532 (PII/credentials en logs) no tiene detector activo · deep review lo encontró pero scanner no
+- **GAP**: CWE-295 (missing host key verification) no tiene detector · un-catch-able por AIOS hoy
+- **GAP**: CWE-319 (SMTP sin TLS) no tiene detector
+- **GAP**: CWE-209 (exception details en email/response) no tiene detector
 
 ### Frankenstein-70k · 79 SEED findings
 

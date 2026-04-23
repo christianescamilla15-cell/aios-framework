@@ -1,0 +1,457 @@
+# ─────────────────────────────────────────────────────────────────
+# AMX Revenue Accounting · Domain Ontology v1.0
+# ─────────────────────────────────────────────────────────────────
+# RFC-003 · Nivel 1 · classifica findings ANTES del auto-fix
+# para distinguir entre:
+#   - bug                · CWE claro · auto_fix OK
+#   - business_rule      · intent del dominio · requiere review humano
+#   - migration_candidate · migración conocida · auto_fix con template
+#   - unclear            · default · requiere review
+#
+# Owner: amx-revenue-accounting · Actualizar con cada ADR/PR que
+# establezca nuevas reglas de negocio hardcoded como legítimas.
+# ─────────────────────────────────────────────────────────────────
+
+version: "1.0"
+owner: "amx-revenue-accounting"
+updated: "2026-04-22"
+description: >
+  Catalogo canonico de patterns AMX · deriva del audit hallazgos
+  (amx-hallazgos-audit/BASELINE_findings_PRE_REFACTOR.json) + retro
+  20-abr + analisis humano experto sobre apps reales (NoShow, SICOFAV,
+  etc). Mantener in sync con el equipo de compliance + arquitectura.
+
+# Default cuando ningun pattern matchea
+default_classification: "unclear"
+default_action: "pause_for_review"  # seguro por default · NO auto_fix
+
+# ─────────────────────────────────────────────────────────────────
+# Patterns conocidos
+# ─────────────────────────────────────────────────────────────────
+patterns:
+
+  # ═══════════════════════════════════════════════════════════════
+  # CREDENCIALES · todas son bugs claros · CWE-798
+  # ═══════════════════════════════════════════════════════════════
+  - id: PERRO_ROBOTICO_CREDENTIAL
+    description: "Service account legacy Robot module · literal credential"
+    matches:
+      - literal: "PERRO_ROBOTICO"
+      - literal: "P3rr0R0bot1co"
+      - literal: "R0b0t1co_2024_"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "secrets_manager_migration"
+    cwe: "CWE-798"
+    evidence: "Audit 2026-04-20 · FRK-025/026 · migración autorizada"
+    tags: ["credential", "robot", "critical"]
+
+  - id: S4TP_SICOFAV_CREDENTIAL
+    description: "SAT downloader password · CFDIs · inline credential"
+    matches:
+      - literal: "S4tP@ssw0rd"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "secrets_manager_migration"
+    cwe: "CWE-798"
+    tags: ["credential", "sat", "cfdis", "critical"]
+
+  - id: SRG_DB_PASSWORD_CREDENTIAL
+    description: "SRG module · DB password inline"
+    matches:
+      - literal: "SrgDbP@ss2025"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "secrets_manager_migration"
+    cwe: "CWE-798"
+    tags: ["credential", "srg", "critical"]
+
+  - id: BSP_SFTP_PASSWORD_CREDENTIAL
+    description: "BSP module · SFTP password inline"
+    matches:
+      - literal: "B5p_M@ster_2025"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "secrets_manager_migration"
+    cwe: "CWE-798"
+    tags: ["credential", "bsp", "critical"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # LEGACY ACCOUNTS · migración conocida · template específico
+  # ═══════════════════════════════════════════════════════════════
+  - id: ATOS5246_LEGACY_ACCT
+    description: >
+      Cuenta legacy ATOS · sistema discontinuado · migración a
+      Secrets Manager aprobada en sesión Ciber 20-abr · safe auto_fix.
+    matches:
+      - literal: "ATOS5246"
+    classification: "migration_candidate"
+    auto_fix_allowed: true
+    fix_template: "secrets_manager_migration_legacy"
+    evidence: "Sesión Ciber 20-abr · decisión ADR-042"
+    tags: ["legacy", "atos", "migration"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # NETWORK · IPs internas hardcoded · migración a Route53 PHZ
+  # ═══════════════════════════════════════════════════════════════
+  - id: INTERNAL_IP_HARDCODED
+    description: "IPs internas AMX · migrar a DNS Route53 Private Hosted Zone"
+    matches:
+      - literal: "172.18.60.227"
+      - literal: "172.24.34.77"
+      - literal: "10.19.17.33"
+    classification: "migration_candidate"
+    auto_fix_allowed: true
+    fix_template: "route53_phz_migration"
+    evidence: "Coordinar con Diego Zarate · DNS interno canónico"
+    tags: ["network", "dns", "route53"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # BUSINESS RULES · REQUIEREN REVIEW HUMANO · NO auto_fix
+  # ═══════════════════════════════════════════════════════════════
+  - id: FLIGHT_829_NOSHOW_RULE
+    description: >
+      Vuelo 829 en contexto NoShow puede ser BUG (hardcoded) O
+      REGLA DE NEGOCIO legítima (ej. acuerdo específico con Sabre
+      para ese vuelo). REQUIERE confirmación humana antes de refactor.
+    matches:
+      # Vuelo 829 en cualquier contexto de Flight/PNR
+      - regex: '(?:flight|vuelo|FlightNumber|PNR).*["'']829["'']'
+        flags: "i"
+      - regex: '["'']829["''].*(?:flight|vuelo|noshow)'
+        flags: "i"
+    classification: "business_rule"
+    auto_fix_allowed: false
+    pause_message: >
+      Vuelo 829 aparece hardcoded en contexto NoShow. Esto puede
+      ser (a) bug de hardcoding · migrar a config/PNR runtime, O
+      (b) regla de negocio específica acordada con Sabre/Miguel
+      Rachid. CONFIRMAR intent con stakeholder antes de refactor.
+    evidence_required:
+      - "adr_reference"
+      - "stakeholder_sign_off_miguel_rachid"
+    tags: ["noshow", "business", "flight", "review-required"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # DRIFT · secretos reales en configs de test (RFC-002c placeholder)
+  # ═══════════════════════════════════════════════════════════════
+  - id: SECRETS_IN_TEST_CONFIG
+    description: >
+      Credenciales reales encontradas en archivos de test/qa/staging.
+      Debe ser mock · no valor real · compromete security + test
+      validity.
+    matches:
+      - regex: '(?:test|qa|staging|fixture).*\.config.*(?:password|secret|apikey)'
+        flags: "i"
+    classification: "business_rule"
+    auto_fix_allowed: false
+    pause_message: >
+      Secretos reales en config de testing detectados. Confirmar
+      con ciber antes de refactor · puede ser simplificación test
+      o leak real. Generar mock + rotar credencial si era real.
+    evidence_required: ["mock_reference", "credential_rotation_plan"]
+    tags: ["test", "drift", "review-required"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # CODE SMELLS · TODO/DEAD code de iteraciones previas
+  # ═══════════════════════════════════════════════════════════════
+  - id: TODO_REMOVE_OLD
+    description: >
+      Markers TODO-REMOVE / DEPRECATED · pueden ser deuda técnica
+      legítima o código olvidado de iteración anterior.
+    matches:
+      - regex: '(?:TODO|FIXME|XXX|HACK).*(?:remove|delete|deprecated)'
+        flags: "i"
+      - regex: '@deprecated'
+    classification: "unclear"
+    auto_fix_allowed: false
+    pause_message: >
+      Marker de remoción encontrado. Verificar con git blame si es
+      deuda reconocida (> 3 meses OK · < 1 mes sospechoso) antes
+      de limpiar.
+    tags: ["dead-code", "review-required"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # CWE-STANDARD · mapping por rule_id para los 72 detectores Mythos
+  # Fix del seed v2.1.1 · antes solo cubría forbidden_literals,
+  # causando que los otros detectores default-eran a 'unclear'.
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: CWE_798_CREDENTIAL_PLAINTEXT
+    description: "Credenciales plaintext en config · CWE-522/798"
+    matches:
+      - rule_id: "CREDENTIAL-PLAINTEXT-WEBCONFIG"
+      - rule_id: "CREDENTIAL-PLAINTEXT-APPSETTINGS"
+      - rule_id: "CREDENTIAL-PLAINTEXT-FS"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "secrets_manager_migration"
+    tags: ["credential", "cwe-522", "cwe-798"]
+
+  - id: CWE_89_SQL_INJECTION
+    description: "SQL injection · CWE-89"
+    matches:
+      - rule_id: "STATIC-SQL-FSTRING"
+      - rule_id: "STATIC-SQL-CONCAT"
+      - rule_id: "STATIC-SQL-CSHARP-CONCAT"
+      - rule_id: "STATIC-SQL-JAVA-CONCAT"
+      - rule_id: "STATIC-SQL-PHP-CONCAT"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "parameterized_queries"
+    tags: ["injection", "cwe-89"]
+
+  - id: CWE_78_COMMAND_INJECTION
+    description: "Command injection · CWE-78"
+    matches:
+      - rule_id: "STATIC-CMD-SHELL-TRUE"
+      - rule_id: "STATIC-CMD-PHP-SHELL"
+      - rule_id: "STATIC-CMD-CSHARP-PROCESS"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "process_start_no_shell"
+    tags: ["injection", "cwe-78"]
+
+  - id: CWE_22_PATH_TRAVERSAL
+    description: "Path traversal · CWE-22"
+    matches:
+      - rule_id: "STATIC-PATH-TRAVERSAL"
+      - rule_id: "STATIC-PATH-TRAVERSAL-CSHARP"
+      - rule_id: "STATIC-PATH-TRAVERSAL-JAVA"
+      - rule_id: "STATIC-PATH-TRAVERSAL-PHP"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "path_whitelist_basename"
+    tags: ["cwe-22"]
+
+  - id: CWE_502_INSECURE_DESERIALIZATION
+    description: "Insecure deserialization · CWE-502"
+    matches:
+      - rule_id: "STATIC-PICKLE-DESERIALIZATION"
+      - rule_id: "STATIC-JAVA-READOBJECT"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "schema_validated_json"
+    tags: ["cwe-502"]
+
+  - id: CWE_611_XXE
+    description: "XML External Entity · CWE-611"
+    matches:
+      - rule_id: "STATIC-XXE-LXML"
+      - rule_id: "STATIC-XXE-CSHARP"
+      - rule_id: "STATIC-XXE-JAVA"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "disable_external_dtd"
+    tags: ["cwe-611"]
+
+  - id: CWE_79_XSS
+    description: "Cross-site scripting · CWE-79"
+    matches:
+      - rule_id: "STATIC-XSS-FSTRING-HTML"
+      - rule_id: "STATIC-XSS-PHP-ECHO"
+      - rule_id: "STATIC-XSS-JS-INNERHTML"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "html_escape_output"
+    tags: ["cwe-79"]
+
+  - id: CWE_312_CLEARTEXT_LOGGING
+    description: "Cleartext logging · CWE-312 · PCI-DSS relevant"
+    matches:
+      - rule_id: "STATIC-CLEARTEXT-LEGACY-IP"
+      - rule_id: "STATIC-CLEARTEXT-CCDATA"
+      - rule_id: "STATIC-CLEARTEXT-PII"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "masked_logging"
+    tags: ["cwe-312", "pci-dss"]
+
+  - id: CWE_547_HARDCODED_HOSTNAME
+    description: "Hostname interno hardcoded · CWE-547"
+    matches:
+      - rule_id: "HARDCODED-INTERNAL-HOSTNAME"
+      - rule_id: "HARDCODED-ENV-URL-PREFIX"
+    classification: "migration_candidate"
+    auto_fix_allowed: true
+    fix_template: "route53_phz_migration"
+    tags: ["cwe-547", "dns"]
+
+  - id: CWE_287_AUTH_BYPASS
+    description: "Authentication bypass · CWE-287"
+    matches:
+      - rule_id: "STATIC-AUTH-BYPASS-NONE"
+      - rule_id: "STATIC-AUTH-BYPASS-HARDCODED"
+    classification: "bug"
+    auto_fix_allowed: false  # requiere review humano · no auto-fix
+    pause_message: >
+      Auth bypass detectado · REQUIERE review manual · el fix
+      depende del flujo de autorización · no auto-aplicable.
+    tags: ["cwe-287", "auth", "review-required"]
+
+  - id: CWE_770_RESOURCE_EXHAUSTION
+    description: "Resource exhaustion (sin límite) · CWE-770"
+    matches:
+      - rule_id: "STATIC-NO-TIMEOUT"
+      - rule_id: "STATIC-NO-RATE-LIMIT"
+      - rule_id: "STATIC-UNBOUNDED-LOOP"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "semaphore_bulkhead"
+    tags: ["cwe-770"]
+
+  - id: CWE_327_WEAK_CRYPTO
+    description: "Weak crypto · CWE-327"
+    matches:
+      - rule_id: "STATIC-MD5-HASH"
+      - rule_id: "STATIC-SHA1-HASH"
+      - rule_id: "STATIC-WEAK-CIPHER"
+      - rule_id: "STATIC-WEAK-RANDOM"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "bcrypt_argon2_migration"
+    tags: ["cwe-327", "crypto"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # v2.5.0 · Cat B detectores nuevos (derivados audit NoShow 25)
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: CWE_664_REMOVE_IN_ITERATION
+    description: "Collection modification durante iteracion · CWE-664"
+    matches:
+      - rule_id: "STATIC-REMOVE-IN-ITERATION-CSHARP"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "tolist_snapshot_or_linq_filter"
+    tags: ["cwe-664", "runtime-exception"]
+
+  - id: CWE_362_STATIC_SINGLETON_RACE
+    description: "Singleton static sin thread-safety · CWE-362"
+    matches:
+      - rule_id: "STATIC-SINGLETON-NO-THREADSAFETY-CSHARP"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "lazy_t_double_check_locking"
+    tags: ["cwe-362", "race-condition"]
+
+  - id: CWE_755_GENERIC_EXCEPTION_CATCH
+    description: "Catch generico de Exception · CWE-755"
+    matches:
+      - rule_id: "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP"
+    classification: "unclear"
+    auto_fix_allowed: false
+    fix_template: "specific_exception_with_logging"
+    tags: ["cwe-755", "error-handling"]
+
+  - id: CWE_1176_EXCESSIVE_TOLIST
+    description: "Materializacion eager de IEnumerable · CWE-1176"
+    matches:
+      - rule_id: "STATIC-EXCESSIVE-TOLIST-CSHARP"
+    classification: "unclear"
+    auto_fix_allowed: false
+    fix_template: "keep_ienumerable_lazy"
+    tags: ["cwe-1176", "performance-smell"]
+
+  - id: CWE_1188_MISSING_RETRY_EXTERNAL
+    description: "Servicio externo sin retry wrapper · CWE-1188"
+    matches:
+      - rule_id: "STATIC-MISSING-RETRY-EXTERNAL-CALL-CSHARP"
+    classification: "unclear"
+    auto_fix_allowed: false
+    fix_template: "polly_retry_policy"
+    tags: ["cwe-1188", "resilience"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # v3.1.1 · Detectores derivados de 2nd clean-session validation
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: CWE_697_TIMESPAN_HOURS_MISUSE
+    description: "TimeSpan.Hours (componente 0-23) vs .TotalHours · CWE-697"
+    matches:
+      - rule_id: "STATIC-TIMESPAN-HOURS-MISUSE-CSHARP"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "totalhours_migration"
+    tags: ["cwe-697", "revenue-critical", "silent-bug"]
+
+  - id: CWE_547_IP_LITERAL_IN_CONFIG
+    description: "IP literal v4 en config · CWE-547"
+    matches:
+      - rule_id: "STATIC-IP-LITERAL-IN-CONFIG"
+    classification: "migration_candidate"
+    auto_fix_allowed: true
+    fix_template: "route53_phz_migration"
+    tags: ["cwe-547", "cwe-1104", "dns-first", "retro-20abr"]
+
+  - id: CWE_354_SUBSTRING_NAME_MATCHING
+    description: "Substring matching sobre identidad (firstName + lastName) · CWE-354"
+    matches:
+      - rule_id: "STATIC-SUBSTRING-NAME-MATCHING-CSHARP"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "equality_or_unique_id_match"
+    tags: ["cwe-354", "revenue-critical", "identity-bug"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # v3.4.0 · Detectores amazon-q-rules AMX (retro 20-abr compliance)
+  # Derivados de BO-AMX/amazon-q-rules · 35 reglas canónicas · 6 prioritarios
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: AMX_CDK_KMS_AWS_MANAGED_PROHIBITED
+    description: "KMS aws-managed key prohibido · retro 20-abr + G01"
+    matches:
+      - rule_id: "AMX-CDK-KMS-AWS-MANAGED-FORBIDDEN"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "kms_cmk_dedicated_migration"
+    tags: ["cwe-311", "retro-20abr", "amx-governance", "csoc-mandatory"]
+
+  - id: AMX_CDK_MANDATORY_TAGS
+    description: "Stack CDK requiere 8 tags obligatorios AMX · G02"
+    matches:
+      - rule_id: "AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS"
+    classification: "unclear"
+    auto_fix_allowed: false
+    fix_template: "cdk_tags_enforcement"
+    tags: ["cwe-778", "amx-governance", "mandatory-tags", "g02"]
+    pause_message: >
+      Stack CDK detectado. Verificar que incluye Tags.of(stack).add()
+      con los 8 tags obligatorios AMX: CentroDeCosto, DuenoDeLaCuenta,
+      Proyecto, Ambiente, ImpactoANegocio, Aplicacion, GrupoDeParcheo,
+      SistemaOperativo. CYBER bloquea deploy sin ellos.
+
+  - id: AMX_S3_KMS_REQUIRED
+    description: "S3 bucket requiere KMS CMK explícito · G03"
+    matches:
+      - rule_id: "AMX-S3-MISSING-KMS-ENCRYPTION"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "s3_cmk_encryption_migration"
+    tags: ["cwe-311", "amx-s3-compliance", "g03"]
+
+  - id: AMX_IAM_ROLE_PREFIX
+    description: "IAM role requiere prefix amx-r-* · G05"
+    matches:
+      - rule_id: "AMX-IAM-ROLE-WRONG-PREFIX"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "iam_role_amx_prefix"
+    tags: ["cwe-272", "amx-iam-naming", "g05"]
+
+  - id: AMX_CDK_ADMIN_WRAPPER
+    description: "Scripts deben usar cdk-admin.py wrapper · CS03"
+    matches:
+      - rule_id: "AMX-CDK-DIRECT-COMMAND"
+    classification: "business_rule"
+    auto_fix_allowed: true
+    fix_template: "cdk_admin_wrapper"
+    tags: ["cwe-710", "amx-workflow", "corporate-solutions", "cs03"]
+
+  - id: AMX_IAM_LEAST_PRIVILEGE
+    description: "IAM policy con wildcards · viola least-privilege · G07"
+    matches:
+      - rule_id: "AMX-IAM-WILDCARD-POLICY"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "iam_policy_scoping"
+    tags: ["cwe-269", "amx-least-privilege", "g07"]

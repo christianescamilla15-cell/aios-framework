@@ -28,10 +28,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import time
+from datetime import datetime, timezone
+from functools import wraps
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -46,7 +50,79 @@ from .core.security_gate import scan_directory, run_security_gate
 app = FastMCP("aios")
 
 
+def _kcb_emit(
+    event_type: str,
+    payload: dict,
+    duration_ms: Optional[int] = None,
+    correlation_id: Optional[str] = None,
+) -> None:
+    """Emit event to kcb events.jsonl · no-op if KCB_SESSION_ID unset.
+    Never raises · instrumentation failures must not break the tool."""
+    session_id = os.environ.get("KCB_SESSION_ID")
+    if not session_id:
+        return
+    try:
+        state_dir = Path(os.environ.get("KCB_STATE_DIR", ".kcb-state")).expanduser()
+        events_path = state_dir / "events.jsonl"
+        event: dict[str, Any] = {
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "session_id": session_id,
+            "event_type": event_type,
+            "actor": os.environ.get("KCB_ACTOR", "aios-mcp"),
+            "payload": payload,
+        }
+        if duration_ms is not None:
+            event["duration_ms"] = duration_ms
+        if correlation_id:
+            event["correlation_id"] = correlation_id
+        events_path.parent.mkdir(parents=True, exist_ok=True)
+        with events_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(event, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def instrument_tool(func: Callable) -> Callable:
+    """Decorator · emit mcp_tool_call start/end events to the kcb bridge.
+    Args are sanitized to str and truncated to 200 chars. No-op when
+    KCB_SESSION_ID is unset. Errors never leak from instrumentation."""
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        tool_name = func.__name__
+        correlation_id = f"mcp-{tool_name}-{int(time.time() * 1000)}"
+        sanitized: dict[str, Any] = {}
+        for i, a in enumerate(args):
+            sanitized[f"arg{i}"] = str(a)[:200]
+        for k, v in kwargs.items():
+            sanitized[k] = str(v)[:200]
+        _kcb_emit(
+            "mcp_tool_call",
+            {"tool": tool_name, "phase": "start", "args": sanitized},
+            correlation_id=correlation_id,
+        )
+        start = time.perf_counter()
+        error_msg: Optional[str] = None
+        try:
+            return func(*args, **kwargs)
+        except Exception as exc:
+            error_msg = f"{type(exc).__name__}: {exc}"[:300]
+            raise
+        finally:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            payload: dict[str, Any] = {"tool": tool_name, "phase": "end"}
+            if error_msg:
+                payload["error"] = error_msg
+            _kcb_emit(
+                "mcp_tool_call",
+                payload,
+                duration_ms=duration_ms,
+                correlation_id=correlation_id,
+            )
+    return wrapper
+
+
 @app.tool()
+@instrument_tool
 def security_scan(project_path: str) -> dict:
     """Corre el embedded security scanner (34 detectores · 9 CWEs) sobre
     un path local y retorna resumen con summary + top findings."""
@@ -76,6 +152,7 @@ def security_scan(project_path: str) -> dict:
 
 
 @app.tool()
+@instrument_tool
 def release_gate_check(project_path: str) -> dict:
     """Ejecuta el release gate completo (7 checks · incluye security
     static scan). Util para queries tipo 'puedo desplegar?'."""
@@ -89,6 +166,7 @@ def release_gate_check(project_path: str) -> dict:
 
 
 @app.tool()
+@instrument_tool
 def arena_list_targets() -> dict:
     """Lista los TUTs (Target-Under-Test) disponibles para Arena
     self-play. Requiere `arena` CLI en PATH."""
@@ -97,6 +175,7 @@ def arena_list_targets() -> dict:
 
 
 @app.tool()
+@instrument_tool
 def arena_run(
     target: str,
     max_rounds: int = 10,
@@ -126,6 +205,7 @@ def arena_run(
 
 
 @app.tool()
+@instrument_tool
 def engagement_list(project_root: str = ".") -> dict:
     """Lista el catalogo de apps para Nemesis engagement scaffolds.
     Requiere `engagement.scaffold_script` en aios-config.json."""
@@ -140,6 +220,7 @@ def engagement_list(project_root: str = ".") -> dict:
 
 
 @app.tool()
+@instrument_tool
 def engagement_scaffold(
     app_id: str,
     project_root: str = ".",
@@ -167,6 +248,7 @@ def engagement_scaffold(
 
 
 @app.tool()
+@instrument_tool
 def aggregate_report(project_path: str) -> dict:
     """Genera el reporte consolidado (release + arena + SARIF +
     engagements) como markdown · no escribe a disco, retorna string."""
@@ -183,17 +265,102 @@ def aggregate_report(project_path: str) -> dict:
 
 
 @app.tool()
-def forbidden_literals_suggest() -> dict:
-    """Retorna la lista canonical de AMX forbidden literals que
-    security_scan detecta cuando se configuran en aios-config.json.
-    Informativo · el scanner NO los incluye por default (user opt-in)."""
+@instrument_tool
+def forbidden_literals_suggest(project_path: str = ".") -> dict:
+    """Devuelve guia + estado del config de forbidden_literals que
+    security_scan consume desde aios-config.json.
+
+    Verifica si `aios-config.json` existe en project_path y reporta
+    el count actual. Retorna categorias de ejemplo con placeholders
+    (patrones genericos · no valores sensibles) y un JSON template
+    listo para copy-paste al config."""
+    root = Path(project_path).expanduser().resolve()
+    cfg_file = root / "aios-config.json"
+    current_count = 0
+    current_enabled = False
+    config_status = "missing"
+    if cfg_file.exists():
+        config_status = "present"
+        try:
+            raw = json.loads(cfg_file.read_text(encoding="utf-8"))
+            sg = raw.get("security_gate", {}) if isinstance(raw, dict) else {}
+            current_enabled = bool(sg.get("enabled", False))
+            current_count = len(
+                [lit for lit in sg.get("forbidden_literals", []) if lit]
+            )
+        except Exception as exc:  # noqa: BLE001
+            config_status = f"invalid_json: {exc}"
+
+    example_categories = [
+        {
+            "category": "hardcoded_credentials",
+            "description": "passwords, API keys, secret tokens inline en codigo",
+            "placeholders": [
+                "<HARDCODED_PASSWORD>",
+                "<API_KEY_LITERAL>",
+                "<BEARER_TOKEN>",
+            ],
+        },
+        {
+            "category": "internal_ip_addresses",
+            "description": "IPs de red interna que no deben salir del perimetro",
+            "placeholders": [
+                "<INTERNAL_IP_PROD>",
+                "<INTERNAL_IP_STAGE>",
+                "<DB_HOST_LITERAL>",
+            ],
+        },
+        {
+            "category": "domain_specific_ids",
+            "description": "IDs de negocio que no deben quedar hardcoded",
+            "placeholders": [
+                "<FIXTURE_RECORD_ID>",
+                "<TEST_TRANSACTION_CODE>",
+                "<LEGACY_SERVICE_ID>",
+            ],
+        },
+        {
+            "category": "project_branding",
+            "description": "nombres codigo o branding que no debe filtrarse",
+            "placeholders": [
+                "<INTERNAL_PROJECT_CODENAME>",
+                "<LEGACY_SYSTEM_NAME>",
+            ],
+        },
+    ]
+
+    template = {
+        "security_gate": {
+            "enabled": True,
+            "strict": False,
+            "max_critical": 0,
+            "max_high": 5,
+            "forbidden_literals": [
+                "<REPLACE_WITH_YOUR_LITERAL_1>",
+                "<REPLACE_WITH_YOUR_LITERAL_2>",
+            ],
+        }
+    }
+
     return {
-        "note": "estos literales son del catalogo AMX · configurar en aios-config.json forbidden_literals",
-        "literals_info": (
-            "Los literales especificos de AMX estan documentados en el "
-            "catalogo interno del proyecto amx-hallazgos-audit. Este MCP "
-            "server NO los expone · seguridad by design. Si tu proyecto "
-            "requiere detectarlos, agrega la lista manualmente al config."
+        "config_path": str(cfg_file),
+        "config_status": config_status,
+        "security_gate_enabled": current_enabled,
+        "current_forbidden_literals_count": current_count,
+        "how_to_configure": (
+            "Agrega tus literales en aios-config.json -> "
+            "security_gate.forbidden_literals (lista de strings). "
+            "Despues corre security_scan o release_gate_check para que "
+            "los detecte. Este tool NO expone los literales en si · "
+            "se cargan desde el config del proyecto."
+        ),
+        "example_categories": example_categories,
+        "config_template": template,
+        "canonical_amx_catalog_hint": (
+            "El catalogo AMX canonico esta versionado en el repo privado "
+            "amx-hallazgos-audit (06_amx_policy.md + policy.py). Usarlo "
+            "como fuente de verdad para proyectos AMX · copiar al "
+            "aios-config.json local del proyecto auditado."
         ),
     }
 

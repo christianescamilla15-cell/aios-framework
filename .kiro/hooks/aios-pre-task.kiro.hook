@@ -1,0 +1,24 @@
+{
+  "$schema": "https://github.com/OYN-AMX/am-kiro/schema/hook.schema.json",
+  "name": "aios-pre-task",
+  "description": "AIOS · ejecuta sesión boot antes de cada task · carga contexto y detecta modo",
+  "trigger": {
+    "event": "task.start",
+    "debounce_ms": 500
+  },
+  "action": {
+    "type": "command",
+    "command": "python -m aios.cli.main boot --silent",
+    "timeout_sec": 30,
+    "on_failure": "warn"
+  },
+  "conditions": {
+    "file_match": ["**/*.py", "**/*.cs", "**/*.java", "**/*.php", "**/*.ts", "**/*.js", "**/*.cbl"],
+    "require_kiro_project": true
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "author": "AIOS",
+    "depends_on": ["aios.core.session"]
+  }
+}

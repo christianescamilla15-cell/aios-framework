@@ -1,0 +1,21 @@
+{
+  "$schema": "https://github.com/OYN-AMX/am-kiro/schema/hook.schema.json",
+  "name": "aios-post-session",
+  "description": "AIOS · persiste contexto de sesión al cerrar · genera handoff document",
+  "trigger": {
+    "event": "session.end"
+  },
+  "action": {
+    "type": "command",
+    "command": "python -m aios.cli.main refresh --summary auto --next-step auto",
+    "timeout_sec": 60,
+    "on_failure": "warn"
+  },
+  "conditions": {
+    "require_active_session": true
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "author": "AIOS"
+  }
+}

@@ -29,7 +29,7 @@ import json
 import re
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -50,7 +50,14 @@ DEFAULT_CONFIG = {
                      # Java/Gradle/Maven build artifacts
                      "target", ".gradle", ".idea",
                      # Python packaging / eggs
-                     ".tox", ".eggs"],
+                     ".tox", ".eggs",
+                     # v3.1 fix · Visual Studio IDE metadata (copilot-chat
+                     # sessions matcheaban como credenciales plaintext · 3-4 FPs
+                     # consistentes en NoShow)
+                     ".vs", ".vscode", "bin", "obj",
+                     # v3.3.0 fix · NuGet/vendored libs generan FPs de IP
+                     # literal en docs XML (log4net remoteAddress multicast)
+                     "packages"],
     "exclude_exts": [".pyc", ".pyo", ".so", ".exe", ".dll", ".bin",
                      ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".min.js",
                      # Docs · markdown y rst no son codigo · evitar FPs
@@ -60,9 +67,134 @@ DEFAULT_CONFIG = {
     # escanearse por auto-match de los literales declarados (ej. el
     # archivo de suppressions cita hostnames/literales en el campo
     # reason y file · se matchean a si mismos).
+    # v1.7.2 · soporta glob patterns (fnmatch): ej. "tools/**", "*.generated.*"
     "exclude_files": ["aios-config.json", "aios-suppressions.json"],
+    # v1.7.2 · default true · filtra findings que caen en lineas de
+    # comentario para reducir falsos positivos en comentarios de
+    # trazabilidad tipo "// Eliminado: <literal>" que el refactor deja
+    # como evidencia del fix aplicado. Setear false para auditoria
+    # estricta cuando se quiera detectar TODO incluyendo comentarios.
+    "exclude_comment_lines": True,
     "max_file_size_bytes": 2 * 1024 * 1024,
 }
+
+
+# v1.7.2 · patrones de comentario por extension de archivo
+# usado por _is_comment_line() para descartar findings en comentarios
+# de trazabilidad (reduce FPs de scanner POST-refactor).
+_COMMENT_PREFIXES: dict[str, tuple[str, ...]] = {
+    # Python · Shell · YAML
+    ".py": ("#",), ".sh": ("#",), ".yaml": ("#",), ".yml": ("#",),
+    ".toml": ("#",), ".ini": (";", "#"), ".cfg": (";", "#"),
+    # C-family · //, /*, * (continuation)
+    ".cs": ("//", "/*", "*"), ".java": ("//", "/*", "*"),
+    ".js": ("//", "/*", "*"), ".jsx": ("//", "/*", "*"),
+    ".ts": ("//", "/*", "*"), ".tsx": ("//", "/*", "*"),
+    ".mjs": ("//", "/*", "*"), ".cjs": ("//", "/*", "*"),
+    ".c": ("//", "/*", "*"), ".h": ("//", "/*", "*"),
+    ".cpp": ("//", "/*", "*"), ".hpp": ("//", "/*", "*"),
+    # PHP · mezcla # y // y /*
+    ".php": ("//", "#", "/*", "*"),
+    ".phtml": ("//", "#", "/*", "*"),
+    # Ruby
+    ".rb": ("#",),
+    # XML · HTML · comentario multiline
+    ".xml": ("<!--",), ".html": ("<!--",), ".htm": ("<!--",),
+    ".config": ("<!--",),  # ASP.NET web.config / app.config
+    # SQL
+    ".sql": ("--",),
+}
+
+
+def _is_comment_line(line: str, ext: str) -> bool:
+    """v1.7.2 · return True si la linea es comentario (por extension).
+
+    COBOL es caso especial: column 7 con '*' = comentario, o prefijo '*>'.
+    Multi-line comments (/* */, <!-- -->): solo detecta la linea de apertura
+    y continuacion con '*' · no hace parsing real · suficiente para FPs
+    de trazabilidad que son single-line en 99% de los casos.
+    """
+    stripped = line.lstrip()
+    if not stripped:
+        return False
+    # COBOL · column 7 con '*' o prefijo '*>' (free-format)
+    if ext in (".cbl", ".cob", ".cpy"):
+        if stripped.startswith("*>"):
+            return True
+        if len(line) >= 7 and line[6] == "*":
+            return True
+        return False
+    prefixes = _COMMENT_PREFIXES.get(ext, ())
+    return any(stripped.startswith(p) for p in prefixes)
+
+
+def _strip_inline_comments(content: str, ext: str) -> str:
+    """v1.7.3 · reemplaza contenido de comentarios con espacios preservando
+    offsets + newlines. Evita que regex multi-linea capturen patterns que
+    viven DENTRO de un comentario (ej. subprocess.run(... # NO shell=True)).
+
+    Cubre dos casos:
+    1. Linea full-comment (ej. '# TODO ...') · reemplaza la linea entera
+       con espacios (detectado por _is_comment_line).
+    2. Inline comment al final de linea de codigo (ej. 'x = 1  # nota')
+       · reemplaza desde el marker hasta el newline con espacios.
+
+    Preserva la estructura exacta del content original para que los
+    line_no y match spans sigan siendo correctos.
+
+    Limitacion conocida: no parsea strings · '#' dentro de '"foo # bar"'
+    puede falsear como comentario si hay espacio antes. Aceptado como
+    trade-off · para auditoria estricta set exclude_comment_lines: false.
+    """
+    # v1.7.3 · markers inline por extension
+    # (no incluimos XML/HTML · <!-- --> multiline requiere parseo real)
+    inline_markers = {
+        # Python · Shell · YAML · TOML
+        ".py": ("#",), ".sh": ("#",), ".yaml": ("#",), ".yml": ("#",),
+        ".toml": ("#",), ".rb": ("#",),
+        # C-family · inline '//'
+        ".cs": ("//",), ".java": ("//",),
+        ".js": ("//",), ".jsx": ("//",),
+        ".ts": ("//",), ".tsx": ("//",),
+        ".mjs": ("//",), ".cjs": ("//",),
+        ".c": ("//",), ".h": ("//",),
+        ".cpp": ("//",), ".hpp": ("//",),
+        # PHP mezcla
+        ".php": ("//", "#"), ".phtml": ("//", "#"),
+        # SQL
+        ".sql": ("--",),
+    }
+    markers = inline_markers.get(ext, ())
+    lines = content.splitlines(keepends=True)
+    out: list[str] = []
+    for line in lines:
+        if _is_comment_line(line, ext):
+            # Linea full-comment · blank entire line (preserve newline)
+            if line.endswith("\n"):
+                out.append(" " * (len(line) - 1) + "\n")
+            else:
+                out.append(" " * len(line))
+            continue
+        # Inline comment stripping
+        if markers:
+            modified = line
+            for marker in markers:
+                # Busca '\s+<marker>' para no hit dentro de strings puras
+                # (approximacion razonable · evita '#' pegado a literal).
+                import re as _re
+                pat = _re.compile(
+                    r"(?<=\s)" + _re.escape(marker) + r"[^\n]*"
+                )
+                matches = list(pat.finditer(modified))
+                if matches:
+                    # Blank each inline comment span (keep positions)
+                    for m in reversed(matches):
+                        blanked = " " * (m.end() - m.start())
+                        modified = modified[:m.start()] + blanked + modified[m.end():]
+            out.append(modified)
+        else:
+            out.append(line)
+    return "".join(out)
 
 
 @dataclass
@@ -73,6 +205,18 @@ class Finding:
     file: str
     line: int
     snippet: str
+    # v1.8.0 · RFC-003 Nivel 1 · ontology classification
+    ontology_action: str = "auto_fix"  # auto_fix|pause_for_review|skip|warn
+    ontology_match: Optional[str] = None
+    ontology_classification: str = "unclear"
+    ontology_message: str = ""
+    # v1.9.0 · RFC-003 Nivel 2 · LLM classifier output (solo si invocado)
+    llm_classification: Optional[str] = None  # bug|business_rule|migration_candidate|unclear
+    llm_confidence: float = 0.0  # 0.0-1.0
+    llm_reasoning: str = ""
+    llm_evidence: list = field(default_factory=list)
+    llm_provider: Optional[str] = None
+    llm_cached: bool = False
 
 
 # Extension groups · detectores se filtran por ext para evitar meta-FPs
@@ -714,6 +858,10 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     (
         "CWE-547",
         re.compile(
+            # v1.7.3 · negative lookahead · NO detectar dominios internos
+            # canonicos AMX (Route53 PHZ) · son la solucion post-refactor
+            # correcta · no un leak. Formato: *.amx.internal · *.amx.com.mx
+            r"""(?!["'][a-zA-Z0-9_.-]+\.amx\.(?:internal|com\.mx)["'])"""
             r"""["'][a-zA-Z0-9_-]+"""
             r"""(?:\.[a-zA-Z0-9_-]+)*"""
             r"""\.(?:corp|internal|local|intranet|lan|"""
@@ -749,10 +897,16 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     (
         "CWE-522",
         re.compile(
+            # v1.7.3 · negative lookahead ampliado: arn:aws:secretsmanager,
+            # arn:aws:kms, {{ssm:...}}, ${env.*}, @Microsoft.KeyVault son
+            # referencias legitimas (la solucion post-refactor) · no
+            # credenciales plaintext.
             r"""<add\s+[^>]*\bkey\s*=\s*["'][^"']*"""
             r"""(?:[Pp]assword|[Pp]wd|[Ss]ecret|[Tt]oken|[Aa]pi[Kk]ey|"""
             r"""[Cc]redential|[Pp]rivate[Kk]ey)[^"']*["']\s+"""
-            r"""value\s*=\s*["'](?!\{|\$|</?placeholder|</?your)"""
+            r"""value\s*=\s*["'](?!\{|\$|</?placeholder|</?your|"""
+            r"""arn:aws:|@Microsoft\.KeyVault|"""
+            r"""\{\{ssm:|ssm://|aws-secret://)"""
             r"""[^"']+["']""",
             re.IGNORECASE,
         ),
@@ -944,6 +1098,284 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "No rate limit · Express route mutating sin middleware rateLimit",
         _JSTS,
     ),
+    # ═════════════════════════════════════════════════════════════════
+    # v2.5.0 · Cat B detectors derivados del analisis NoShow 25 findings
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-664",
+        re.compile(
+            r"""(?s)(?:foreach|for)\s*\([^)]+\)\s*\{[^{}]{0,600}?"""
+            r"""\.(?:Remove(?:At)?|Clear)\s*\("""
+        ),
+        "STATIC-REMOVE-IN-ITERATION-CSHARP",
+        "HIGH",
+        "Collection modification durante iteracion · InvalidOperationException "
+        "en runtime · usar ToList() snapshot o filtro declarativo",
+        _CS,
+    ),
+    (
+        "CWE-362",
+        re.compile(
+            r"""(?:private|public|internal)\s+static\s+"""
+            r"""(?!readonly\s+(?:Lazy<|ImmutableDictionary|ImmutableList|"""
+            r"""ImmutableArray|ReadOnlyDictionary))"""
+            r"""[A-Z]\w+\s+_?[Ii]nstance\b"""
+        ),
+        "STATIC-SINGLETON-NO-THREADSAFETY-CSHARP",
+        "MEDIUM",
+        "Singleton static mutable sin Lazy<T> / lock · race condition "
+        "potencial bajo concurrencia",
+        _CS,
+    ),
+    (
+        "CWE-755",
+        re.compile(
+            r"""catch\s*\(\s*(?:System\.)?Exception(?:\s+\w+)?\s*\)"""
+        ),
+        "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP",
+        "MEDIUM",
+        "Catch generico de Exception · oculta errores especificos · "
+        "preferir exceptions tipadas + log estructurado",
+        _CS,
+    ),
+    (
+        "CWE-1176",
+        re.compile(r"""\.ToList\(\)"""),
+        "STATIC-EXCESSIVE-TOLIST-CSHARP",
+        "LOW",
+        "Materializacion eager de IEnumerable · memory/CPU overhead si "
+        "se encadena · evaluar si se puede mantener lazy",
+        _CS,
+    ),
+    (
+        "CWE-1188",
+        re.compile(
+            r"""\b(?:Soap|Sabre|SFTP|WebService|Session)\w*"""
+            r"""(?:Client|Adapter)\.\w+\s*\("""
+        ),
+        "STATIC-MISSING-RETRY-EXTERNAL-CALL-CSHARP",
+        "MEDIUM",
+        "Llamada a servicio externo (Sabre/SFTP/SOAP Client/Adapter) · "
+        "verificar wrapper de retry (Polly / try-retry-backoff) · "
+        "fallas transitorias no mitigadas",
+        _CS,
+    ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.1 · Detectores derivados de clean-session validation (2026-04-23)
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-532",
+        re.compile(
+            r"""\b(?:log|Log|logger|_log|_logger)"""
+            r"""(?:4net)?\.(?:Info|Debug|Warn|Error|Fatal|Trace)\b[^;]*"""
+            r"""(?:password|passwd|secret|token|securityToken|apikey|"""
+            r"""api_key|credential|passPhrase|privateKey)""",
+            re.IGNORECASE,
+        ),
+        "STATIC-SENSITIVE-LOG-CSHARP",
+        "HIGH",
+        "Logging de credencial/token/secret · CWE-532 · CWE-312 · "
+        "redact antes de emitir al log (log4net enricher o Serilog "
+        "destructuring)",
+        _CS,
+    ),
+    (
+        "CWE-532",
+        re.compile(
+            r"""\b(?:log|Log|logger|_log|_logger)"""
+            r"""(?:4net)?\.(?:Info|Debug|Warn|Error|Fatal)\b[^;]*"""
+            r"""(?:passengerName|pnr|PNR|ticketNumber|customerId|"""
+            r"""curp|rfc|passport|creditCard|cardNumber)""",
+        ),
+        "STATIC-PII-LOG-CSHARP",
+        "HIGH",
+        "Logging de PII (passenger · PNR · ticket · customer ID · CURP · "
+        "passport · card) · CWE-532 · LFPDPPP violation · redact o "
+        "migrar a Serilog con enricher PII-aware",
+        _CS,
+    ),
+    (
+        "CWE-295",
+        re.compile(
+            r"""new\s+SftpClient\s*\([^)]*\)"""
+        ),
+        "STATIC-SFTP-NO-HOSTKEY-VERIFICATION-CSHARP",
+        "HIGH",
+        "SftpClient sin HostKeyReceived handler · sin verificacion · "
+        "MITM susceptible · CWE-295 · agregar "
+        "client.HostKeyReceived += (s,e) => {e.CanTrust = ...}",
+        _CS,
+    ),
+    (
+        "CWE-319",
+        re.compile(
+            # v3.3.2 fix · solo flag si NO hay evidencia de TLS en el mismo archivo
+            # (EnableSsl · StartTls · SecureSocketOptions) · scope-aware heuristic
+            r"""new\s+SmtpClient\s*\([^)]*\)(?![\s\S]{0,2000}?"""
+            r"""(?:EnableSsl\s*=\s*true|"""
+            r"""SecureSocketOptions\.(?:StartTls|SslOnConnect|Auto)|"""
+            r"""\.ConnectAsync\s*\([^)]*(?:587|StartTls|Ssl)))"""
+        ),
+        "STATIC-SMTP-NO-TLS-CSHARP",
+        "MEDIUM",
+        "SmtpClient construido sin evidencia de TLS en el archivo · "
+        "verificar EnableSsl=true · SecureSocketOptions.StartTls · o "
+        "ConnectAsync(..., 587, StartTls) · cleartext SMTP viola retro "
+        "20-abr · CWE-319 · v3.3.2 scope-aware",
+        _CS,
+    ),
+    (
+        "CWE-209",
+        re.compile(
+            r"""\{(?:ex|exception|e)\.(?:StackTrace|ToString)\}|"""
+            r"""\+\s*(?:ex|exception|e)\.(?:StackTrace|ToString)\(\)"""
+        ),
+        "STATIC-EXCEPTION-DETAILS-EXPOSURE-CSHARP",
+        "HIGH",
+        "Stack trace / exception details expuestos en string "
+        "interpolation (email body · response · UI) · CWE-209 · "
+        "disclosure de paths internos · assembly names · SQL fragments",
+        _CS,
+    ),
+    (
+        "CWE-755",
+        re.compile(r"""throw\s+ex\s*;"""),
+        "STATIC-THROW-EX-DESTROYS-STACK-CSHARP",
+        "MEDIUM",
+        "'throw ex' destruye stack trace original · usar 'throw;' "
+        "para preservar · CWE-755 error handling antipattern",
+        _CS,
+    ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.1.1 · Detectores nuevos de 2nd clean-session validation
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-697",
+        re.compile(
+            r"""\.(?:Subtract|Add)\s*\([^)]+\)\s*\.Hours\b(?!\s*\.TotalHours)|"""
+            r"""TimeSpan[^.]*\.Hours\b(?!\s*\.TotalHours)|"""
+            r"""\w+\.(?:Hours|Minutes|Seconds|Days)\b\s*(?:<|>|<=|>=|==|!=)\s*\d"""
+        ),
+        "STATIC-TIMESPAN-HOURS-MISUSE-CSHARP",
+        "HIGH",
+        "TimeSpan.Hours retorna componente 0-23 · NO total · "
+        "para ventana >24h usar .TotalHours · CWE-697 incorrect "
+        "comparison · bug silencioso revenue-crítico",
+        _CS,
+    ),
+    (
+        "CWE-547",
+        re.compile(
+            r"""(?:host|endpoint|server|ipAddress|address|value)\s*=\s*"""
+            r"""["']?(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?["']?""",
+            re.IGNORECASE,
+        ),
+        "STATIC-IP-LITERAL-IN-CONFIG",
+        "HIGH",
+        "IP literal (v4) en atributo de config · viola DNS-first · "
+        "usar Route53 PHZ interno · CWE-547 · CWE-1104",
+        frozenset({".config", ".xml", ".appsettings"}),
+    ),
+    (
+        "CWE-354",
+        re.compile(
+            r"""\.(?:FirstName|firstName|first_name)\.(?:Contains|IndexOf|"""
+            r"""StartsWith)\([^)]+\)[^}]{0,80}?"""
+            r"""\.(?:LastName|lastName|last_name)\.(?:Contains|IndexOf|StartsWith)\(|"""
+            r"""\.(?:LastName|lastName|last_name)\.(?:Contains|IndexOf|"""
+            r"""StartsWith)\([^)]+\)[^}]{0,80}?"""
+            r"""\.(?:FirstName|firstName|first_name)\.(?:Contains|IndexOf|StartsWith)\("""
+        ),
+        "STATIC-SUBSTRING-NAME-MATCHING-CSHARP",
+        "HIGH",
+        "Substring matching sobre firstName + lastName (.Contains) es "
+        "antipattern de identidad · 'MARIA' matchea 'MARIAL' · "
+        "ticket asignado a pax erróneo · CWE-354 · usar equality o "
+        "PNR/ticketNumber único",
+        _CS,
+    ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.4.0 · Detectores derivados de BO-AMX/amazon-q-rules (35 reglas)
+    # Alineación AIOS ↔ AMX oficial · bloqueantes pre-deploy retro 20-abr
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-311",
+        re.compile(
+            r"""alias/aws/(?:s3|rds|lambda|dynamodb|sqs|sns|kms|secretsmanager|"""
+            r"""ebs|ssm|cloudwatch|cloudtrail|backup|xray)|"""
+            r"""kms\.Alias\.from_alias_name\s*\([^)]*["']alias/aws/"""
+        ),
+        "AMX-CDK-KMS-AWS-MANAGED-FORBIDDEN",
+        "CRITICAL",
+        "KMS aws-managed key · prohibido por retro 20-abr y amazon-q-rules G01 "
+        "· usar CMK dedicada CSOC · CWE-311",
+        frozenset({".py", ".ts", ".js", ".json", ".yaml", ".yml"}),
+    ),
+    (
+        "CWE-778",
+        re.compile(
+            r"""class\s+\w+\s*\(\s*Stack\s*\)"""
+        ),
+        "AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS",
+        "MEDIUM",
+        "Stack CDK detectado · verificar que incluye los 8 tags obligatorios "
+        "AMX (CentroDeCosto · DuenoDeLaCuenta · Proyecto · Ambiente · "
+        "ImpactoANegocio · Aplicacion · GrupoDeParcheo · SistemaOperativo) "
+        "· amazon-q-rules G02",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-311",
+        re.compile(
+            # Solo firefly si usa S3_MANAGED explícito (AWS-managed keys) ·
+            # no firefly 'encryption=BucketEncryption.KMS' ni 'encryption_key=cmk'
+            # v3.4.0 · regex simple · false negatives tolerable · deep review catch rest
+            r"""encryption\s*=\s*(?:s3\.)?BucketEncryption\.S3_MANAGED|"""
+            r"""encryption\s*=\s*(?:s3\.)?BucketEncryption\.UNENCRYPTED"""
+        ),
+        "AMX-S3-MISSING-KMS-ENCRYPTION",
+        "HIGH",
+        "S3 bucket con encryption S3_MANAGED o UNENCRYPTED · amazon-q-rules G03 "
+        "requiere KMS CMK (BucketEncryption.KMS + encryption_key=cmk) · CWE-311",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-272",
+        re.compile(
+            r"""iam\.Role\s*\([^)]*role_name\s*=\s*["'](?!amx-r-|AMX-R-)[^"']+["']"""
+        ),
+        "AMX-IAM-ROLE-WRONG-PREFIX",
+        "HIGH",
+        "IAM role sin prefijo amx-r-* / AMX-R-* · amazon-q-rules G05 "
+        "requirement duro · CWE-272",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-710",
+        re.compile(
+            r"""^\s*(?:cdk|npx\s+cdk)\s+(?:deploy|bootstrap|synth|destroy|diff)""",
+            re.MULTILINE,
+        ),
+        "AMX-CDK-DIRECT-COMMAND",
+        "MEDIUM",
+        "Script invoca 'cdk' directo · amazon-q-rules CS03 requiere "
+        "'cdk-admin.py --env {de|q|pd}' como wrapper estándar",
+        frozenset({".sh", ".ps1", ".bat", ".yml", ".yaml"}),
+    ),
+    (
+        "CWE-269",
+        re.compile(
+            r"""["']Resource["']\s*:\s*["']\*["']|"""
+            r"""["']Action["']\s*:\s*["']\*["']|"""
+            r"""iam\.PolicyStatement\s*\([^)]*resources\s*=\s*\[\s*["']\*["']\s*\]|"""
+            r"""iam\.PolicyStatement\s*\([^)]*actions\s*=\s*\[\s*["']\*["']\s*\]"""
+        ),
+        "AMX-IAM-WILDCARD-POLICY",
+        "HIGH",
+        "IAM policy con Resource:* o Action:* · viola least-privilege · "
+        "amazon-q-rules G07 · CWE-269",
+        frozenset({".py", ".json", ".yaml", ".yml", ".ts"}),
+    ),
 ]
 
 
@@ -962,10 +1394,54 @@ def _load_config(root: Path) -> dict:
     return merged
 
 
+def _match_exclude_files(
+    path: Path, root: Path, patterns: list[str],
+) -> bool:
+    """v1.7.2 · soporta glob patterns en exclude_files.
+
+    Cada pattern puede ser:
+    - Nombre exacto · "aios-config.json" (legacy · compat v1.x)
+    - Glob con wildcards · "tools/*", "tools/**", "*.generated.*"
+    - Ruta relativa · "apps/legacy/web.config"
+
+    Matches contra filename, relative-to-root, y full path. Retorna True
+    si el archivo debe ser excluido.
+    """
+    import fnmatch
+    if not patterns:
+        return False
+    name = path.name
+    try:
+        rel = str(path.relative_to(root)).replace("\\", "/")
+    except ValueError:
+        rel = str(path).replace("\\", "/")
+    for pat in patterns:
+        if not pat:
+            continue
+        pat_norm = pat.replace("\\", "/")
+        # Detectar si el pattern es glob (tiene wildcards)
+        has_wild = any(c in pat_norm for c in "*?[")
+        if has_wild:
+            # Glob match contra filename + relative path
+            if fnmatch.fnmatch(name, pat_norm) or fnmatch.fnmatch(rel, pat_norm):
+                return True
+            # v1.7.2 · "**/" matchea recursivo · fnmatch no lo hace nativamente
+            if "**" in pat_norm:
+                # Normalizar "foo/**/bar" a "foo/*/bar" y "foo/**" a "foo/*"
+                simple = pat_norm.replace("**/", "").replace("/**", "")
+                if simple and fnmatch.fnmatch(rel, f"*{simple}*"):
+                    return True
+        else:
+            # Match exacto (comportamiento legacy v1.x)
+            if name == pat_norm or rel == pat_norm:
+                return True
+    return False
+
+
 def _walk_files(root: Path, config: dict):
     skip_dirs = set(config.get("exclude_dirs", []))
     skip_exts = set(config.get("exclude_exts", []))
-    skip_files = set(config.get("exclude_files", []))
+    skip_files_raw = config.get("exclude_files", [])
     max_size = int(config.get("max_file_size_bytes", 2 * 1024 * 1024))
     for path in root.rglob("*"):
         if not path.is_file():
@@ -974,7 +1450,7 @@ def _walk_files(root: Path, config: dict):
             continue
         if path.suffix.lower() in skip_exts:
             continue
-        if path.name in skip_files:
+        if _match_exclude_files(path, root, skip_files_raw):
             continue
         try:
             if path.stat().st_size > max_size:
@@ -985,10 +1461,26 @@ def _walk_files(root: Path, config: dict):
 
 
 def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
-    """Scan `root` con detectores embedded + forbidden literals."""
+    """Scan `root` con detectores embedded + forbidden literals.
+
+    v1.8.0 · RFC-003 Nivel 1 · si existe ontology (policy dir o
+    amx-domain-ontology.yaml en root), cada finding emitido queda
+    clasificado (bug · business_rule · migration_candidate · unclear)
+    y con accion recomendada (auto_fix · pause_for_review · skip · warn).
+
+    v1.9.0 · RFC-003 Nivel 2 · si llm_classifier.enabled=true en config,
+    findings con ontology_action=pause_for_review son re-evaluados por
+    LLM (Claude/GPT/Ollama) con context (code + git blame + cross-file).
+    Override de decisión si confidence >= threshold.
+    """
     cfg = config or _load_config(root)
     findings: list[Finding] = []
     forbidden = [lit for lit in cfg.get("forbidden_literals", []) if lit]
+    skip_comments = bool(cfg.get("exclude_comment_lines", True))
+    # v1.8.0 · load domain ontology (opcional · no-op si no existe)
+    ontology = _load_ontology_for_scan(root, cfg)
+    # v1.9.0 · load LLM classifier (opt-in · no-op si disabled)
+    llm_classifier = _load_llm_classifier(cfg)
 
     for fp in _walk_files(root, cfg):
         try:
@@ -997,29 +1489,167 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
             continue
         rel = str(fp.relative_to(root))
         fp_ext = fp.suffix.lower()
+        lines_cache = content.splitlines()
+        # v1.7.3 · content sanitizado (comentarios reemplazados por
+        # espacios preservando offsets) para evitar FPs donde regex
+        # multi-linea capturan patterns citados en comentarios.
+        scan_content = (
+            _strip_inline_comments(content, fp_ext)
+            if skip_comments else content
+        )
+
+        def _emit_unless_comment(finding: Finding) -> None:
+            """v1.7.2 · skip findings que caen en lineas de comentario.
+
+            v1.8.0 · RFC-003 Nivel 1 · enrich con domain ontology.
+            v1.9.0 · RFC-003 Nivel 2 · LLM classifier para findings
+            que Nivel 1 marcó como pause_for_review.
+            """
+            if skip_comments and 0 < finding.line <= len(lines_cache):
+                if _is_comment_line(lines_cache[finding.line - 1], fp_ext):
+                    return
+            # v1.8.0 · Nivel 1 · ontology classification
+            _enrich_finding_with_ontology(finding, ontology)
+            # v1.9.0 · Nivel 2 · LLM re-classification (opt-in · solo pause)
+            _enrich_finding_with_llm(finding, root, llm_classifier)
+            findings.append(finding)
 
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
             if file_exts is not None and fp_ext not in file_exts:
                 continue
-            for m in pattern.finditer(content):
-                line_no = content.count("\n", 0, m.start()) + 1
-                lines = content.splitlines()
-                snippet = lines[line_no - 1].strip()[:160] if line_no - 1 < len(lines) else ""
-                findings.append(Finding(
+            # v1.7.3 · detector regex opera sobre content sin comentarios
+            for m in pattern.finditer(scan_content):
+                line_no = scan_content.count("\n", 0, m.start()) + 1
+                snippet = lines_cache[line_no - 1].strip()[:160] if line_no - 1 < len(lines_cache) else ""
+                _emit_unless_comment(Finding(
                     cwe=cwe, severity=severity, rule_id=rule_id,
                     file=rel, line=line_no, snippet=snippet,
                 ))
 
+        # forbidden_literals siguen usando content original (v1.7.2
+        # el line-by-line filter es suficiente · los literals no
+        # cruzan lineas).
         for literal in forbidden:
             for m in re.finditer(re.escape(literal), content):
                 line_no = content.count("\n", 0, m.start()) + 1
-                findings.append(Finding(
+                _emit_unless_comment(Finding(
                     cwe="CWE-798", severity="CRITICAL",
                     rule_id=f"FORBIDDEN-LITERAL-{literal[:20]}",
                     file=rel, line=line_no, snippet=literal,
                 ))
 
     return findings
+
+
+# ---------------------------------------------------------------------------
+# v1.8.0 · RFC-003 · helpers de domain ontology
+# ---------------------------------------------------------------------------
+
+def _load_ontology_for_scan(root: Path, cfg: dict) -> dict:
+    """Busca ontology en orden: cfg['ontology_path'] · root/amx-domain-ontology.yaml
+    · policies/<policy>/ontology.yaml. Retorna dict vacio si no hay.
+    """
+    try:
+        from .ontology import load_ontology
+    except ImportError:
+        return {}
+
+    # 1. Explicit path en config
+    ontology_path = cfg.get("ontology_path")
+    if ontology_path:
+        p = Path(ontology_path)
+        if not p.is_absolute():
+            p = root / p
+        return load_ontology(p)
+
+    # 2. Root-level convention
+    convention = root / "amx-domain-ontology.yaml"
+    if convention.exists():
+        return load_ontology(convention)
+
+    # 3. Policy-scoped ontology
+    policy_name = cfg.get("policy", "amx-revenue-accounting")
+    # Buscar en el package instalado (aios/policies/<policy>/ontology.yaml)
+    try:
+        import aios.policies as _ap
+        policy_dir = Path(_ap.__file__).parent / policy_name
+        ont_file = policy_dir / "ontology.yaml"
+        if ont_file.exists():
+            return load_ontology(ont_file)
+    except Exception:  # noqa: BLE001
+        pass
+
+    return {"patterns": [], "default_action": "auto_fix",
+            "default_classification": "unclear"}
+
+
+def _enrich_finding_with_ontology(finding: Finding, ontology: dict) -> None:
+    """v1.8.0 · muta el finding in-place con ontology classification."""
+    if not ontology or not ontology.get("patterns"):
+        # Sin ontology · deja defaults (auto_fix · unclear)
+        return
+    try:
+        from .ontology import classify_finding
+    except ImportError:
+        return
+    try:
+        result = classify_finding(finding, ontology)
+        finding.ontology_action = result.action
+        finding.ontology_match = result.ontology_match
+        finding.ontology_classification = result.classification
+        finding.ontology_message = result.message
+    except Exception:  # noqa: BLE001 · classify failures no deben romper scan
+        pass
+
+
+# ---------------------------------------------------------------------------
+# v1.9.0 · RFC-003 Nivel 2 · LLM classifier helpers
+# ---------------------------------------------------------------------------
+
+def _load_llm_classifier(cfg: dict):
+    """Crea LLMClassifier desde config si enabled · None si opt-out."""
+    llm_cfg = (cfg or {}).get("llm_classifier") or {}
+    if not llm_cfg.get("enabled", False):
+        return None
+    try:
+        from .llm_classifier import LLMClassifier
+        return LLMClassifier.from_config(llm_cfg)
+    except ImportError:
+        return None
+    except Exception:  # noqa: BLE001 · init failures no deben romper scan
+        return None
+
+
+def _enrich_finding_with_llm(
+    finding: Finding, root: Path, classifier,
+) -> None:
+    """v1.9.0 · si classifier está disponible y el finding tiene
+    ontology_action=pause_for_review, invoca LLM para re-clasificar.
+    Si confidence >= threshold, override la decision del Nivel 1.
+    """
+    if classifier is None:
+        return
+    # Solo invocar LLM para findings que Nivel 1 dejó ambiguos
+    if finding.ontology_action != "pause_for_review":
+        return
+    try:
+        result = classifier.classify(finding, root)
+    except Exception:  # noqa: BLE001
+        return
+    # Guardar siempre el output del LLM (audit trail)
+    finding.llm_classification = result.classification
+    finding.llm_confidence = result.confidence
+    finding.llm_reasoning = result.reasoning
+    finding.llm_evidence = list(result.evidence)
+    finding.llm_provider = result.provider
+    finding.llm_cached = result.cached
+    # Override Nivel 1 solo si high confidence
+    if result.confidence >= classifier.confidence_threshold:
+        finding.ontology_action = result.recommended_action
+        finding.ontology_classification = result.classification
+        finding.ontology_message = (
+            f"[LLM override · conf={result.confidence:.2f}] {result.reasoning}"
+        )
 
 
 def scan_files(
@@ -1037,7 +1667,12 @@ def scan_files(
     findings: list[Finding] = []
     forbidden = [lit for lit in cfg.get("forbidden_literals", []) if lit]
     skip_exts = set(cfg.get("exclude_exts", []))
-    skip_files = set(cfg.get("exclude_files", []))
+    skip_files_raw = cfg.get("exclude_files", [])
+    skip_comments = bool(cfg.get("exclude_comment_lines", True))
+    # v1.8.0 · RFC-003 Nivel 1 · load ontology
+    ontology = _load_ontology_for_scan(root, cfg)
+    # v1.9.0 · RFC-003 Nivel 2 · load LLM classifier (opt-in)
+    llm_classifier = _load_llm_classifier(cfg)
 
     for file_rel in files:
         file_rel = file_rel.strip()
@@ -1053,25 +1688,38 @@ def scan_files(
             continue
         if fp.suffix.lower() in skip_exts:
             continue
-        if fp.name in skip_files:
+        if _match_exclude_files(fp, root, skip_files_raw):
             continue
         try:
             content = fp.read_text(encoding="utf-8", errors="ignore")
         except (OSError, UnicodeDecodeError):
             continue
         fp_ext = fp.suffix.lower()
+        lines_cache = content.splitlines()
+        # v1.7.3 · content sanitizado para detectores (ver scan_directory)
+        scan_content = (
+            _strip_inline_comments(content, fp_ext)
+            if skip_comments else content
+        )
+
+        def _emit_unless_comment(finding: Finding) -> None:
+            if skip_comments and 0 < finding.line <= len(lines_cache):
+                if _is_comment_line(lines_cache[finding.line - 1], fp_ext):
+                    return
+            _enrich_finding_with_ontology(finding, ontology)
+            _enrich_finding_with_llm(finding, root, llm_classifier)
+            findings.append(finding)
 
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
             if file_exts is not None and fp_ext not in file_exts:
                 continue
-            for m in pattern.finditer(content):
-                line_no = content.count("\n", 0, m.start()) + 1
-                lines = content.splitlines()
+            for m in pattern.finditer(scan_content):
+                line_no = scan_content.count("\n", 0, m.start()) + 1
                 snippet = (
-                    lines[line_no - 1].strip()[:160]
-                    if line_no - 1 < len(lines) else ""
+                    lines_cache[line_no - 1].strip()[:160]
+                    if line_no - 1 < len(lines_cache) else ""
                 )
-                findings.append(Finding(
+                _emit_unless_comment(Finding(
                     cwe=cwe, severity=severity, rule_id=rule_id,
                     file=file_rel, line=line_no, snippet=snippet,
                 ))
@@ -1079,7 +1727,7 @@ def scan_files(
         for literal in forbidden:
             for m in re.finditer(re.escape(literal), content):
                 line_no = content.count("\n", 0, m.start()) + 1
-                findings.append(Finding(
+                _emit_unless_comment(Finding(
                     cwe="CWE-798", severity="CRITICAL",
                     rule_id=f"FORBIDDEN-LITERAL-{literal[:20]}",
                     file=file_rel, line=line_no, snippet=literal,
@@ -1204,6 +1852,38 @@ def run_security_gate(root: Path) -> dict:
             "file": f.file, "line": f.line,
         })
 
+    # v1.8.0 · RFC-003 Nivel 1 · recolecta findings que requieren review humano
+    # v1.9.0 · RFC-003 Nivel 2 · incluye reasoning del LLM si hubo override
+    requires_review: list[dict] = []
+    ontology_counts: dict[str, int] = {}
+    llm_overrides = 0
+    for f in findings:
+        action = getattr(f, "ontology_action", "auto_fix")
+        ontology_counts[action] = ontology_counts.get(action, 0) + 1
+        if getattr(f, "llm_classification", None) is not None:
+            llm_overrides += 1
+        if action == "pause_for_review":
+            entry = {
+                "rule_id": f.rule_id,
+                "file": f.file,
+                "line": f.line,
+                "severity": f.severity,
+                "ontology_match": getattr(f, "ontology_match", None),
+                "classification": getattr(f, "ontology_classification", "unclear"),
+                "message": getattr(f, "ontology_message", ""),
+            }
+            # v1.9.0 · enrich con LLM output si disponible
+            if getattr(f, "llm_classification", None):
+                entry["llm"] = {
+                    "classification": f.llm_classification,
+                    "confidence": f.llm_confidence,
+                    "reasoning": f.llm_reasoning,
+                    "evidence": list(f.llm_evidence),
+                    "provider": f.llm_provider,
+                    "cached": f.llm_cached,
+                }
+            requires_review.append(entry)
+
     return {
         "check": "Security static scan",
         "status": status,
@@ -1214,4 +1894,9 @@ def run_security_gate(root: Path) -> dict:
         "findings_summary": by_sev,
         "top_findings": top,
         "suppressed_count": suppressed_count,
+        # v1.8.0 · RFC-003 Nivel 1 · ontology outputs
+        "requires_human_review": requires_review,
+        "ontology_counts": ontology_counts,
+        # v1.9.0 · RFC-003 Nivel 2 · LLM classifier metrics
+        "llm_overrides": llm_overrides,
     }

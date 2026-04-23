@@ -473,6 +473,27 @@ def cmd_security_scan_staged(args):
         print("[AIOS/scan-staged] No files to scan")
         return
 
+    # v2.1.1 · BUG-004 · advertir sobre scope para evitar confusion con
+    # 'aios release' (que escanea workspace completo)
+    try:
+        import subprocess as _sp
+        total_files_proc = _sp.run(
+            ["git", "ls-files"], capture_output=True, text=True,
+            cwd=str(root), check=False, timeout=5,
+        )
+        if total_files_proc.returncode == 0:
+            total_tracked = len([
+                l for l in total_files_proc.stdout.splitlines() if l.strip()
+            ])
+            if total_tracked > len(files):
+                print(
+                    f"[AIOS/scan-staged] SCOPE · {len(files)} staged files "
+                    f"de {total_tracked} tracked en repo · para scan "
+                    f"completo del workspace usa `aios release`"
+                )
+    except Exception:  # noqa: BLE001
+        pass
+
     findings = _scan_files(root, files)
     critical = [f for f in findings if f.severity == "CRITICAL"]
     high = [f for f in findings if f.severity == "HIGH"]
@@ -758,6 +779,76 @@ def cmd_onboard(args):
     print(f"\n  Next steps:")
     for ns in report["next_steps"]:
         print(f"    {ns}")
+    print(f"{'='*60}\n")
+
+
+def cmd_scaffold_deploy_ready(args):
+    """Auto-detect app + scaffold deploy-ready package (docs · IaC · CI/CD · tests · runbook)."""
+    from aios.core.deploy_ready import detect_profile, scaffold, generate_mythos_tut
+
+    app_path = Path(args.app_path).resolve()
+    overwrite = getattr(args, "overwrite", False)
+    register_mythos = not getattr(args, "no_mythos", False)
+
+    print(f"\n{'='*60}")
+    print(f"  AIOS · SCAFFOLD DEPLOY-READY")
+    print(f"{'='*60}")
+    print(f"  App path · {app_path}")
+
+    profile = detect_profile(app_path)
+
+    # CLI override for primary stack (use case: target stack differs from current code)
+    stack_override = getattr(args, "primary_stack", None)
+    if stack_override and stack_override != profile.primary_stack:
+        print(f"\n  [!] Stack override · auto-detected '{profile.primary_stack}' → forcing '{stack_override}'")
+        profile.primary_stack = stack_override
+        if stack_override not in profile.detected_stacks:
+            profile.detected_stacks.append(stack_override)
+        profile.notes.append(f"primary_stack manually overridden via CLI · original detection: auto")
+
+    output_dir_arg = getattr(args, "output_dir", None)
+    output_dir = Path(output_dir_arg) if output_dir_arg else None
+
+    print(f"\n  Profile detectado:")
+    print(f"    app_id            · {profile.app_id}")
+    print(f"    app_name          · {profile.app_name}")
+    print(f"    primary_stack     · {profile.primary_stack}")
+    print(f"    detected_stacks   · {', '.join(profile.detected_stacks) or '(none)'}")
+    print(f"    tier_proposed     · {profile.tier_proposed}")
+    print(f"    tier_rationale    · {profile.tier_rationale}")
+    print(f"    criticality       · {profile.criticality}")
+    print(f"    workload          · {'CronJob (batch)' if profile.is_batch else 'Deployment (service)'}")
+    print(f"    vulns_known       · {len(profile.vulns_known)}  ({sum(1 for v in profile.vulns_known if v.severity == 'CRITICAL')} CRITICAL · {sum(1 for v in profile.vulns_known if v.severity == 'HIGH')} HIGH)")
+    print(f"    integrations      · {', '.join(profile.integrations) or '(none)'}")
+    print(f"    compliance        · {', '.join(profile.compliance) or '(none)'}")
+    print(f"    has_discovery     · {profile.has_discovery}")
+    print(f"    has_code          · {profile.has_code}")
+    if profile.notes:
+        print(f"\n  Notes:")
+        for n in profile.notes:
+            print(f"    [!] {n}")
+
+    print(f"\n  Scaffolding deploy-ready/ ...")
+    report = scaffold(profile, output_dir=output_dir, overwrite=overwrite)
+    print(f"    files_created  · {len(report.files_created)}")
+    print(f"    files_skipped  · {len(report.files_skipped)} (already exist · use --overwrite)")
+    for w in report.warnings:
+        print(f"    [!] {w}")
+
+    if register_mythos:
+        repo_root = Path(getattr(args, "root", None) or Path.cwd()).resolve()
+        tut = generate_mythos_tut(profile, repo_root)
+        if tut:
+            print(f"\n  Mythos TUT registered · {tut}")
+        else:
+            print(f"\n  [!] Mythos TUT skipped · mythos/mythos-targets/ not found under {repo_root}")
+
+    print(f"\n  Next steps:")
+    print(f"    1. Review deploy-ready/ARCHITECT_PACKAGE_README.md")
+    print(f"    2. Enrich ADR-001 and ADR-002 with app-specific decisions")
+    print(f"    3. Complete C4 diagrams (drawio skeleton not generated · copy from similar app)")
+    print(f"    4. Run Mythos scan · mythos scan {profile.app_id}-{profile.primary_stack}")
+    print(f"    5. Escalate to Borde Arquitectura (Israel Miguel) for Gate 4 review")
     print(f"{'='*60}\n")
 
 
@@ -1093,6 +1184,181 @@ def main():
     p.add_argument("--risks", help="New risks")
     p.add_argument("--root", default=".")
 
+    # v1.7.3 · resume · retoma sesion desde checkpoint guardado
+    p = sub.add_parser("resume",
+                       help="Retoma la sesion desde el ultimo checkpoint "
+                            "(BUG-003 · fix context-limit interruptions)")
+    p.add_argument("--root", default=".")
+    p.add_argument("--format", choices=["human", "json"], default="human",
+                   help="Formato de salida")
+
+    # v1.7.3 · checkpoint · emite/actualiza checkpoint manual
+    p = sub.add_parser("checkpoint",
+                       help="Escribe o muestra el checkpoint actual del "
+                            "workstream · util despues de cada build-gate PASS")
+    p.add_argument("--root", default=".")
+    p.add_argument("--phase-completed", default="",
+                   help="Ultima fase cerrada (ej. 'FASE 2')")
+    p.add_argument("--phase-in-progress", default="",
+                   help="Fase+step en curso (ej. 'FASE 3 · step 2/6')")
+    p.add_argument("--next-action", default="",
+                   help="Accion inmediata a retomar")
+    p.add_argument("--last-commit", default="",
+                   help="Hash del ultimo commit atomico")
+    p.add_argument("--show", action="store_true",
+                   help="Solo muestra el checkpoint actual · no escribe")
+
+    # v1.9.0 · RFC-003 Nivel 2 · LLM classifier CLI
+    p = sub.add_parser("classify",
+                       help="Clasifica un finding usando ontology + LLM · "
+                            "debug/preview sin correr scan completo")
+    p.add_argument("--root", default=".")
+    p.add_argument("--file", required=True, help="Archivo del finding")
+    p.add_argument("--line", type=int, required=True, help="Linea del finding")
+    p.add_argument("--rule-id", required=True, help="Rule ID del finding")
+    p.add_argument("--severity", default="CRITICAL")
+    p.add_argument("--snippet", default="",
+                   help="Snippet del codigo · si omite, se extrae del archivo")
+    p.add_argument("--provider", default="",
+                   help="Override provider (mock|anthropic|openai|ollama)")
+    p.add_argument("--no-llm", action="store_true",
+                   help="Solo ontology (Nivel 1) · no invoca LLM")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v2.0.0 · RFC-003 Nivel 3 · Characterization tests CLI
+    p = sub.add_parser("characterize",
+                       help="Captura/verifica behavior fingerprint · "
+                            "rollback-safe refactor validation")
+    p.add_argument("--root", default=".")
+    p.add_argument("action",
+                   choices=["capture", "verify", "show", "diff"],
+                   help="capture: snapshot pre-refactor · "
+                        "verify: comparar post vs baseline · "
+                        "show: mostrar fingerprint guardado · "
+                        "diff: comparar 2 archivos directamente")
+    p.add_argument("--file", required=True, help="Archivo target")
+    p.add_argument("--vs", default="",
+                   help="Para diff: segundo archivo a comparar")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v2.2.0 · RFC-004a + RFC-004b · Cross-Copy Drift Detector CLI
+    p = sub.add_parser("drift",
+                       help="Detecta divergencia cross-copy (source vs build vs prod) "
+                            "+ credenciales byte-idénticas entre ambientes")
+    p.add_argument("--source", required=True,
+                   help="Primer directorio (ej. source tree)")
+    p.add_argument("--compare", required=True,
+                   help="Segundo directorio (ej. build output · prod deployed)")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+    p.add_argument("--severity-min", default="INFO",
+                   choices=["INFO", "MEDIUM", "HIGH", "CRITICAL"],
+                   help="Filtra findings bajo este nivel")
+
+    # v2.1.0 · RFC-003 Nivel 4 · Stakeholder-in-the-Loop CLI
+    p = sub.add_parser("review",
+                       help="Gestiona decisiones sobre findings que "
+                            "requieren review humano (approve/reject/defer) · "
+                            "audit trail en .aios/review-log.jsonl")
+    p.add_argument("--root", default=".")
+    p.add_argument("action",
+                   choices=["list", "show", "approve", "reject", "defer", "generate"],
+                   help="list: findings pendientes · show <id>: doc del finding · "
+                        "approve/reject/defer: registrar decisión · "
+                        "generate: emite review docs para findings pause actuales")
+    p.add_argument("--id", default="", help="Finding ID (ej. FRK-a3f8e1b2)")
+    p.add_argument("--reason", default="", help="Razón de la decisión (texto)")
+    p.add_argument("--classification", default="",
+                   choices=["", "bug", "business_rule", "migration_candidate", "unclear"],
+                   help="Al approve: reclasificación final (opcional)")
+    p.add_argument("--user", default="",
+                   help="Usuario que decide (default: git user.email)")
+    p.add_argument("--add-to-ontology", action="store_true",
+                   help="Al approve: propone entry al ontology (merge manual)")
+    p.add_argument("--pattern", default="",
+                   help="Regex pattern para ontology proposed (override auto-extract)")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v2.3.0 · RFC-004c · Third-Party Exfil Heuristic
+    p = sub.add_parser("exfil",
+                       help="Detecta emails/URLs/hosts hacia dominios no "
+                            "corporativos en configs + codigo (data exfil heuristic)")
+    p.add_argument("--root", default=".",
+                   help="Directorio a escanear (default: cwd)")
+    p.add_argument("--corporate", default="",
+                   help="CSV de dominios corporativos whitelisted "
+                        "(default: aeromexico.com.mx,am.com.mx,aeromexicocargo.com)")
+    p.add_argument("--severity-min", default="INFO",
+                   choices=["INFO", "MEDIUM", "HIGH"],
+                   help="Filtra findings bajo este nivel")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v3.2.0 · Iterative multi-strategy scanner (saturation loop)
+    p = sub.add_parser("iterate",
+                       help="Corre multi-strategy saturation loop · cada "
+                            "iteracion usa una tecnica distinta (regex · "
+                            "ensemble · llm_deep_review · cross_file_taint) "
+                            "· se detiene cuando la siguiente aporta <min_delta")
+    p.add_argument("--root", default=".",
+                   help="Directorio raiz (default cwd)")
+    p.add_argument("--strategies", default="regex,ensemble,cross_file_taint",
+                   help="CSV de estrategias (default sin LLM para zero-cost) "
+                        "· disponibles: regex,ensemble,llm_deep_review,"
+                        "cross_file_taint")
+    p.add_argument("--max-iterations", type=int, default=5)
+    p.add_argument("--min-delta", type=int, default=2,
+                   help="Stop si iteracion aporta <min-delta findings nuevos")
+    p.add_argument("--llm-provider", default="ollama",
+                   choices=["ollama", "anthropic", "openai"])
+    p.add_argument("--llm-model", default="gemma3:latest")
+    p.add_argument("--llm-max-files", type=int, default=5,
+                   help="Archivos top-severity a enviar al LLM en deep-review")
+    p.add_argument("--llm-timeout", type=int, default=120)
+    p.add_argument("--ollama-host", default="http://localhost:11434")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v2.8.0 · Dynamic analysis hooks (test stubs · Falco rules · OTel)
+    p = sub.add_parser("dynamic-hooks",
+                       help="Genera stubs de integration tests + reglas Falco + "
+                            "sugerencias OpenTelemetry desde characterization y "
+                            "findings · no corre nada · prepara artefactos CI/CD")
+    p.add_argument("--root", default=".",
+                   help="Directorio raiz (default cwd)")
+    p.add_argument("--characterization-dir", default="",
+                   help="Dir con .json fingerprints (default: .aios/characterization)")
+    p.add_argument("--findings-file", default="",
+                   help="JSON con findings para emitir reglas Falco por CWE")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v2.6.0 · Ensemble OSS scanner (Semgrep/Gitleaks/TruffleHog/Bandit/Checkov/Trivy)
+    p = sub.add_parser("ensemble",
+                       help="Corre herramientas OSS ortogonales (Semgrep · "
+                            "Gitleaks · TruffleHog · Bandit · Checkov · Trivy) "
+                            "y consolida findings para elevar recall")
+    p.add_argument("--root", default=".",
+                   help="Directorio a escanear (default: cwd)")
+    p.add_argument("--tools", default="",
+                   help="CSV de tools a correr (default: auto-detect)")
+    p.add_argument("--timeout", type=int, default=600,
+                   help="Timeout por tool en segundos (default 600)")
+    p.add_argument("--severity-min", default="INFO",
+                   choices=["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"],
+                   help="Filtra findings bajo este nivel")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v2.4.0 · RFC-004d · Runtime Data File Scanner
+    p = sub.add_parser("runtime-data",
+                       help="Escanea archivos runtime (HTML/TXT/logs/CSV/EML) "
+                            "en busca de PII · PNRs · credit cards · JWTs · "
+                            "credentials fuera del CWE scan estandar")
+    p.add_argument("--root", default=".",
+                   help="Directorio a escanear (default: cwd)")
+    p.add_argument("--severity-min", default="INFO",
+                   choices=["INFO", "MEDIUM", "HIGH"],
+                   help="Filtra findings bajo este nivel")
+    p.add_argument("--max-mb", type=int, default=4,
+                   help="MB maximos por archivo (default 4)")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # status
     p = sub.add_parser("status", help="Show project status")
     p.add_argument("--root", default=".")
@@ -1267,6 +1533,19 @@ def main():
     p.add_argument("--target", choices=["all", "changelog", "cache", "specs", "memory"], default="cache", help="What to clean")
     p.add_argument("--root", default=".")
 
+    # scaffold-deploy-ready
+    p = sub.add_parser(
+        "scaffold-deploy-ready",
+        help="Auto-detect app + scaffold deploy-ready package (docs · IaC · CI/CD · tests · runbook)",
+    )
+    p.add_argument("app_path", help="Path to app directory (e.g. apps/02-arc)")
+    p.add_argument("--overwrite", action="store_true", help="Overwrite existing deploy-ready files")
+    p.add_argument("--no-mythos", action="store_true", help="Skip Mythos TUT auto-registration")
+    p.add_argument("--root", default=".", help="Repo root (for Mythos TUT lookup)")
+    p.add_argument("--primary-stack", choices=["dotnet", "python", "java", "cobol", "php", "node"],
+                   help="Force primary stack (override auto-detection) · use when target stack differs from current code")
+    p.add_argument("--output-dir", help="Output dir (default: <app_path>/deploy-ready)")
+
     # version
     p = sub.add_parser("version", help="Show AIOS version")
 
@@ -1286,6 +1565,27 @@ def main():
         "test": cmd_test, "progress": cmd_progress, "watch": cmd_watch, "cache": cmd_cache,
         "refine": cmd_refine, "sync": cmd_sync, "search": cmd_search,
         "changelog": cmd_changelog, "clean": cmd_clean,
+        "scaffold-deploy-ready": cmd_scaffold_deploy_ready,
+        # v1.7.3 · BUG-003 · resume + checkpoint
+        "resume": cmd_resume, "checkpoint": cmd_checkpoint,
+        # v1.9.0 · RFC-003 Nivel 2 · LLM classifier
+        "classify": cmd_classify,
+        # v2.0.0 · RFC-003 Nivel 3 · Characterization tests
+        "characterize": cmd_characterize,
+        # v2.1.0 · RFC-003 Nivel 4 · Stakeholder-in-the-Loop
+        "review": cmd_review,
+        # v2.2.0 · RFC-004a + 004b · Cross-Copy Drift Detector
+        "drift": cmd_drift,
+        # v2.3.0 · RFC-004c · Third-Party Exfil Heuristic
+        "exfil": cmd_exfil,
+        # v2.4.0 · RFC-004d · Runtime Data File Scanner
+        "runtime-data": cmd_runtime_data,
+        # v2.6.0 · Ensemble OSS scanner
+        "ensemble": cmd_ensemble,
+        # v2.8.0 · Dynamic analysis hooks
+        "dynamic-hooks": cmd_dynamic_hooks,
+        # v3.2.0 · Iterative multi-strategy scanner
+        "iterate": cmd_iterate,
     }
 
     if args.command in commands:
@@ -1332,6 +1632,855 @@ def cmd_version(args):
     """Show AIOS version."""
     from aios import __version__
     print(f"  AIOS v{__version__}")
+
+
+def cmd_resume(args):
+    """v1.7.3 · retoma sesion desde checkpoint guardado · BUG-003."""
+    import json
+    from aios.core.memory_engine import get_checkpoint, resume_instruction
+    root = get_root(args)
+    cp = get_checkpoint(root)
+    if args.format == "json":
+        print(json.dumps(cp, indent=2, ensure_ascii=False))
+        return
+    print()
+    print("  AIOS Resume · checkpoint del workstream")
+    print("  " + "─" * 60)
+    if not any(cp.values()):
+        print("  (sin checkpoint · workstream nuevo · empieza FASE 0)")
+    else:
+        if cp.get("phase_completed"):
+            print(f"  Ultima fase completada: {cp['phase_completed']}")
+        if cp.get("phase_in_progress"):
+            print(f"  En progreso:            {cp['phase_in_progress']}")
+        if cp.get("next_action"):
+            print(f"  Proxima accion:         {cp['next_action']}")
+        if cp.get("last_commit"):
+            print(f"  Ultimo commit:          {cp['last_commit']}")
+        if cp.get("updated"):
+            print(f"  Updated:                {cp['updated']}")
+    print()
+
+
+def cmd_drift(args):
+    """v2.2.0 · cross-copy drift detector · RFC-004a + RFC-004b."""
+    import json
+    from pathlib import Path as _Path
+    from aios.core.drift_detector import detect_drift
+
+    src = _Path(args.source)
+    if not src.is_absolute():
+        src = _Path.cwd() / src
+    cmp = _Path(args.compare)
+    if not cmp.is_absolute():
+        cmp = _Path.cwd() / cmp
+    if not src.exists():
+        print(f"  ERROR · source no existe: {args.source}")
+        return
+    if not cmp.exists():
+        print(f"  ERROR · compare no existe: {args.compare}")
+        return
+
+    severity_order = ["INFO", "MEDIUM", "HIGH", "CRITICAL"]
+    min_idx = severity_order.index(args.severity_min)
+    report = detect_drift(src, cmp)
+
+    # Filter findings por severity-min
+    filtered = [
+        f for f in report.findings
+        if severity_order.index(f.severity) >= min_idx
+    ]
+
+    if args.format == "json":
+        out = report.to_dict()
+        out["findings"] = [f.to_dict() for f in filtered]
+        out["by_severity"] = {
+            s: sum(1 for f in filtered if f.severity == s)
+            for s in severity_order
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Cross-Copy Drift Analysis · RFC-004")
+    print("  " + "─" * 68)
+    print(f"  Source  : {report.root_a}")
+    print(f"  Compare : {report.root_b}")
+    print()
+    print(f"  Config file pairs matched: {report.file_pairs_matched}")
+    print(f"  Files only in source  : {len(report.files_only_in_a)}")
+    print(f"  Files only in compare : {len(report.files_only_in_b)}")
+    print()
+    by_sev = {s: sum(1 for f in filtered if f.severity == s) for s in severity_order}
+    print(f"  Findings by severity (min={args.severity_min}):")
+    for s in reversed(severity_order):
+        count = by_sev.get(s, 0)
+        if count > 0:
+            print(f"    {s:10s} : {count}")
+    print()
+    if filtered:
+        # Critical + High primero · agrupados
+        for sev in ("CRITICAL", "HIGH", "MEDIUM", "INFO"):
+            sev_findings = [f for f in filtered if f.severity == sev]
+            if not sev_findings:
+                continue
+            print(f"  ═══ {sev} ({len(sev_findings)}) ═══")
+            for f in sev_findings[:20]:
+                print(f"    · [{f.kind}] {f.key}")
+                if f.file_a or f.file_b:
+                    print(f"      A: {f.file_a or '(no presente)'}")
+                    print(f"      B: {f.file_b or '(no presente)'}")
+                if f.value_a or f.value_b:
+                    v_a = f.value_a[:80] + "..." if len(f.value_a) > 80 else f.value_a
+                    v_b = f.value_b[:80] + "..." if len(f.value_b) > 80 else f.value_b
+                    print(f"      val A: {v_a}")
+                    print(f"      val B: {v_b}")
+                print(f"      → {f.message[:200]}")
+                if f.extra_occurrences:
+                    print(f"      Se repite en {len(f.extra_occurrences)} archivos:")
+                    for occ in f.extra_occurrences[:5]:
+                        print(f"        · {occ.get('file','')}:{occ.get('line',0)}")
+                print()
+    print()
+
+
+def cmd_review(args):
+    """v2.1.0 · stakeholder-in-the-loop · RFC-003 Nivel 4."""
+    import json
+    from datetime import datetime, timezone
+    from aios.core import review as rv
+    from aios.core.security_gate import run_security_gate
+    root = get_root(args)
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    # Determina usuario (git config si no --user)
+    user = args.user
+    if not user:
+        try:
+            import subprocess
+            r = subprocess.run(["git", "config", "user.email"],
+                               capture_output=True, text=True,
+                               cwd=str(root), check=False, timeout=5)
+            user = r.stdout.strip() or "anonymous"
+        except Exception:  # noqa: BLE001
+            user = "anonymous"
+
+    if args.action == "list":
+        # Corre scan + filtra por decisions
+        sec = run_security_gate(root)
+        pause = sec.get("requires_human_review", []) or []
+        # v3.1 · auto-sync filesystem review docs con el scan actual.
+        # Antes: list mostraba pending desde state en memoria · pero
+        # .aios/reviews/*.md quedaba stale · clean-session validation lo
+        # detecto. Ahora regenera .md files para toda finding pending que
+        # no tenga doc persistido.
+        reviews_dir = root / ".aios" / "reviews"
+        reviews_dir.mkdir(parents=True, exist_ok=True)
+        existing_md = {p.stem for p in reviews_dir.glob("*.md")}
+        sync_count = 0
+        for f in pause:
+            fid = rv.make_finding_id(
+                f.get("file", ""), int(f.get("line", 0) or 0),
+                f.get("rule_id", ""),
+            )
+            if fid in existing_md:
+                continue
+            f_with_id = dict(f)
+            f_with_id["finding_id"] = fid
+            rv.generate_review_doc(f_with_id, root)
+            sync_count += 1
+        if sync_count and args.format != "json":
+            print(f"  [sync] generados {sync_count} review docs "
+                  f"nuevos en {reviews_dir}")
+        buckets = rv.filter_findings_by_decisions(pause, root)
+        if args.format == "json":
+            print(json.dumps({
+                "pending": buckets["pending"],
+                "approved": len(buckets["approved"]),
+                "rejected": len(buckets["rejected"]),
+                "deferred": len(buckets["deferred"]),
+            }, indent=2, ensure_ascii=False))
+            return
+        print()
+        print(f"  Review queue")
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  Pending  : {len(buckets['pending'])} findings")
+        print(f"  Approved : {len(buckets['approved'])} (histórico)")
+        print(f"  Rejected : {len(buckets['rejected'])} (bloquean release)")
+        print(f"  Deferred : {len(buckets['deferred'])} (pospuestos)")
+        print()
+        if buckets["pending"]:
+            print("  Pendientes:")
+            for f in buckets["pending"][:20]:
+                print(f"    · {f['finding_id']} · {f.get('rule_id','')} · "
+                      f"{f.get('file','')}:{f.get('line','?')} · "
+                      f"sev={f.get('severity','?')}")
+        print()
+        return
+
+    if args.action == "generate":
+        sec = run_security_gate(root)
+        pause = sec.get("requires_human_review", []) or []
+        count = 0
+        for f in pause:
+            fid = rv.make_finding_id(
+                f.get("file", ""), int(f.get("line", 0) or 0),
+                f.get("rule_id", ""),
+            )
+            f_with_id = dict(f)
+            f_with_id["finding_id"] = fid
+            rv.generate_review_doc(f_with_id, root)
+            count += 1
+        print()
+        print(f"  {count} review docs generados en .aios/reviews/")
+        print()
+        return
+
+    if args.action == "show":
+        if not args.id:
+            print("  ERROR · --id requerido")
+            return
+        doc = root / ".aios" / "reviews" / f"{args.id}.md"
+        if not doc.exists():
+            print(f"  ERROR · review doc no existe: {args.id}")
+            print("  Corre 'aios review generate' primero")
+            return
+        print()
+        print(doc.read_text(encoding="utf-8"))
+        print()
+        return
+
+    if args.action in ("approve", "reject", "defer"):
+        if not args.id:
+            print(f"  ERROR · --id requerido para {args.action}")
+            return
+        # Find existing review doc para extraer metadata
+        doc = root / ".aios" / "reviews" / f"{args.id}.md"
+        file_path, line_no, rule_id = "", 0, ""
+        if doc.exists():
+            for line in doc.read_text(encoding="utf-8").splitlines():
+                if line.startswith("**File:**"):
+                    file_path = line.split("`", 2)[1] if "`" in line else ""
+                elif line.startswith("**Line:**"):
+                    import re as _re
+                    m = _re.search(r"\d+", line)
+                    if m:
+                        line_no = int(m.group(0))
+                elif line.startswith("**Rule:**"):
+                    rule_id = line.split("`", 2)[1] if "`" in line else ""
+
+        decision = rv.ReviewDecision(
+            timestamp=now, finding_id=args.id,
+            file=file_path, line=line_no, rule_id=rule_id,
+            action=args.action, reason=args.reason, user=user,
+            final_classification=args.classification,
+            ontology_proposed=args.add_to_ontology and args.action == "approve",
+        )
+        rv.log_decision(root, decision)
+
+        # Ontology proposal (optional)
+        if args.add_to_ontology and args.action == "approve":
+            snippet = ""
+            if doc.exists():
+                # Very heuristic · extract snippet line from markdown
+                for line in doc.read_text(encoding="utf-8").splitlines():
+                    if "snippet" in line.lower():
+                        snippet = line
+                        break
+            proposal_path = rv.propose_ontology_entry(
+                root, args.id, rule_id, snippet or "",
+                args.classification or "unclear",
+                args.reason or "Propuesto en review",
+                pattern_override=args.pattern,
+            )
+            print(f"  ✓ Ontology proposal agregado a: {proposal_path}")
+            print(f"    Merge manual al catálogo canónico tras aprobación AMX.")
+        print()
+        print(f"  ✓ Decision logged · {args.action.upper()} · {args.id}")
+        if args.reason:
+            print(f"    Reason: {args.reason}")
+        print(f"    User  : {user}")
+        print(f"    Time  : {now}")
+        print()
+        return
+
+
+def cmd_characterize(args):
+    """v2.0.0 · characterization tests · RFC-003 Nivel 3."""
+    import json
+    from aios.core import characterization as ch
+    from pathlib import Path
+    root = get_root(args)
+    file_path = Path(args.file)
+    if not file_path.is_absolute():
+        file_path = root / file_path
+    if not file_path.exists():
+        print(f"  ERROR · archivo no existe: {args.file}")
+        return
+
+    if args.action == "capture":
+        fp = ch.capture_file(file_path, root)
+        out_path = ch.save_fingerprint(fp, root)
+        if args.format == "json":
+            print(json.dumps(fp.to_dict(), indent=2, ensure_ascii=False))
+            return
+        print()
+        print(f"  Characterization captured · RFC-003 Nivel 3")
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  File       : {fp.file}")
+        print(f"  Language   : {fp.language}")
+        print(f"  Captured   : {fp.captured_at}")
+        print(f"  AST hash   : {fp.ast_hash}")
+        print(f"  Line count : {fp.line_count}")
+        print(f"  Classes    : {len(fp.classes)}")
+        print(f"  Methods    : {len(fp.methods)}")
+        print(f"  Fields     : {len(fp.fields)}")
+        print(f"  Imports    : {len(fp.imports)}")
+        print(f"  Saved to   : {out_path}")
+        print()
+        return
+
+    if args.action == "show":
+        rel = str(file_path.relative_to(root))
+        fp = ch.load_fingerprint(rel, root)
+        if fp is None:
+            print(f"  (sin fingerprint previo para {rel})")
+            return
+        if args.format == "json":
+            print(json.dumps(fp.to_dict(), indent=2, ensure_ascii=False))
+            return
+        print()
+        print(f"  Fingerprint de {fp.file}")
+        print(f"  ──────────────────────────────────")
+        print(f"  Captured   : {fp.captured_at}")
+        print(f"  AST hash   : {fp.ast_hash}")
+        print(f"  Classes ({len(fp.classes)}):")
+        for c in fp.classes[:10]:
+            print(f"    · {c.kind} {c.name} : {','.join(c.bases) or '(no bases)'}")
+        print(f"  Methods ({len(fp.methods)}):")
+        for m in fp.methods[:15]:
+            print(f"    · {m.canonical()[:100]}")
+        if len(fp.methods) > 15:
+            print(f"    · ... ({len(fp.methods) - 15} more)")
+        print()
+        return
+
+    if args.action == "verify":
+        result = ch.verify(file_path, root)
+        if result is None:
+            print(f"  ERROR · sin baseline · corre 'aios characterize capture' primero")
+            return
+        if args.format == "json":
+            print(json.dumps({
+                "file": result.file, "passed": result.passed,
+                "deltas": [{"kind": d.kind, "severity": d.severity,
+                            "element": d.element, "pre": d.pre,
+                            "post": d.post, "message": d.message}
+                           for d in result.deltas],
+                "summary": result.summary,
+                "by_severity": result.by_severity(),
+            }, indent=2, ensure_ascii=False))
+            return
+        print()
+        verdict = "PASS" if result.passed else "FAIL"
+        print(f"  Characterization verify · {verdict}")
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  File        : {result.file}")
+        print(f"  AST hash    : {result.summary.get('pre_fingerprint')} -> "
+              f"{result.summary.get('post_fingerprint')}")
+        print(f"  Line delta  : {result.summary.get('line_delta')}")
+        print(f"  By severity : {result.by_severity()}")
+        print()
+        for d in result.deltas:
+            icon = {"CRITICAL": "XX", "WARN": "!!", "INFO": "ii"}.get(d.severity, "--")
+            print(f"  [{icon}] {d.kind:20s} {d.element[:40]}")
+            if d.pre and d.post:
+                print(f"        pre : {d.pre[:100]}")
+                print(f"        post: {d.post[:100]}")
+            if d.message:
+                print(f"        → {d.message[:150]}")
+        print()
+        if not result.passed:
+            print("  ROLLBACK RECOMMENDED · CRITICAL deltas detected")
+        print()
+        return
+
+    if args.action == "diff":
+        if not args.vs:
+            print("  ERROR · --vs requerido para diff · segundo archivo")
+            return
+        other = Path(args.vs)
+        if not other.is_absolute():
+            other = root / other
+        if not other.exists():
+            print(f"  ERROR · archivo --vs no existe: {args.vs}")
+            return
+        fp_a = ch.capture_file(file_path, root)
+        fp_b = ch.capture_file(other, root)
+        result = ch.diff_fingerprints(fp_a, fp_b)
+        print()
+        print(f"  Diff · {fp_a.file} vs {fp_b.file}")
+        print(f"  ─────────────────────────────────────────────")
+        print(f"  Hashes      : {fp_a.ast_hash} vs {fp_b.ast_hash}")
+        print(f"  By severity : {result.by_severity()}")
+        for d in result.deltas[:20]:
+            print(f"  [{d.severity[:4]}] {d.kind:20s} {d.element[:50]}")
+        print()
+        return
+
+
+def cmd_classify(args):
+    """v1.9.0 · clasifica un finding con ontology + LLM · RFC-003 Nivel 2."""
+    import json
+    from aios.core.security_gate import Finding, _load_config
+    from aios.core.ontology import load_ontology as _load_ont, classify_finding as _classify_ont
+    root = get_root(args)
+    cfg = _load_config(root)
+    # Build finding desde args
+    snippet = args.snippet
+    if not snippet:
+        try:
+            fp = root / args.file
+            lines = fp.read_text(encoding="utf-8", errors="ignore").splitlines()
+            if 0 < args.line <= len(lines):
+                snippet = lines[args.line - 1].strip()[:160]
+        except OSError:
+            snippet = ""
+    finding = Finding(
+        cwe="", severity=args.severity, rule_id=args.rule_id,
+        file=args.file, line=args.line, snippet=snippet,
+    )
+    # Nivel 1 · ontology
+    from aios.core.security_gate import _load_ontology_for_scan
+    ontology = _load_ontology_for_scan(root, cfg)
+    ont_result = _classify_ont(finding, ontology)
+    finding.ontology_action = ont_result.action
+    finding.ontology_match = ont_result.ontology_match
+    finding.ontology_classification = ont_result.classification
+    finding.ontology_message = ont_result.message
+    # Nivel 2 · LLM (opt-in · skip si --no-llm)
+    llm_result = None
+    if not args.no_llm:
+        from aios.core.llm_classifier import LLMClassifier
+        llm_cfg = (cfg.get("llm_classifier") or {}).copy()
+        if args.provider:
+            llm_cfg["provider"] = args.provider
+            llm_cfg["enabled"] = True
+        if llm_cfg.get("enabled", False) or args.provider:
+            try:
+                clf = LLMClassifier.from_config(llm_cfg)
+                llm_result = clf.classify(finding, root)
+                finding.llm_classification = llm_result.classification
+                finding.llm_confidence = llm_result.confidence
+                finding.llm_reasoning = llm_result.reasoning
+                finding.llm_evidence = list(llm_result.evidence)
+                finding.llm_provider = llm_result.provider
+                finding.llm_cached = llm_result.cached
+                if llm_result.confidence >= clf.confidence_threshold:
+                    finding.ontology_action = llm_result.recommended_action
+                    finding.ontology_classification = llm_result.classification
+            except Exception as exc:  # noqa: BLE001
+                llm_result = None
+                print(f"  (LLM error: {exc})")
+    # Output
+    if args.format == "json":
+        out = {
+            "finding": {
+                "rule_id": finding.rule_id, "file": finding.file,
+                "line": finding.line, "severity": finding.severity,
+                "snippet": finding.snippet,
+            },
+            "ontology": {
+                "action": finding.ontology_action,
+                "match": finding.ontology_match,
+                "classification": finding.ontology_classification,
+                "message": finding.ontology_message,
+            },
+            "llm": {
+                "classification": finding.llm_classification,
+                "confidence": finding.llm_confidence,
+                "reasoning": finding.llm_reasoning,
+                "evidence": finding.llm_evidence,
+                "provider": finding.llm_provider,
+                "cached": finding.llm_cached,
+            } if finding.llm_classification else None,
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return
+    # Human
+    print()
+    print("  Classify · Domain Ontology + LLM (v1.9.0)")
+    print("  " + "─" * 60)
+    print(f"  Finding:  {finding.rule_id} · {finding.file}:{finding.line}")
+    print(f"  Snippet:  {finding.snippet[:100]}")
+    print()
+    print(f"  [Nivel 1] ontology:")
+    print(f"    action         : {finding.ontology_action}")
+    print(f"    match          : {finding.ontology_match or '(ninguno)'}")
+    print(f"    classification : {finding.ontology_classification}")
+    if finding.ontology_message:
+        print(f"    message        : {finding.ontology_message[:100]}")
+    if llm_result:
+        print()
+        print(f"  [Nivel 2] LLM ({finding.llm_provider}, cached={finding.llm_cached}):")
+        print(f"    classification : {finding.llm_classification}")
+        print(f"    confidence     : {finding.llm_confidence:.2f}")
+        print(f"    reasoning      : {finding.llm_reasoning[:200]}")
+        if finding.llm_evidence:
+            print(f"    evidence       : {', '.join(finding.llm_evidence[:5])}")
+    print()
+
+
+def cmd_checkpoint(args):
+    """v1.7.3 · muestra o actualiza checkpoint · BUG-003."""
+    from aios.core.memory_engine import get_checkpoint, update_checkpoint
+    root = get_root(args)
+    if args.show:
+        cp = get_checkpoint(root)
+        print()
+        print("  Checkpoint actual:")
+        for k, v in cp.items():
+            print(f"    {k}: {v or '(empty)'}")
+        print()
+        return
+    update_checkpoint(
+        root,
+        phase_completed=args.phase_completed,
+        phase_in_progress=args.phase_in_progress,
+        next_action=args.next_action,
+        last_commit=args.last_commit,
+    )
+    print()
+    print("  ✓ Checkpoint escrito en ai-memory/active_workstream.md")
+    if args.phase_completed:
+        print(f"    phase_completed: {args.phase_completed}")
+    if args.phase_in_progress:
+        print(f"    phase_in_progress: {args.phase_in_progress}")
+    if args.next_action:
+        print(f"    next_action: {args.next_action}")
+    if args.last_commit:
+        print(f"    last_commit: {args.last_commit}")
+    print()
+
+
+def cmd_exfil(args):
+    """v2.3.0 · RFC-004c · third-party exfil heuristic."""
+    import json
+    from pathlib import Path as _Path
+    from aios.core.exfil_detector import ExfilDetector
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    if not root.exists():
+        print(f"  ERROR · root no existe: {args.root}")
+        return
+
+    corp = [d.strip() for d in (args.corporate or "").split(",") if d.strip()] or None
+    report = ExfilDetector(root, corporate_domains=corp).detect()
+
+    severity_order = ["INFO", "MEDIUM", "HIGH"]
+    min_idx = severity_order.index(args.severity_min)
+    filtered = [
+        f for f in report.findings
+        if severity_order.index(f.severity) >= min_idx
+    ]
+
+    if args.format == "json":
+        out = report.to_dict()
+        out["findings"] = [f.to_dict() for f in filtered]
+        out["by_severity"] = {
+            s: sum(1 for f in filtered if f.severity == s)
+            for s in severity_order
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Third-Party Exfil Heuristic · RFC-004c")
+    print("  " + "─" * 68)
+    print(f"  Root                : {report.root}")
+    print(f"  Corporate whitelist : {', '.join(report.corporate_domains)}")
+    print(f"  Files scanned       : {report.files_scanned}")
+    print()
+    by_sev = {s: sum(1 for f in filtered if f.severity == s) for s in severity_order}
+    print(f"  Findings by severity (min={args.severity_min}):")
+    for s in reversed(severity_order):
+        count = by_sev.get(s, 0)
+        if count > 0:
+            print(f"    {s:10s} : {count}")
+    print()
+    if filtered:
+        for sev in ("HIGH", "MEDIUM", "INFO"):
+            sev_findings = [f for f in filtered if f.severity == sev]
+            if not sev_findings:
+                continue
+            print(f"  ═══ {sev} ({len(sev_findings)}) ═══")
+            for f in sev_findings[:30]:
+                print(f"    · [{f.kind}] {f.domain} (env_hint={f.env_hint})")
+                print(f"      {f.file}:{f.line}")
+                print(f"      → {f.recipient}")
+                print(f"      ctx: {f.context[:120]}")
+                print()
+    print()
+
+
+def cmd_runtime_data(args):
+    """v2.4.0 · RFC-004d · runtime data file scanner."""
+    import json
+    from pathlib import Path as _Path
+    from aios.core.runtime_data_scanner import RuntimeDataScanner
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    if not root.exists():
+        print(f"  ERROR · root no existe: {args.root}")
+        return
+
+    max_bytes = max(1, args.max_mb) * 1024 * 1024
+    report = RuntimeDataScanner(root, max_file_bytes=max_bytes).scan()
+
+    severity_order = ["INFO", "MEDIUM", "HIGH"]
+    min_idx = severity_order.index(args.severity_min)
+    filtered = [
+        f for f in report.findings
+        if severity_order.index(f.severity) >= min_idx
+    ]
+
+    if args.format == "json":
+        out = report.to_dict()
+        out["findings"] = [f.to_dict() for f in filtered]
+        out["by_severity"] = {
+            s: sum(1 for f in filtered if f.severity == s)
+            for s in severity_order
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Runtime Data Scanner · RFC-004d")
+    print("  " + "─" * 68)
+    print(f"  Root          : {report.root}")
+    print(f"  Files scanned : {report.files_scanned}")
+    print()
+    by_sev = {s: sum(1 for f in filtered if f.severity == s) for s in severity_order}
+    print(f"  Findings by severity (min={args.severity_min}):")
+    for s in reversed(severity_order):
+        count = by_sev.get(s, 0)
+        if count > 0:
+            print(f"    {s:10s} : {count}")
+    print()
+    if filtered:
+        for sev in ("HIGH", "MEDIUM", "INFO"):
+            sev_findings = [f for f in filtered if f.severity == sev]
+            if not sev_findings:
+                continue
+            # Group by kind dentro del severity
+            by_kind: dict[str, list] = {}
+            for f in sev_findings:
+                by_kind.setdefault(f.kind, []).append(f)
+            print(f"  ═══ {sev} ({len(sev_findings)}) ═══")
+            for kind, fs in by_kind.items():
+                print(f"    [{kind}] · {len(fs)} findings")
+                for f in fs[:10]:
+                    print(f"      · {f.file}:{f.line} · sample={f.sample}")
+                if len(fs) > 10:
+                    print(f"      ... +{len(fs) - 10} more")
+            print()
+    print()
+
+
+def cmd_ensemble(args):
+    """v2.6.0 · Ensemble OSS scanner wrapper."""
+    import json as _json
+    from pathlib import Path as _Path
+    from aios.core.ensemble_scanner import EnsembleScanner
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    if not root.exists():
+        print(f"  ERROR · root no existe: {args.root}")
+        return
+
+    tools = [t.strip() for t in (args.tools or "").split(",") if t.strip()] or None
+    scanner = EnsembleScanner(root, tools=tools, timeout_per_tool=args.timeout)
+    print(f"  Tools a correr: {scanner.tools or '(ninguno disponible)'}")
+    report = scanner.scan()
+
+    severity_order = ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    min_idx = severity_order.index(args.severity_min)
+    filtered = [
+        f for f in report.findings
+        if severity_order.index(f.severity) >= min_idx
+    ]
+
+    if args.format == "json":
+        out = report.to_dict()
+        out["findings"] = [f.to_dict() for f in filtered]
+        out["by_severity"] = {
+            s: sum(1 for f in filtered if f.severity == s)
+            for s in severity_order
+        }
+        print(_json.dumps(out, indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Ensemble OSS Scan · v2.6.0")
+    print("  " + "─" * 68)
+    print(f"  Root          : {report.root}")
+    print(f"  Tools run     : {', '.join(report.tools_run) or 'ninguno'}")
+    if report.tools_skipped:
+        print("  Tools skipped :")
+        for t, reason in report.tools_skipped.items():
+            print(f"    · {t:<12} {reason}")
+    print()
+    print("  Per-tool counts:")
+    for t, c in report.per_tool_counts.items():
+        print(f"    {t:<12} {c}")
+    print()
+    by_sev = {s: sum(1 for f in filtered if f.severity == s) for s in severity_order}
+    print(f"  Findings filtered (min={args.severity_min}):")
+    for s in reversed(severity_order):
+        count = by_sev.get(s, 0)
+        if count > 0:
+            print(f"    {s:10s} : {count}")
+    print()
+    if filtered:
+        # Top 15 por severity
+        for sev in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"):
+            sev_findings = [f for f in filtered if f.severity == sev]
+            if not sev_findings:
+                continue
+            print(f"  ═══ {sev} ({len(sev_findings)}) ═══")
+            for f in sev_findings[:15]:
+                print(f"    · [{f.tool}] {f.rule_id} · {f.cwe}")
+                print(f"      {f.file}:{f.line}")
+                print(f"      → {f.message[:160]}")
+            print()
+    print()
+
+
+def cmd_dynamic_hooks(args):
+    """v2.8.0 · genera test stubs + reglas Falco + sugerencias OTel."""
+    import json as _json
+    from pathlib import Path as _Path
+    from aios.core.dynamic_hooks import generate_dynamic_hooks
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    char_dir = _Path(args.characterization_dir) if args.characterization_dir else None
+    findings: list[dict] = []
+    if args.findings_file:
+        try:
+            raw = _Path(args.findings_file).read_text(encoding="utf-8")
+            parsed = _json.loads(raw)
+            if isinstance(parsed, dict):
+                findings = parsed.get("findings", []) or []
+            elif isinstance(parsed, list):
+                findings = parsed
+        except (OSError, _json.JSONDecodeError) as e:
+            print(f"  WARN · no pude leer findings-file: {e}")
+
+    report = generate_dynamic_hooks(root, char_dir, findings)
+
+    if args.format == "json":
+        print(_json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Dynamic Hooks · v2.8.0")
+    print("  " + "─" * 68)
+    print(f"  Root                     : {report.root}")
+    print(f"  Test stubs generated     : {len(report.test_stubs)}")
+    print(f"  Falco rules emitted      : {len(report.falco_rules)}")
+    print(f"  Instrumentation hotspots : {len(report.instrumentation_points)}")
+    print()
+    if report.test_stubs:
+        print("  ═══ Test stubs (primeros 5) ═══")
+        for s in report.test_stubs[:5]:
+            print(f"    · [{s.language}] {s.target_class}.{s.target_method}()")
+        print()
+    if report.falco_rules:
+        print("  ═══ Falco rules ═══")
+        for r in report.falco_rules:
+            print(f"    · {r.priority} · {r.name}")
+        print()
+    if report.instrumentation_points:
+        print("  ═══ OTel spans sugeridos ═══")
+        for pt in report.instrumentation_points[:10]:
+            print(f"    · {pt['target']} → {pt['otel_span']}")
+        print()
+
+
+def cmd_iterate(args):
+    """v3.2.0 · multi-strategy saturation loop."""
+    import json as _json
+    from pathlib import Path as _Path
+    from aios.core.iterative_scanner import IterativeScanner
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    if not root.exists():
+        print(f"  ERROR · root no existe: {args.root}")
+        return
+
+    strategies = [s.strip() for s in args.strategies.split(",") if s.strip()]
+    config = {
+        "llm_provider": args.llm_provider,
+        "llm_model": args.llm_model,
+        "llm_max_files": args.llm_max_files,
+        "llm_timeout": args.llm_timeout,
+        "ollama_host": args.ollama_host,
+    }
+    scanner = IterativeScanner(
+        root=root,
+        strategies=strategies,
+        max_iterations=args.max_iterations,
+        min_delta=args.min_delta,
+        config=config,
+    )
+    report = scanner.run()
+
+    if args.format == "json":
+        print(_json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Iterative Multi-Strategy Scanner · v3.2.0")
+    print("  " + "─" * 68)
+    print(f"  Root                : {report.root}")
+    print(f"  Strategies          : {', '.join(report.strategies_configured)}")
+    print(f"  Max iterations      : {report.max_iterations}")
+    print(f"  Min delta (stop)    : {report.min_delta}")
+    print(f"  Iterations ran      : {report.iterations_run}")
+    print(f"  Converged           : {report.converged}")
+    print(f"  Stop reason         : {report.stop_reason}")
+    print()
+    print("  Per-iteration breakdown:")
+    print(f"  {'Iter':>4}  {'Strategy':<22} {'Found':>6} {'Δ':>5} "
+          f"{'Cumul':>6} {'Time(s)':>8}")
+    for it in report.per_iteration:
+        print(f"  {it.iteration:>4}  {it.strategy:<22} "
+              f"{it.findings_in_iteration:>6} "
+              f"{it.new_findings_this_iteration:>5} "
+              f"{it.cumulative_findings:>6} "
+              f"{it.duration_sec:>8.1f}")
+    print()
+    print("  Findings by severity:")
+    for s, n in sorted(report.by_severity().items(),
+                       key=lambda x: -{"CRITICAL": 5, "HIGH": 4,
+                                       "MEDIUM": 3, "LOW": 2,
+                                       "INFO": 1}.get(x[0], 0)):
+        print(f"    {s:10s} : {n}")
+    print()
+    print("  Findings by strategy (primera vez detectado):")
+    for s, n in sorted(report.by_strategy().items(), key=lambda x: -x[1]):
+        print(f"    {s:22s} : {n}")
+    print()
 
 
 if __name__ == "__main__":

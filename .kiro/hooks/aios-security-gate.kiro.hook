@@ -1,0 +1,39 @@
+{
+  "$schema": "https://github.com/OYN-AMX/am-kiro/schema/hook.schema.json",
+  "name": "aios-security-gate",
+  "description": "AIOS · ejecuta 72 detectores de seguridad pre-commit · 21/28 CWEs · bloquea si hay CRITICAL",
+  "trigger": {
+    "event": "pre-commit",
+    "debounce_ms": 1000
+  },
+  "action": {
+    "type": "command",
+    "command": "python -m aios.cli.main analyze --security --severity-gate CRITICAL",
+    "timeout_sec": 120,
+    "on_failure": "block"
+  },
+  "conditions": {
+    "file_match": [
+      "**/*.py", "**/*.cs", "**/*.java", "**/*.php",
+      "**/*.ts", "**/*.js", "**/*.vb", "**/*.cbl",
+      "**/web.config", "**/app.config", "**/appsettings.json",
+      "**/package.json", "**/composer.json", "**/pom.xml"
+    ],
+    "exclude": ["node_modules/**", "vendor/**", ".venv/**", "dist/**", "build/**"]
+  },
+  "detectors_included": {
+    "sprint_5_1": ["CWE-489", "CWE-532", "CWE-306", "CWE-209", "CWE-284"],
+    "sprint_5_2": ["CWE-547", "CWE-256", "CWE-522", "CWE-703"],
+    "sprint_5_3": ["CWE-400", "CWE-770"],
+    "sprint_previous": [
+      "CWE-22", "CWE-78", "CWE-79", "CWE-89", "CWE-295",
+      "CWE-319", "CWE-327", "CWE-347", "CWE-502", "CWE-798",
+      "CWE-611"
+    ]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "total_detectors": 72,
+    "cwe_coverage": "21/28 (75%)"
+  }
+}

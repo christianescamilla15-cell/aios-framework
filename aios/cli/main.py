@@ -1292,6 +1292,19 @@ def main():
                    help="Filtra findings bajo este nivel")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
+    # v2.8.0 · Dynamic analysis hooks (test stubs · Falco rules · OTel)
+    p = sub.add_parser("dynamic-hooks",
+                       help="Genera stubs de integration tests + reglas Falco + "
+                            "sugerencias OpenTelemetry desde characterization y "
+                            "findings · no corre nada · prepara artefactos CI/CD")
+    p.add_argument("--root", default=".",
+                   help="Directorio raiz (default cwd)")
+    p.add_argument("--characterization-dir", default="",
+                   help="Dir con .json fingerprints (default: .aios/characterization)")
+    p.add_argument("--findings-file", default="",
+                   help="JSON con findings para emitir reglas Falco por CWE")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # v2.6.0 · Ensemble OSS scanner (Semgrep/Gitleaks/TruffleHog/Bandit/Checkov/Trivy)
     p = sub.add_parser("ensemble",
                        help="Corre herramientas OSS ortogonales (Semgrep · "
@@ -1545,6 +1558,8 @@ def main():
         "runtime-data": cmd_runtime_data,
         # v2.6.0 · Ensemble OSS scanner
         "ensemble": cmd_ensemble,
+        # v2.8.0 · Dynamic analysis hooks
+        "dynamic-hooks": cmd_dynamic_hooks,
     }
 
     if args.command in commands:
@@ -2296,6 +2311,59 @@ def cmd_ensemble(args):
                 print(f"      → {f.message[:160]}")
             print()
     print()
+
+
+def cmd_dynamic_hooks(args):
+    """v2.8.0 · genera test stubs + reglas Falco + sugerencias OTel."""
+    import json as _json
+    from pathlib import Path as _Path
+    from aios.core.dynamic_hooks import generate_dynamic_hooks
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    char_dir = _Path(args.characterization_dir) if args.characterization_dir else None
+    findings: list[dict] = []
+    if args.findings_file:
+        try:
+            raw = _Path(args.findings_file).read_text(encoding="utf-8")
+            parsed = _json.loads(raw)
+            if isinstance(parsed, dict):
+                findings = parsed.get("findings", []) or []
+            elif isinstance(parsed, list):
+                findings = parsed
+        except (OSError, _json.JSONDecodeError) as e:
+            print(f"  WARN · no pude leer findings-file: {e}")
+
+    report = generate_dynamic_hooks(root, char_dir, findings)
+
+    if args.format == "json":
+        print(_json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Dynamic Hooks · v2.8.0")
+    print("  " + "─" * 68)
+    print(f"  Root                     : {report.root}")
+    print(f"  Test stubs generated     : {len(report.test_stubs)}")
+    print(f"  Falco rules emitted      : {len(report.falco_rules)}")
+    print(f"  Instrumentation hotspots : {len(report.instrumentation_points)}")
+    print()
+    if report.test_stubs:
+        print("  ═══ Test stubs (primeros 5) ═══")
+        for s in report.test_stubs[:5]:
+            print(f"    · [{s.language}] {s.target_class}.{s.target_method}()")
+        print()
+    if report.falco_rules:
+        print("  ═══ Falco rules ═══")
+        for r in report.falco_rules:
+            print(f"    · {r.priority} · {r.name}")
+        print()
+    if report.instrumentation_points:
+        print("  ═══ OTel spans sugeridos ═══")
+        for pt in report.instrumentation_points[:10]:
+            print(f"    · {pt['target']} → {pt['otel_span']}")
+        print()
 
 
 if __name__ == "__main__":

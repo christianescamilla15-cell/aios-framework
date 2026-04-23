@@ -50,7 +50,11 @@ DEFAULT_CONFIG = {
                      # Java/Gradle/Maven build artifacts
                      "target", ".gradle", ".idea",
                      # Python packaging / eggs
-                     ".tox", ".eggs"],
+                     ".tox", ".eggs",
+                     # v3.1 fix · Visual Studio IDE metadata (copilot-chat
+                     # sessions matcheaban como credenciales plaintext · 3-4 FPs
+                     # consistentes en NoShow)
+                     ".vs", ".vscode", "bin", "obj"],
     "exclude_exts": [".pyc", ".pyo", ".so", ".exe", ".dll", ".bin",
                      ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".min.js",
                      # Docs · markdown y rst no son codigo · evitar FPs
@@ -1151,6 +1155,86 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "Llamada a servicio externo (Sabre/SFTP/SOAP Client/Adapter) · "
         "verificar wrapper de retry (Polly / try-retry-backoff) · "
         "fallas transitorias no mitigadas",
+        _CS,
+    ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.1 · Detectores derivados de clean-session validation (2026-04-23)
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-532",
+        re.compile(
+            r"""\b(?:log|Log|logger|_log|_logger)"""
+            r"""(?:4net)?\.(?:Info|Debug|Warn|Error|Fatal|Trace)\b[^;]*"""
+            r"""(?:password|passwd|secret|token|securityToken|apikey|"""
+            r"""api_key|credential|passPhrase|privateKey)""",
+            re.IGNORECASE,
+        ),
+        "STATIC-SENSITIVE-LOG-CSHARP",
+        "HIGH",
+        "Logging de credencial/token/secret · CWE-532 · CWE-312 · "
+        "redact antes de emitir al log (log4net enricher o Serilog "
+        "destructuring)",
+        _CS,
+    ),
+    (
+        "CWE-532",
+        re.compile(
+            r"""\b(?:log|Log|logger|_log|_logger)"""
+            r"""(?:4net)?\.(?:Info|Debug|Warn|Error|Fatal)\b[^;]*"""
+            r"""(?:passengerName|pnr|PNR|ticketNumber|customerId|"""
+            r"""curp|rfc|passport|creditCard|cardNumber)""",
+        ),
+        "STATIC-PII-LOG-CSHARP",
+        "HIGH",
+        "Logging de PII (passenger · PNR · ticket · customer ID · CURP · "
+        "passport · card) · CWE-532 · LFPDPPP violation · redact o "
+        "migrar a Serilog con enricher PII-aware",
+        _CS,
+    ),
+    (
+        "CWE-295",
+        re.compile(
+            r"""new\s+SftpClient\s*\([^)]*\)"""
+        ),
+        "STATIC-SFTP-NO-HOSTKEY-VERIFICATION-CSHARP",
+        "HIGH",
+        "SftpClient sin HostKeyReceived handler · sin verificacion · "
+        "MITM susceptible · CWE-295 · agregar "
+        "client.HostKeyReceived += (s,e) => {e.CanTrust = ...}",
+        _CS,
+    ),
+    (
+        "CWE-319",
+        re.compile(
+            r"""new\s+SmtpClient\s*\([^)]*\)"""
+        ),
+        "STATIC-SMTP-NO-TLS-CSHARP",
+        "HIGH",
+        "SmtpClient construido · verificar EnableSsl=true antes de Send "
+        "· cleartext SMTP viola retro 20-abr (port 587 + STARTTLS) · "
+        "CWE-319",
+        _CS,
+    ),
+    (
+        "CWE-209",
+        re.compile(
+            r"""\{(?:ex|exception|e)\.(?:StackTrace|ToString)\}|"""
+            r"""\+\s*(?:ex|exception|e)\.(?:StackTrace|ToString)\(\)"""
+        ),
+        "STATIC-EXCEPTION-DETAILS-EXPOSURE-CSHARP",
+        "HIGH",
+        "Stack trace / exception details expuestos en string "
+        "interpolation (email body · response · UI) · CWE-209 · "
+        "disclosure de paths internos · assembly names · SQL fragments",
+        _CS,
+    ),
+    (
+        "CWE-755",
+        re.compile(r"""throw\s+ex\s*;"""),
+        "STATIC-THROW-EX-DESTROYS-STACK-CSHARP",
+        "MEDIUM",
+        "'throw ex' destruye stack trace original · usar 'throw;' "
+        "para preservar · CWE-755 error handling antipattern",
         _CS,
     ),
 ]

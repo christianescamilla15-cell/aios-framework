@@ -54,7 +54,50 @@ _BENIGN_DOMAINS = (
     "microsoft.com", "amazonaws.com", "amazon.com",
     "nuget.org", "pypi.org", "npmjs.com",
     "openssl.org", "ibm.com", "oracle.com",
+    "aeromexico.com", "aeromexico.com.mx",  # variantes corporativas default
 )
+
+# v3.1 fix · code-refs que el regex SMTP/FTP host matchea como si fueran
+# hosts reales · son C# class/namespace references · no hosts.
+_CODE_REF_SEGMENTS = (
+    "ConfigurationManager", "AppSettings", "AppSetting", "MailMessage",
+    "SmtpClient", "SftpClient", "HttpClient", "SqlConnection", "FileStream",
+    "StreamReader", "StreamWriter", "WebClient", "WebRequest", "XmlDocument",
+    "ArgumentNullException", "InvalidOperationException", "SocketException",
+    "SftpPathNotFoundException",
+)
+_CODE_REF_PREFIXES = (
+    "System.", "Microsoft.", "Renci.", "log4net.", "Business.", "Data.",
+    "NoshowWS.", "CreateSession.", "GetPassengerList.", "GetReservation.",
+    "TicketingDocumentServices",
+)
+# TLDs reales comunes · rechaza "PascalCase.PascalCase" como host
+_VALID_TLD_RE = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9.-]*\."
+    r"(com|org|net|mx|co|us|io|dev|gov|edu|info|biz|mil|int|"
+    r"ai|app|cloud|tech|services|global|arpa|[a-z]{2})$",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_code_ref(domain: str) -> bool:
+    """True si el "dominio" capturado es realmente una referencia de
+    codigo (C# class/namespace/identifier) · no un host real."""
+    if not domain:
+        return True
+    for seg in _CODE_REF_SEGMENTS:
+        if seg in domain:
+            return True
+    for pre in _CODE_REF_PREFIXES:
+        if domain.startswith(pre):
+            return True
+    # PascalCase seguido de . seguido de PascalCase = identifier
+    if re.match(r"^[A-Z][a-z]+[A-Z]\w*\.[A-Z]", domain):
+        return True
+    # No coincide con TLD conocido · rechaza
+    if not _VALID_TLD_RE.match(domain):
+        return True
+    return False
 
 # Extensiones que consideramos "código / config escaneable"
 _SCAN_EXTS = {
@@ -187,6 +230,9 @@ def _scan_file(path: Path,
     def _add(kind: str, line_no: int, domain: str, recipient: str,
              snippet: str) -> None:
         if _is_corporate(domain, whitelist) or _is_benign(domain):
+            return
+        # v3.1 fix · reject code-references incorrectly parsed as hosts
+        if _looks_like_code_ref(domain):
             return
         severity = _severity_for(kind, env_hint)
         findings.append(ExfilFinding(

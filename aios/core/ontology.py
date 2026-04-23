@@ -44,14 +44,21 @@ VALID_ACTIONS = (ACTION_AUTO_FIX, ACTION_PAUSE_FOR_REVIEW, ACTION_SKIP, ACTION_W
 
 @dataclass
 class ClassificationResult:
-    """Resultado de classificar un finding contra el domain ontology."""
+    """Resultado de classificar un finding contra el domain ontology.
+
+    v3.1: agrega `additional_matches` para capturar multi-pattern matches
+    (ej. credencial ATOS5246 que matchea CWE_798_CREDENTIAL_PLAINTEXT +
+    ATOS5246_LEGACY_ACCT simultaneamente).
+    """
     action: str  # auto_fix | pause_for_review | skip | warn
-    ontology_match: Optional[str] = None  # id del pattern que matcheo
+    ontology_match: Optional[str] = None  # id del pattern primario
     classification: str = "unclear"  # bug | business_rule | migration_candidate | unclear
     message: str = ""
     fix_template: Optional[str] = None
     evidence_required: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    # v3.1 · ids de patterns adicionales que matchearon (aparte del primario)
+    additional_matches: list[str] = field(default_factory=list)
 
 
 def load_ontology(path: Path) -> dict:
@@ -151,42 +158,64 @@ def classify_finding(
     # Text a buscar · combina snippet + file para max cobertura
     finding_text = f"{snippet}\n{file_path}"
 
+    # v3.1 · recolecta TODOS los patterns que matchean, no solo el primero.
+    # Prioridad al emitir: bug > business_rule > migration_candidate > unclear.
     patterns = ontology.get("patterns", []) or []
+    matched_patterns: list[dict] = []
     for pattern_entry in patterns:
         if not isinstance(pattern_entry, dict):
             continue
         if _pattern_matches(finding_text, rule_id, pattern_entry):
-            # Determine action · v2.1.1 · respeta auto_fix_allowed: false
-            # aunque classification sea 'bug' (ej. CWE-287 auth bypass
-            # es bug confirmado pero requiere review humano · no auto-fix).
-            classification = pattern_entry.get("classification", "unclear")
-            auto_fix_allowed = bool(pattern_entry.get("auto_fix_allowed", False))
-            if pattern_entry.get("skip", False) or classification == "skip":
-                action = ACTION_SKIP
-            elif auto_fix_allowed and classification in (
-                "bug", "migration_candidate",
-            ):
-                action = ACTION_AUTO_FIX
-            elif classification == "bug" and not auto_fix_allowed:
-                # Bug confirmado · pero auto-fix explicitamente deshabilitado ·
-                # requiere review humano (ej. auth bypass · no hay fix generico)
-                action = ACTION_PAUSE_FOR_REVIEW
-            elif classification in ("business_rule", "unclear"):
-                action = ACTION_PAUSE_FOR_REVIEW
-            else:
-                action = ACTION_WARN
-            return ClassificationResult(
-                action=action,
-                ontology_match=pattern_entry.get("id", "<unnamed>"),
-                classification=classification,
-                message=pattern_entry.get(
-                    "pause_message",
-                    pattern_entry.get("message", ""),
-                ),
-                fix_template=pattern_entry.get("fix_template"),
-                evidence_required=pattern_entry.get("evidence_required", []) or [],
-                tags=pattern_entry.get("tags", []) or [],
-            )
+            matched_patterns.append(pattern_entry)
+
+    if matched_patterns:
+        # Ranking por clasificacion (bug > business_rule > migration > unclear)
+        _rank = {
+            "bug": 0, "business_rule": 1, "migration_candidate": 2,
+            "unclear": 3, "skip": 4,
+        }
+        matched_patterns.sort(
+            key=lambda p: _rank.get(p.get("classification", "unclear"), 5)
+        )
+        primary = matched_patterns[0]
+        additional_ids = [
+            p.get("id", "<unnamed>") for p in matched_patterns[1:]
+        ]
+        classification = primary.get("classification", "unclear")
+        auto_fix_allowed = bool(primary.get("auto_fix_allowed", False))
+        if primary.get("skip", False) or classification == "skip":
+            action = ACTION_SKIP
+        elif auto_fix_allowed and classification in (
+            "bug", "migration_candidate",
+        ):
+            action = ACTION_AUTO_FIX
+        elif classification == "bug" and not auto_fix_allowed:
+            action = ACTION_PAUSE_FOR_REVIEW
+        elif classification in ("business_rule", "unclear"):
+            action = ACTION_PAUSE_FOR_REVIEW
+        else:
+            action = ACTION_WARN
+        # Message: concatenate si hay additional matches
+        msg = primary.get("pause_message", primary.get("message", ""))
+        if additional_ids:
+            msg = (msg + f" · Additional ontology matches: "
+                   f"{', '.join(additional_ids)}")
+        # Merge tags from all matches
+        all_tags = list(primary.get("tags", []) or [])
+        for p in matched_patterns[1:]:
+            for t in p.get("tags", []) or []:
+                if t not in all_tags:
+                    all_tags.append(t)
+        return ClassificationResult(
+            action=action,
+            ontology_match=primary.get("id", "<unnamed>"),
+            classification=classification,
+            message=msg,
+            fix_template=primary.get("fix_template"),
+            evidence_required=primary.get("evidence_required", []) or [],
+            tags=all_tags,
+            additional_matches=additional_ids,
+        )
 
     # No match · fall back to defaults
     return ClassificationResult(

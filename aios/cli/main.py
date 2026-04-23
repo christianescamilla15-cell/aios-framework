@@ -1743,6 +1743,29 @@ def cmd_review(args):
         # Corre scan + filtra por decisions
         sec = run_security_gate(root)
         pause = sec.get("requires_human_review", []) or []
+        # v3.1 · auto-sync filesystem review docs con el scan actual.
+        # Antes: list mostraba pending desde state en memoria · pero
+        # .aios/reviews/*.md quedaba stale · clean-session validation lo
+        # detecto. Ahora regenera .md files para toda finding pending que
+        # no tenga doc persistido.
+        reviews_dir = root / ".aios" / "reviews"
+        reviews_dir.mkdir(parents=True, exist_ok=True)
+        existing_md = {p.stem for p in reviews_dir.glob("*.md")}
+        sync_count = 0
+        for f in pause:
+            fid = rv.make_finding_id(
+                f.get("file", ""), int(f.get("line", 0) or 0),
+                f.get("rule_id", ""),
+            )
+            if fid in existing_md:
+                continue
+            f_with_id = dict(f)
+            f_with_id["finding_id"] = fid
+            rv.generate_review_doc(f_with_id, root)
+            sync_count += 1
+        if sync_count and args.format != "json":
+            print(f"  [sync] generados {sync_count} review docs "
+                  f"nuevos en {reviews_dir}")
         buckets = rv.filter_findings_by_decisions(pause, root)
         if args.format == "json":
             print(json.dumps({

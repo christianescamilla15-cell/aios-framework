@@ -1292,6 +1292,30 @@ def main():
                    help="Filtra findings bajo este nivel")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
+    # v3.2.0 · Iterative multi-strategy scanner (saturation loop)
+    p = sub.add_parser("iterate",
+                       help="Corre multi-strategy saturation loop · cada "
+                            "iteracion usa una tecnica distinta (regex · "
+                            "ensemble · llm_deep_review · cross_file_taint) "
+                            "· se detiene cuando la siguiente aporta <min_delta")
+    p.add_argument("--root", default=".",
+                   help="Directorio raiz (default cwd)")
+    p.add_argument("--strategies", default="regex,ensemble,cross_file_taint",
+                   help="CSV de estrategias (default sin LLM para zero-cost) "
+                        "· disponibles: regex,ensemble,llm_deep_review,"
+                        "cross_file_taint")
+    p.add_argument("--max-iterations", type=int, default=5)
+    p.add_argument("--min-delta", type=int, default=2,
+                   help="Stop si iteracion aporta <min-delta findings nuevos")
+    p.add_argument("--llm-provider", default="ollama",
+                   choices=["ollama", "anthropic", "openai"])
+    p.add_argument("--llm-model", default="gemma3:latest")
+    p.add_argument("--llm-max-files", type=int, default=5,
+                   help="Archivos top-severity a enviar al LLM en deep-review")
+    p.add_argument("--llm-timeout", type=int, default=120)
+    p.add_argument("--ollama-host", default="http://localhost:11434")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # v2.8.0 · Dynamic analysis hooks (test stubs · Falco rules · OTel)
     p = sub.add_parser("dynamic-hooks",
                        help="Genera stubs de integration tests + reglas Falco + "
@@ -1560,6 +1584,8 @@ def main():
         "ensemble": cmd_ensemble,
         # v2.8.0 · Dynamic analysis hooks
         "dynamic-hooks": cmd_dynamic_hooks,
+        # v3.2.0 · Iterative multi-strategy scanner
+        "iterate": cmd_iterate,
     }
 
     if args.command in commands:
@@ -2387,6 +2413,74 @@ def cmd_dynamic_hooks(args):
         for pt in report.instrumentation_points[:10]:
             print(f"    · {pt['target']} → {pt['otel_span']}")
         print()
+
+
+def cmd_iterate(args):
+    """v3.2.0 · multi-strategy saturation loop."""
+    import json as _json
+    from pathlib import Path as _Path
+    from aios.core.iterative_scanner import IterativeScanner
+
+    root = _Path(args.root)
+    if not root.is_absolute():
+        root = _Path.cwd() / root
+    if not root.exists():
+        print(f"  ERROR · root no existe: {args.root}")
+        return
+
+    strategies = [s.strip() for s in args.strategies.split(",") if s.strip()]
+    config = {
+        "llm_provider": args.llm_provider,
+        "llm_model": args.llm_model,
+        "llm_max_files": args.llm_max_files,
+        "llm_timeout": args.llm_timeout,
+        "ollama_host": args.ollama_host,
+    }
+    scanner = IterativeScanner(
+        root=root,
+        strategies=strategies,
+        max_iterations=args.max_iterations,
+        min_delta=args.min_delta,
+        config=config,
+    )
+    report = scanner.run()
+
+    if args.format == "json":
+        print(_json.dumps(report.to_dict(), indent=2, ensure_ascii=False))
+        return
+
+    print()
+    print("  Iterative Multi-Strategy Scanner · v3.2.0")
+    print("  " + "─" * 68)
+    print(f"  Root                : {report.root}")
+    print(f"  Strategies          : {', '.join(report.strategies_configured)}")
+    print(f"  Max iterations      : {report.max_iterations}")
+    print(f"  Min delta (stop)    : {report.min_delta}")
+    print(f"  Iterations ran      : {report.iterations_run}")
+    print(f"  Converged           : {report.converged}")
+    print(f"  Stop reason         : {report.stop_reason}")
+    print()
+    print("  Per-iteration breakdown:")
+    print(f"  {'Iter':>4}  {'Strategy':<22} {'Found':>6} {'Δ':>5} "
+          f"{'Cumul':>6} {'Time(s)':>8}")
+    for it in report.per_iteration:
+        print(f"  {it.iteration:>4}  {it.strategy:<22} "
+              f"{it.findings_in_iteration:>6} "
+              f"{it.new_findings_this_iteration:>5} "
+              f"{it.cumulative_findings:>6} "
+              f"{it.duration_sec:>8.1f}")
+    print()
+    print("  Findings by severity:")
+    for s, n in sorted(report.by_severity().items(),
+                       key=lambda x: -{"CRITICAL": 5, "HIGH": 4,
+                                       "MEDIUM": 3, "LOW": 2,
+                                       "INFO": 1}.get(x[0], 0)):
+        print(f"    {s:10s} : {n}")
+    print()
+    print("  Findings by strategy (primera vez detectado):")
+    for s, n in sorted(report.by_strategy().items(), key=lambda x: -x[1]):
+        print(f"    {s:22s} : {n}")
+    print()
 
 
 if __name__ == "__main__":

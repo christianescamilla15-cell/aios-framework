@@ -1237,6 +1237,54 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "para preservar · CWE-755 error handling antipattern",
         _CS,
     ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.1.1 · Detectores nuevos de 2nd clean-session validation
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-697",
+        re.compile(
+            r"""\.(?:Subtract|Add)\s*\([^)]+\)\s*\.Hours\b(?!\s*\.TotalHours)|"""
+            r"""TimeSpan[^.]*\.Hours\b(?!\s*\.TotalHours)|"""
+            r"""\w+\.(?:Hours|Minutes|Seconds|Days)\b\s*(?:<|>|<=|>=|==|!=)\s*\d"""
+        ),
+        "STATIC-TIMESPAN-HOURS-MISUSE-CSHARP",
+        "HIGH",
+        "TimeSpan.Hours retorna componente 0-23 · NO total · "
+        "para ventana >24h usar .TotalHours · CWE-697 incorrect "
+        "comparison · bug silencioso revenue-crítico",
+        _CS,
+    ),
+    (
+        "CWE-547",
+        re.compile(
+            r"""(?:host|endpoint|server|ipAddress|address|value)\s*=\s*"""
+            r"""["']?(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?["']?""",
+            re.IGNORECASE,
+        ),
+        "STATIC-IP-LITERAL-IN-CONFIG",
+        "HIGH",
+        "IP literal (v4) en atributo de config · viola DNS-first · "
+        "usar Route53 PHZ interno · CWE-547 · CWE-1104",
+        frozenset({".config", ".xml", ".appsettings"}),
+    ),
+    (
+        "CWE-354",
+        re.compile(
+            r"""\.(?:FirstName|firstName|first_name)\.(?:Contains|IndexOf|"""
+            r"""StartsWith)\([^)]+\)[^}]{0,80}?"""
+            r"""\.(?:LastName|lastName|last_name)\.(?:Contains|IndexOf|StartsWith)\(|"""
+            r"""\.(?:LastName|lastName|last_name)\.(?:Contains|IndexOf|"""
+            r"""StartsWith)\([^)]+\)[^}]{0,80}?"""
+            r"""\.(?:FirstName|firstName|first_name)\.(?:Contains|IndexOf|StartsWith)\("""
+        ),
+        "STATIC-SUBSTRING-NAME-MATCHING-CSHARP",
+        "HIGH",
+        "Substring matching sobre firstName + lastName (.Contains) es "
+        "antipattern de identidad · 'MARIA' matchea 'MARIAL' · "
+        "ticket asignado a pax erróneo · CWE-354 · usar equality o "
+        "PNR/ticketNumber único",
+        _CS,
+    ),
 ]
 
 

@@ -360,3 +360,34 @@ patterns:
     auto_fix_allowed: false
     fix_template: "polly_retry_policy"
     tags: ["cwe-1188", "resilience"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # v3.1.1 · Detectores derivados de 2nd clean-session validation
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: CWE_697_TIMESPAN_HOURS_MISUSE
+    description: "TimeSpan.Hours (componente 0-23) vs .TotalHours · CWE-697"
+    matches:
+      - rule_id: "STATIC-TIMESPAN-HOURS-MISUSE-CSHARP"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "totalhours_migration"
+    tags: ["cwe-697", "revenue-critical", "silent-bug"]
+
+  - id: CWE_547_IP_LITERAL_IN_CONFIG
+    description: "IP literal v4 en config · CWE-547"
+    matches:
+      - rule_id: "STATIC-IP-LITERAL-IN-CONFIG"
+    classification: "migration_candidate"
+    auto_fix_allowed: true
+    fix_template: "route53_phz_migration"
+    tags: ["cwe-547", "cwe-1104", "dns-first", "retro-20abr"]
+
+  - id: CWE_354_SUBSTRING_NAME_MATCHING
+    description: "Substring matching sobre identidad (firstName + lastName) · CWE-354"
+    matches:
+      - rule_id: "STATIC-SUBSTRING-NAME-MATCHING-CSHARP"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "equality_or_unique_id_match"
+    tags: ["cwe-354", "revenue-critical", "identity-bug"]

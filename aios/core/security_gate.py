@@ -54,7 +54,10 @@ DEFAULT_CONFIG = {
                      # v3.1 fix · Visual Studio IDE metadata (copilot-chat
                      # sessions matcheaban como credenciales plaintext · 3-4 FPs
                      # consistentes en NoShow)
-                     ".vs", ".vscode", "bin", "obj"],
+                     ".vs", ".vscode", "bin", "obj",
+                     # v3.3.0 fix · NuGet/vendored libs generan FPs de IP
+                     # literal en docs XML (log4net remoteAddress multicast)
+                     "packages"],
     "exclude_exts": [".pyc", ".pyo", ".so", ".exe", ".dll", ".bin",
                      ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".min.js",
                      # Docs · markdown y rst no son codigo · evitar FPs

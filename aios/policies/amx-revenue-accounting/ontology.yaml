@@ -496,3 +496,34 @@ patterns:
     auto_fix_allowed: false
     fix_template: "upgrade_targetframework"
     tags: ["cwe-1104", "dotnet-eol", "dependency-refresh"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # v3.5.0 sprint 3 · 3 detectores amazon-q-rules gaps (23-abr-2026)
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: AMX_CDK_WRAPPER_MISSING
+    description: "cdk.json sin cdk-admin.py / cdk-wrapper.py · regla CS03 amazon-q-rules"
+    matches:
+      - rule_id: "AMX-CDK-WRAPPER-MISSING (CS03)"
+    classification: "business_rule"
+    auto_fix_allowed: true
+    fix_template: "add_cdk_wrapper"
+    tags: ["cs03", "amx-workflow", "corporate-solutions"]
+
+  - id: AMX_RESOURCE_SUFFIX_MISSING
+    description: "Recurso CDK con naming literal sin sufijo de ambiente · regla G04"
+    matches:
+      - rule_id: "AMX-RESOURCE-SUFFIX-MISSING"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "add_env_suffix_to_resource"
+    tags: ["cwe-1357", "g04", "amx-naming-convention"]
+
+  - id: AMX_CLOUDFRONT_OAI_DEPRECATED
+    description: "CloudFront Origin Access Identity (OAI) deprecated · migrar a OAC · regla G09"
+    matches:
+      - rule_id: "AMX-CLOUDFRONT-OAI-DEPRECATED"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "migrate_oai_to_oac"
+    tags: ["cwe-1104", "g09", "cloudfront", "amx-dependency-refresh"]

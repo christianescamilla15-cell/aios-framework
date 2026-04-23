@@ -1500,6 +1500,45 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "migrar a .NET 8 LTS (o mínimo 4.8.1) · CWE-1104",
         _PROJ,
     ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.5.0 sprint 3 · 2 detectores amazon-q-rules gaps (23-abr-2026)
+    # (AMX-CDK-WRAPPER-MISSING se implementa como check en stacks/aws)
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-1357",
+        re.compile(
+            # Naming de recurso CDK sin sufijo dinámico de ambiente.
+            # Matchea props de naming (bucket_name, function_name, etc.)
+            # asignados a string literal sin f-string ni concat de env.
+            r"""\b(?:bucket_name|function_name|queue_name|topic_name|"""
+            r"""table_name|repository_name|role_name|policy_name|"""
+            r"""user_pool_name|stream_name|cluster_name|service_name|"""
+            r"""log_group_name)\s*=\s*["'][A-Za-z0-9_\-]+["']"""
+        ),
+        "AMX-RESOURCE-SUFFIX-MISSING",
+        "MEDIUM",
+        "Recurso CDK con naming literal sin sufijo dinámico "
+        "'-{env}' (de/q/pd) · amazon-q-rules G04 · "
+        "usar f-string o Fn.sub con parámetro de ambiente",
+        frozenset({".py", ".ts"}),
+    ),
+    (
+        "CWE-1104",
+        re.compile(
+            # CloudFront Origin Access Identity (OAI) deprecated ·
+            # amazon-q-rules G09 · preferir Origin Access Control (OAC).
+            r"""\bCfnCloudFrontOriginAccessIdentity\b|"""
+            r"""\bcloudfront\.OriginAccessIdentity\b|"""
+            r"""origin_access_identity\s*=|"""
+            r"""origin_access_identities\s*="""
+        ),
+        "AMX-CLOUDFRONT-OAI-DEPRECATED",
+        "MEDIUM",
+        "CloudFront Origin Access Identity (OAI) deprecated · "
+        "migrar a Origin Access Control (OAC) · amazon-q-rules G09 · "
+        "CWE-1104",
+        frozenset({".py", ".ts", ".js"}),
+    ),
 ]
 
 

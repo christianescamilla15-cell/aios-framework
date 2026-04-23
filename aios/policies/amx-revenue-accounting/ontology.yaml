@@ -391,3 +391,67 @@ patterns:
     auto_fix_allowed: false
     fix_template: "equality_or_unique_id_match"
     tags: ["cwe-354", "revenue-critical", "identity-bug"]
+
+  # ═══════════════════════════════════════════════════════════════
+  # v3.4.0 · Detectores amazon-q-rules AMX (retro 20-abr compliance)
+  # Derivados de BO-AMX/amazon-q-rules · 35 reglas canónicas · 6 prioritarios
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: AMX_CDK_KMS_AWS_MANAGED_PROHIBITED
+    description: "KMS aws-managed key prohibido · retro 20-abr + G01"
+    matches:
+      - rule_id: "AMX-CDK-KMS-AWS-MANAGED-FORBIDDEN"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "kms_cmk_dedicated_migration"
+    tags: ["cwe-311", "retro-20abr", "amx-governance", "csoc-mandatory"]
+
+  - id: AMX_CDK_MANDATORY_TAGS
+    description: "Stack CDK requiere 8 tags obligatorios AMX · G02"
+    matches:
+      - rule_id: "AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS"
+    classification: "unclear"
+    auto_fix_allowed: false
+    fix_template: "cdk_tags_enforcement"
+    tags: ["cwe-778", "amx-governance", "mandatory-tags", "g02"]
+    pause_message: >
+      Stack CDK detectado. Verificar que incluye Tags.of(stack).add()
+      con los 8 tags obligatorios AMX: CentroDeCosto, DuenoDeLaCuenta,
+      Proyecto, Ambiente, ImpactoANegocio, Aplicacion, GrupoDeParcheo,
+      SistemaOperativo. CYBER bloquea deploy sin ellos.
+
+  - id: AMX_S3_KMS_REQUIRED
+    description: "S3 bucket requiere KMS CMK explícito · G03"
+    matches:
+      - rule_id: "AMX-S3-MISSING-KMS-ENCRYPTION"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "s3_cmk_encryption_migration"
+    tags: ["cwe-311", "amx-s3-compliance", "g03"]
+
+  - id: AMX_IAM_ROLE_PREFIX
+    description: "IAM role requiere prefix amx-r-* · G05"
+    matches:
+      - rule_id: "AMX-IAM-ROLE-WRONG-PREFIX"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "iam_role_amx_prefix"
+    tags: ["cwe-272", "amx-iam-naming", "g05"]
+
+  - id: AMX_CDK_ADMIN_WRAPPER
+    description: "Scripts deben usar cdk-admin.py wrapper · CS03"
+    matches:
+      - rule_id: "AMX-CDK-DIRECT-COMMAND"
+    classification: "business_rule"
+    auto_fix_allowed: true
+    fix_template: "cdk_admin_wrapper"
+    tags: ["cwe-710", "amx-workflow", "corporate-solutions", "cs03"]
+
+  - id: AMX_IAM_LEAST_PRIVILEGE
+    description: "IAM policy con wildcards · viola least-privilege · G07"
+    matches:
+      - rule_id: "AMX-IAM-WILDCARD-POLICY"
+    classification: "bug"
+    auto_fix_allowed: false
+    fix_template: "iam_policy_scoping"
+    tags: ["cwe-269", "amx-least-privilege", "g07"]

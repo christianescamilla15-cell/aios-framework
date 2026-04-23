@@ -1294,6 +1294,88 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "PNR/ticketNumber único",
         _CS,
     ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.4.0 · Detectores derivados de BO-AMX/amazon-q-rules (35 reglas)
+    # Alineación AIOS ↔ AMX oficial · bloqueantes pre-deploy retro 20-abr
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-311",
+        re.compile(
+            r"""alias/aws/(?:s3|rds|lambda|dynamodb|sqs|sns|kms|secretsmanager|"""
+            r"""ebs|ssm|cloudwatch|cloudtrail|backup|xray)|"""
+            r"""kms\.Alias\.from_alias_name\s*\([^)]*["']alias/aws/"""
+        ),
+        "AMX-CDK-KMS-AWS-MANAGED-FORBIDDEN",
+        "CRITICAL",
+        "KMS aws-managed key · prohibido por retro 20-abr y amazon-q-rules G01 "
+        "· usar CMK dedicada CSOC · CWE-311",
+        frozenset({".py", ".ts", ".js", ".json", ".yaml", ".yml"}),
+    ),
+    (
+        "CWE-778",
+        re.compile(
+            r"""class\s+\w+\s*\(\s*Stack\s*\)"""
+        ),
+        "AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS",
+        "MEDIUM",
+        "Stack CDK detectado · verificar que incluye los 8 tags obligatorios "
+        "AMX (CentroDeCosto · DuenoDeLaCuenta · Proyecto · Ambiente · "
+        "ImpactoANegocio · Aplicacion · GrupoDeParcheo · SistemaOperativo) "
+        "· amazon-q-rules G02",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-311",
+        re.compile(
+            # Solo firefly si usa S3_MANAGED explícito (AWS-managed keys) ·
+            # no firefly 'encryption=BucketEncryption.KMS' ni 'encryption_key=cmk'
+            # v3.4.0 · regex simple · false negatives tolerable · deep review catch rest
+            r"""encryption\s*=\s*(?:s3\.)?BucketEncryption\.S3_MANAGED|"""
+            r"""encryption\s*=\s*(?:s3\.)?BucketEncryption\.UNENCRYPTED"""
+        ),
+        "AMX-S3-MISSING-KMS-ENCRYPTION",
+        "HIGH",
+        "S3 bucket con encryption S3_MANAGED o UNENCRYPTED · amazon-q-rules G03 "
+        "requiere KMS CMK (BucketEncryption.KMS + encryption_key=cmk) · CWE-311",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-272",
+        re.compile(
+            r"""iam\.Role\s*\([^)]*role_name\s*=\s*["'](?!amx-r-|AMX-R-)[^"']+["']"""
+        ),
+        "AMX-IAM-ROLE-WRONG-PREFIX",
+        "HIGH",
+        "IAM role sin prefijo amx-r-* / AMX-R-* · amazon-q-rules G05 "
+        "requirement duro · CWE-272",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-710",
+        re.compile(
+            r"""^\s*(?:cdk|npx\s+cdk)\s+(?:deploy|bootstrap|synth|destroy|diff)""",
+            re.MULTILINE,
+        ),
+        "AMX-CDK-DIRECT-COMMAND",
+        "MEDIUM",
+        "Script invoca 'cdk' directo · amazon-q-rules CS03 requiere "
+        "'cdk-admin.py --env {de|q|pd}' como wrapper estándar",
+        frozenset({".sh", ".ps1", ".bat", ".yml", ".yaml"}),
+    ),
+    (
+        "CWE-269",
+        re.compile(
+            r"""["']Resource["']\s*:\s*["']\*["']|"""
+            r"""["']Action["']\s*:\s*["']\*["']|"""
+            r"""iam\.PolicyStatement\s*\([^)]*resources\s*=\s*\[\s*["']\*["']\s*\]|"""
+            r"""iam\.PolicyStatement\s*\([^)]*actions\s*=\s*\[\s*["']\*["']\s*\]"""
+        ),
+        "AMX-IAM-WILDCARD-POLICY",
+        "HIGH",
+        "IAM policy con Resource:* o Action:* · viola least-privilege · "
+        "amazon-q-rules G07 · CWE-269",
+        frozenset({".py", ".json", ".yaml", ".yml", ".ts"}),
+    ),
 ]
 
 

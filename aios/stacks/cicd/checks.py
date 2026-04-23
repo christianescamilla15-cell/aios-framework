@@ -18,13 +18,32 @@ def run_checks(root: Path) -> List[Dict]:
     has_gitignore = (root / ".gitignore").exists()
     results.append({"check": ".gitignore exists", "status": "pass" if has_gitignore else "warn"})
 
-    # Check 3: .env in .gitignore
+    # Check 3: .env pattern protegido por .gitignore
+    # v3.5.0 · mensaje clarificado (antes "[XX] .env in .gitignore -- .env
+    # may be committed" era ambiguo: el check name sugería "está" pero el
+    # status fail significaba "no está"). Ahora el name describe la propiedad
+    # deseada y los details son explícitos.
     env_ignored = False
     if has_gitignore:
         content = (root / ".gitignore").read_text(encoding="utf-8", errors="ignore")
-        env_ignored = ".env" in content
-    results.append({"check": ".env in .gitignore", "status": "pass" if env_ignored else "fail",
-                     "detail": "Secrets protected" if env_ignored else ".env may be committed"})
+        # Busca líneas no-comentadas, no-negativas, que matcheen .env pattern
+        for line in content.splitlines():
+            s = line.strip()
+            if not s or s.startswith("#") or s.startswith("!"):
+                continue
+            if s == ".env" or s.startswith(".env") or s == "*.env" or s.endswith("/.env"):
+                env_ignored = True
+                break
+    results.append({
+        "check": ".env pattern protegido por .gitignore",
+        "status": "pass" if env_ignored else "fail",
+        "detail": (
+            "[OK] .env está listado en .gitignore (secretos no se commitean)"
+            if env_ignored else
+            "[XX] .env NO aparece en .gitignore · riesgo de commit accidental"
+            " de credenciales · agrega '.env' o '.env*' al .gitignore"
+        ),
+    })
 
     # Check 4: Dockerfile or docker-compose
     has_docker = (root / "Dockerfile").exists() or (root / "docker-compose.yml").exists()
@@ -34,5 +53,41 @@ def run_checks(root: Path) -> List[Dict]:
     # Check 5: README
     has_readme = (root / "README.md").exists()
     results.append({"check": "README.md exists", "status": "pass" if has_readme else "warn"})
+
+    # v3.5.0 sprint 4 · compliance AMX F01 (badge) + F07 (JIRA traceability)
+    # Inspirado en workflow f01-compliance-badge.yml / f07-*.yml de CS_Scripts.
+    # Severidad LOW · gobernanza, no bloquea release técnicamente.
+    if has_readme:
+        readme_text = (root / "README.md").read_text(encoding="utf-8", errors="ignore")
+        f01_present = (
+            "F01_BADGE_START" in readme_text
+            or "F01%20Compliance" in readme_text
+            or "F01 Compliance" in readme_text
+        )
+        results.append({
+            "check": "AMX-COMPLIANCE-F01-BADGE",
+            "status": "pass" if f01_present else "info",
+            "detail": (
+                "[OK] Badge F01 presente en README (compliance AMX)"
+                if f01_present else
+                "[..] Sin badge F01 en README · opcional · agrega workflow "
+                "f01-compliance-badge.yml de CS_Scripts si aplica gobernanza"
+            ),
+        })
+        f07_present = (
+            "F07_BADGE_START" in readme_text
+            or "F07%20JIRA" in readme_text
+            or "F07 JIRA" in readme_text
+        )
+        results.append({
+            "check": "AMX-COMPLIANCE-F07-JIRA",
+            "status": "pass" if f07_present else "info",
+            "detail": (
+                "[OK] Badge F07 JIRA Traceability presente"
+                if f07_present else
+                "[..] Sin badge F07 · opcional · mide trazabilidad de "
+                "commits con tickets JIRA [A-Z]+-\\d+"
+            ),
+        })
 
     return results

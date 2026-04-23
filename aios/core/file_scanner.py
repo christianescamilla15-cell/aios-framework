@@ -15,6 +15,10 @@ EXCLUDE_DIRS: Set[str] = {
     ".nyc_output", ".pytest_cache", ".mypy_cache", ".tox",
     "vendor", "bower_components", "jspm_packages",
     ".wwebjs_auth", ".wwebjs_cache", "wa_session", "auth_info",
+    # v3.5.0 · .NET build outputs + IDE metadata + NuGet packages
+    "bin", "obj", ".vs", ".vscode", "packages",
+    # v3.5.0 · SABRE SOAP auto-generated proxies (1-3 MB cada .vb/.cs)
+    "Service References",
 }
 
 EXCLUDE_EXTENSIONS: Set[str] = {

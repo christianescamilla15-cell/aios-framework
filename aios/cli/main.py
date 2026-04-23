@@ -1549,6 +1549,15 @@ def main():
     # version
     p = sub.add_parser("version", help="Show AIOS version")
 
+    # v3.5.0 sprint 4 · integraciones externas AMX
+    p = sub.add_parser("check-compliance",
+                       help="AMX F01 compliance badge + F07 JIRA traceability check")
+    p.add_argument("--root", default=".")
+
+    p = sub.add_parser("buildspec-validate",
+                       help="Valida buildspec.yaml contra catálogo CS_CI_Artifacts")
+    p.add_argument("--root", default=".")
+
     args = parser.parse_args()
 
     commands = {
@@ -1586,6 +1595,9 @@ def main():
         "dynamic-hooks": cmd_dynamic_hooks,
         # v3.2.0 · Iterative multi-strategy scanner
         "iterate": cmd_iterate,
+        # v3.5.0 · integraciones externas AMX (CS_Scripts + CS_CI_Artifacts)
+        "check-compliance": cmd_check_compliance,
+        "buildspec-validate": cmd_buildspec_validate,
     }
 
     if args.command in commands:
@@ -1632,6 +1644,24 @@ def cmd_version(args):
     """Show AIOS version."""
     from aios import __version__
     print(f"  AIOS v{__version__}")
+
+
+def cmd_check_compliance(args):
+    """v3.5.0 · AMX Compliance Check (F01 + F07 traceability)."""
+    from aios.core.amx_compliance import check_compliance, format_report
+    root = get_root(args)
+    results = check_compliance(root)
+    for line in format_report(results):
+        print(line)
+
+
+def cmd_buildspec_validate(args):
+    """v3.5.0 · valida buildspec.yaml contra catálogo CS_CI_Artifacts."""
+    from aios.core.buildspec_validate import validate, format_report
+    root = get_root(args)
+    report = validate(root)
+    for line in format_report(report):
+        print(line)
 
 
 def cmd_resume(args):

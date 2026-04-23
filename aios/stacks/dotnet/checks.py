@@ -64,8 +64,17 @@ def run_checks(root: Path) -> List[Dict]:
     })
 
     # debug=true detection
+    # v3.5.0 · excluir archivos de test · debug=true en Test/Tests projects
+    # es legítimo (simulan entornos de debugging) y genera FPs sistémicos.
     debug_true = False
     for cfg in config_files:
+        cfg_lower = cfg.lower().replace("\\", "/")
+        if ("/test/" in cfg_lower or "/tests/" in cfg_lower
+                or ".test/" in cfg_lower or ".tests/" in cfg_lower
+                or "/test." in cfg_lower or "/tests." in cfg_lower
+                or cfg_lower.endswith("test.config")
+                or cfg_lower.endswith("tests.config")):
+            continue
         try:
             txt = (root / cfg).read_text(encoding="utf-8", errors="ignore")
             if 'debug="true"' in txt or "debug='true'" in txt:

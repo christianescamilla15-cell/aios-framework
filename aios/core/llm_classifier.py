@@ -75,6 +75,9 @@ def gather_context(finding: object, root: Path,
                    max_cross_file: int = 5) -> dict:
     """Recolecta contexto alrededor del finding para feed al LLM.
 
+    v2.7.0: agrega behavior_fingerprint (characterization hint) + ontology
+    summary como contexto adicional para chain-of-thought.
+
     Args:
         finding: objeto con attrs rule_id · snippet · file · line
         root: directorio raíz del workspace
@@ -97,7 +100,38 @@ def gather_context(finding: object, root: Path,
         root, ctx["snippet"], ctx["file"], max_cross_file
     )
     ctx["variable_names"] = _extract_variable_names(ctx["snippet"])
+    # v2.7.0 RAG: characterization fingerprint + ontology summary
+    ctx["behavior_fingerprint"] = _load_behavior_fingerprint(
+        root, ctx["file"])
+    ctx["ontology_hint"] = getattr(finding, "ontology_classification", "") or \
+        getattr(finding, "ontology_message", "")
     return ctx
+
+
+def _load_behavior_fingerprint(root: Path, file_rel: str) -> str:
+    """v2.7.0 · lee characterization fingerprint si existe, como RAG context.
+    Retorna string de 200-300 chars con metodos/clases detectados · vacio
+    si no hay fingerprint."""
+    if not file_rel:
+        return ""
+    # characterization files estan en .aios/characterization/<file-flat>.json
+    flat = file_rel.replace("/", "__").replace("\\", "__")
+    fp = root / ".aios" / "characterization" / f"{flat}.json"
+    if not fp.exists():
+        return ""
+    try:
+        data = json.loads(fp.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    classes = data.get("classes", []) or []
+    methods_top: list[str] = []
+    for c in classes[:3]:
+        name = c.get("name", "?")
+        meths = c.get("methods", [])[:3]
+        for m in meths:
+            methods_top.append(f"{name}.{m.get('name','?')}"
+                               f"({len(m.get('params', []))} params)")
+    return "; ".join(methods_top[:6])[:300]
 
 
 def _get_surrounding_lines(root: Path, file_rel: str,
@@ -265,17 +299,43 @@ Otras ocurrencias del mismo pattern en el workspace ({cross_count} files):
 
 Variables relevantes detectadas: {variable_names}
 
+Behavior fingerprint (characterization · API pública del archivo):
+{behavior_fingerprint}
+
+Ontology hint (clasificación tentativa previa por catálogo AMX):
+{ontology_hint}
+
 Clasifica este finding en UNA de estas 4 categorías:
 
-1. **bug** · vulnerabilidad clara de seguridad (CWE-798 credencial hardcoded · CWE-89 SQL injection · CWE-78 command injection · etc). El auto-refactor es seguro aplicándolo.
+1. **bug** · vulnerabilidad clara de seguridad (CWE-798 credencial hardcoded · CWE-89 SQL injection · CWE-78 command injection · CWE-664 runtime exception como remove-in-iteration · CWE-362 race condition · etc). El auto-refactor es seguro aplicándolo.
 
 2. **business_rule** · el valor es lógica de negocio intencional del dominio AMX (número de vuelo con acuerdo específico · SKU pinned por regulación · ID a sistema externo · threshold operativo). Auto-refactor rompería el dominio.
 
-3. **migration_candidate** · pattern conocido con template de migración disponible (Secrets Manager · Route53 PHZ · KMS). Auto-fix aplicable con cuidado.
+3. **migration_candidate** · pattern conocido con template de migración disponible (Secrets Manager · Route53 PHZ · KMS · Polly retry). Auto-fix aplicable con cuidado.
 
 4. **unclear** · no hay suficiente contexto para determinar intent. Requiere review humano.
 
-Responde SOLO con JSON válido (sin markdown fences · sin texto extra):
+EJEMPLOS DE RAZONAMIENTO (pocos-shot):
+
+Ejemplo A · credencial plaintext en App.config
+- snippet: `<add key="password" value="ATOS5246" />`
+- Razonamiento: "ATOS5246" es un literal string plaintext en config de producción, el key es "password" (no reference a SSM/KeyVault), no hay variable lookup. Esto es CWE-798 / CWE-522.
+- JSON: {{"classification":"bug","confidence":0.95,"reasoning":"Credencial plaintext literal en config · CWE-522","evidence":["key='password'","valor literal","no reference Secrets Manager"],"recommended_action":"auto_fix"}}
+
+Ejemplo B · flight number hardcoded
+- snippet: `flight.flightNumber = "829";`
+- git blame: "Ajuste manual para correr vuelo solicitado por ops · 2026-03"
+- Razonamiento: git blame indica intervención manual ad-hoc para ejecución puntual, no es bug sino patch operativo. El número rota según request. Business rule temporal.
+- JSON: {{"classification":"business_rule","confidence":0.75,"reasoning":"Patch operativo ad-hoc documentado en git blame · no literal de dominio estable","evidence":["git blame menciona 'ajuste manual'","ops operational context"],"recommended_action":"pause_for_review"}}
+
+RAZONAMIENTO PASO A PASO (hazlo mentalmente, NO en la salida):
+1. ¿Qué clase de CWE aplica realmente al snippet?
+2. ¿El contexto del código y git blame sugieren intent malicioso, accidental, o deliberado de dominio?
+3. ¿Hay behavior fingerprint que dé señal sobre rol del archivo?
+4. ¿Ontology hint es consistente con mi análisis?
+5. ¿Confidence final?
+
+Responde SOLO con JSON válido (sin markdown fences · sin texto antes o después):
 {{
   "classification": "bug|business_rule|migration_candidate|unclear",
   "confidence": 0.0-1.0,
@@ -313,6 +373,8 @@ def build_prompt(context: dict) -> str:
         cross_count=len(cross),
         cross_file_list=cross_list,
         variable_names=", ".join(context.get("variable_names", [])) or "(ninguna)",
+        behavior_fingerprint=context.get("behavior_fingerprint", "") or "(sin fingerprint)",
+        ontology_hint=context.get("ontology_hint", "") or "(sin hint previo)",
     )
 
 

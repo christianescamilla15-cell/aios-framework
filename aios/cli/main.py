@@ -1558,6 +1558,15 @@ def main():
                        help="Valida buildspec.yaml contra catálogo CS_CI_Artifacts")
     p.add_argument("--root", default=".")
 
+    # v3.5.1 · plan v5 integration
+    p = sub.add_parser("phase1-report",
+                       help="Genera Discovery Package consolidado del plan v5 (Fase 1)")
+    p.add_argument("--root", default=".")
+    p.add_argument("--app", required=False,
+                   help="aplicativo del plan v5: sicofav · srg · robot · etc.")
+    p.add_argument("--pdf", action="store_true",
+                   help="Genera también PDF con weasyprint")
+
     args = parser.parse_args()
 
     commands = {
@@ -1598,6 +1607,8 @@ def main():
         # v3.5.0 · integraciones externas AMX (CS_Scripts + CS_CI_Artifacts)
         "check-compliance": cmd_check_compliance,
         "buildspec-validate": cmd_buildspec_validate,
+        # v3.5.1 · plan v5 integration
+        "phase1-report": cmd_phase1_report,
     }
 
     if args.command in commands:
@@ -1662,6 +1673,131 @@ def cmd_buildspec_validate(args):
     report = validate(root)
     for line in format_report(report):
         print(line)
+
+
+def cmd_phase1_report(args):
+    """v3.5.1 · genera el Discovery Package consolidado del plan v5.
+
+    Lee los 9 entregables de fase-1-discovery/ · los enriquece con metadata
+    del plan v5 (Tier · go-live · bloqueantes cross-app · patrones) · produce
+    markdown maestro y opcional PDF.
+    """
+    from aios.core.phase1_report import write_package, build_discovery_package
+    from aios.core.plan_v5 import APPS, get_app
+    root = get_root(args)
+
+    if not args.app:
+        print("\n  ERROR: --app requerido")
+        print(f"  Apps disponibles: {', '.join(APPS.keys())}\n")
+        return
+
+    app = get_app(args.app)
+    if app is None:
+        print(f"\n  ERROR: aplicativo '{args.app}' no está en plan v5")
+        print(f"  Apps disponibles: {', '.join(APPS.keys())}\n")
+        return
+
+    try:
+        md_path = write_package(args.app, root)
+    except FileNotFoundError as e:
+        print(f"\n  ERROR: {e}\n")
+        return
+
+    print(f"\n  ✓ Discovery Package generado · {md_path}")
+    print(f"    App: {app.short} · Tier {app.tier} · {app.criticality}")
+    print(f"    Go-live: {app.go_live} · Duración: {app.duracion_weeks} semanas")
+
+    if args.pdf:
+        try:
+            import subprocess
+            import tempfile
+            md_content = md_path.read_text(encoding="utf-8")
+            pdf_path = md_path.with_suffix(".pdf")
+            # Conversión simple MD → HTML → PDF con weasyprint si disponible
+            html_content = _minimal_md_to_html(md_content, str(md_path.stem))
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".html", delete=False, encoding="utf-8"
+            ) as tmp:
+                tmp.write(html_content)
+                tmp_path = tmp.name
+            try:
+                subprocess.run(
+                    ["weasyprint", tmp_path, str(pdf_path)],
+                    capture_output=True, timeout=60, check=False,
+                )
+                if pdf_path.exists():
+                    print(f"  ✓ PDF generado · {pdf_path}")
+                else:
+                    print("  ⚠ PDF no generado · weasyprint falló")
+            finally:
+                import os
+                os.unlink(tmp_path)
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            print("  ⚠ weasyprint no disponible · PDF skipped")
+    print()
+
+
+def _minimal_md_to_html(md: str, title: str) -> str:
+    """Conversión minimalista MD → HTML para el PDF del Discovery Package."""
+    import re
+    body = md.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    body = re.sub(r"`([^`]+)`", r"<code>\1</code>", body)
+    body = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", body)
+    body = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"<em>\1</em>", body)
+    body = re.sub(r"^# (.+)$", r"<h1>\1</h1>", body, flags=re.M)
+    body = re.sub(r"^## (.+)$", r"<h2>\1</h2>", body, flags=re.M)
+    body = re.sub(r"^### (.+)$", r"<h3>\1</h3>", body, flags=re.M)
+
+    lines = body.split("\n")
+    out = []
+    in_table = False
+    for ln in lines:
+        if re.match(r"^\s*\|.*\|\s*$", ln):
+            if re.match(r"^\s*\|[\s\-|:]+\|\s*$", ln):
+                continue
+            cells = [c.strip() for c in ln.strip().strip("|").split("|")]
+            if not in_table:
+                out.append("<table>")
+                out.append("<tr>" + "".join(f"<th>{c}</th>" for c in cells) + "</tr>")
+                in_table = True
+            else:
+                out.append("<tr>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
+        else:
+            if in_table:
+                out.append("</table>")
+                in_table = False
+            if re.match(r"^\s*[-*]\s+", ln):
+                out.append("<li>" + re.sub(r"^\s*[-*]\s+", "", ln) + "</li>")
+            elif re.match(r"^\s*&gt;\s+", ln):
+                out.append("<blockquote>" + re.sub(r"^\s*&gt;\s+", "", ln) + "</blockquote>")
+            elif ln.strip() == "---":
+                out.append("<hr>")
+            elif ln.strip() == "":
+                out.append("<br>")
+            else:
+                out.append(f"<p>{ln}</p>")
+    if in_table:
+        out.append("</table>")
+
+    css = """@page { size: Letter; margin: 2cm; @bottom-right { content: "p. " counter(page) "/" counter(pages); font-size: 8pt; color: #6b7280; } }
+body { font-family: -apple-system, "Segoe UI", Arial; color: #1f2937; font-size: 9.8pt; line-height: 1.42; }
+h1 { font-size: 17pt; color: #0a2540; border-bottom: 3px solid #0a2540; padding-bottom: 6px; }
+h2 { font-size: 12pt; color: #0a2540; border-left: 4px solid #0a2540; padding-left: 8px; margin-top: 18px; page-break-after: avoid; }
+h3 { font-size: 10.5pt; color: #334155; margin-top: 14px; page-break-after: avoid; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 10px 0; font-size: 8.5pt; }
+th { background: #0a2540; color: #fff; text-align: left; padding: 5px 7px; }
+td { padding: 4px 7px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+tr:nth-child(even) td { background: #f9fafb; }
+code { font-family: Consolas, monospace; font-size: 8.4pt; background: #f3f4f6; padding: 1px 4px; border-radius: 3px; }
+li { margin-bottom: 3px; }
+blockquote { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 8px 12px; margin: 8px 0; }
+hr { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }"""
+    return (
+        f'<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+        f"<title>{title}</title><style>{css}</style></head><body>"
+        + "\n".join(out)
+        + "</body></html>"
+    )
 
 
 def cmd_resume(args):

@@ -1696,13 +1696,14 @@ def cmd_buildspec_validate(args):
 def cmd_coverage(args):
     """v3.6.0 · G-06 · Coverage gate · T0 SOX enforcement.
 
-    Parsea cobertura.xml (coverlet default) y compara contra umbrales.
-    Exit 1 si falla · exit 0 si pasa · para integración CI/CD.
+    v3.6.2 · consolidación multi-file: si root tiene N archivos cobertura.xml
+    (típico en soluciones multi-proyecto) · los mergea en un reporte único.
+    Un `--cobertura-file` explícito sigue usando single-file legacy path.
     """
     import sys
     from aios.core.coverage_gate import (
-        find_cobertura_file, parse_cobertura, apply_gate,
-        format_human, format_json,
+        find_cobertura_files, parse_cobertura, parse_cobertura_merged,
+        apply_gate, format_human, format_json,
     )
 
     root = get_root(args)
@@ -1712,16 +1713,17 @@ def cmd_coverage(args):
         if not xml_path.exists():
             print(f"\n  ERROR: file no encontrado · {xml_path}\n")
             sys.exit(2)
+        report = parse_cobertura(xml_path, sox_pattern=args.sox_pattern)
     else:
-        xml_path = find_cobertura_file(root)
-        if xml_path is None:
+        xml_paths = find_cobertura_files(root)
+        if not xml_paths:
             print(
                 f"\n  ERROR: no se encontró cobertura.xml bajo {root}\n"
                 f"  Sugerencia: correr 'dotnet test --collect:\"XPlat Code Coverage\"'\n"
             )
             sys.exit(2)
+        report = parse_cobertura_merged(xml_paths, sox_pattern=args.sox_pattern)
 
-    report = parse_cobertura(xml_path, sox_pattern=args.sox_pattern)
     report = apply_gate(report, args.min_line, args.min_branch, args.sox_threshold)
 
     if args.format == "json":

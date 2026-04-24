@@ -50,17 +50,132 @@ class CoverageReport:
 
 
 def find_cobertura_file(root: Path) -> Optional[Path]:
-    """Busca coverage xml recursivamente bajo `root`.
+    """Busca coverage xml recursivamente bajo `root` (single file · legacy API).
 
     Prioridad: `TestResults/*/coverage.cobertura.xml` (coverlet default).
     Fallback: cualquier `*.cobertura.xml` · `cobertura.xml` · `coverage.xml`.
     """
+    files = find_cobertura_files(root)
+    return files[-1] if files else None
+
+
+def find_cobertura_files(root: Path) -> list[Path]:
+    """v3.6.2 · retorna TODOS los cobertura.xml bajo `root` · para soluciones
+    multi-proyecto (N test projects · N coverage files). Se usa con
+    `parse_cobertura_merged` para consolidar el reporte.
+
+    No deduplica · si hay overlap de packages entre archivos,
+    `parse_cobertura_merged` resuelve tomando el de mayor lines_valid.
+    """
+    found: list[Path] = []
+    seen: set[Path] = set()
     for pattern in ("coverage.cobertura.xml", "*.cobertura.xml",
                     "cobertura.xml", "coverage.xml"):
-        matches = sorted(root.rglob(pattern))
-        if matches:
-            return matches[-1]
-    return None
+        for match in root.rglob(pattern):
+            resolved = match.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            found.append(match)
+    return sorted(found, key=lambda p: str(p))
+
+
+def _pkg_counters_from_classes(pkg_elem) -> tuple[int, int, int, int]:
+    """Suma lines/branches valid+covered a partir de los elementos `<class>`
+    hijos del `<package>`. Coverlet NO pone `lines-valid` a nivel package,
+    solo a nivel class y root · este helper lo calcula bottom-up.
+    """
+    lines_valid = 0
+    lines_covered = 0
+    branches_valid = 0
+    branches_covered = 0
+    for cls in pkg_elem.iter("class"):
+        # Contar cada <line> dentro de <methods>/<class> una sola vez.
+        # coverlet genera <lines> bajo <class> con <line number="N" hits="X"
+        # branch="true/false" condition-coverage="X/Y"/>
+        for line_elem in cls.iter("line"):
+            lines_valid += 1
+            if int(line_elem.get("hits", "0") or "0") > 0:
+                lines_covered += 1
+            # Branches: si la línea tiene condition-coverage, parsea M/N
+            cc = line_elem.get("condition-coverage", "")
+            if cc and "(" in cc:
+                try:
+                    # format: "50% (1/2)"
+                    inner = cc[cc.index("(") + 1 : cc.rindex(")")]
+                    cov_str, val_str = inner.split("/")
+                    branches_covered += int(cov_str.strip())
+                    branches_valid += int(val_str.strip())
+                except (ValueError, IndexError):
+                    pass
+    return lines_valid, lines_covered, branches_valid, branches_covered
+
+
+def parse_cobertura_merged(xml_paths: list[Path],
+                           sox_pattern: Optional[str] = None) -> CoverageReport:
+    """v3.6.2 · parsea N archivos cobertura.xml y consolida en un reporte
+    único. Cada package se representa una sola vez · si aparece en
+    múltiples archivos · se toma el de mayor `lines_covered` (más tests
+    ejercieron ese package). Totales globales se recalculan sumando
+    lines_valid · lines_covered · branches_valid · branches_covered de
+    los packages seleccionados como canonicales.
+    """
+    if not xml_paths:
+        raise ValueError("parse_cobertura_merged requires at least 1 path")
+
+    sox_re = re.compile(sox_pattern) if sox_pattern else None
+    packages_by_name: dict[str, PackageCoverage] = {}
+    source_files: list[str] = []
+
+    for xml_path in xml_paths:
+        source_files.append(str(xml_path))
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+        for pkg in root.iter("package"):
+            name = pkg.get("name", "")
+            lr = float(pkg.get("line-rate", "0") or "0")
+            br = float(pkg.get("branch-rate", "0") or "0")
+            lv, lc, bv, bc = _pkg_counters_from_classes(pkg)
+            candidate = PackageCoverage(
+                name=name,
+                line_rate=lr,
+                branch_rate=br,
+                lines_covered=lc,
+                lines_valid=lv,
+                branches_covered=bc,
+                branches_valid=bv,
+                is_sox_critical=bool(sox_re and sox_re.search(name)),
+            )
+            existing = packages_by_name.get(name)
+            # Preferir el package con MÁS lines_covered (el test project
+            # que más ejercitó este package · representa el best observed
+            # coverage para él).
+            if (existing is None or candidate.lines_covered > existing.lines_covered
+                    or (candidate.lines_covered == existing.lines_covered
+                        and candidate.branches_covered > existing.branches_covered)):
+                packages_by_name[name] = candidate
+
+    packages = list(packages_by_name.values())
+    total_lv = sum(p.lines_valid for p in packages)
+    total_lc = sum(p.lines_covered for p in packages)
+    total_bv = sum(p.branches_valid for p in packages)
+    total_bc = sum(p.branches_covered for p in packages)
+    global_lr = (total_lc / total_lv) if total_lv > 0 else 0.0
+    global_br = (total_bc / total_bv) if total_bv > 0 else 0.0
+
+    return CoverageReport(
+        line_rate=global_lr,
+        branch_rate=global_br,
+        lines_covered=total_lc,
+        lines_valid=total_lv,
+        branches_covered=total_bc,
+        branches_valid=total_bv,
+        packages=packages,
+        source_file=" + ".join(source_files) if len(source_files) > 1
+                    else (source_files[0] if source_files else ""),
+        passed=False,
+        violations=[],
+    )
 
 
 def parse_cobertura(xml_path: Path,

@@ -29,7 +29,7 @@ from aios.core.plan_v5 import (
 )
 from aios.core.discovery.helpers import (
     ensure_output_dir, default_output_dir, resolve_app, write_doc,
-    yaml_frontmatter, section_header, humanize_stack,
+    yaml_frontmatter, section_header, humanize_stack, md_to_pdf,
 )
 
 
@@ -481,8 +481,14 @@ def build_doc_09_risk_register(app, scan: Dict[str, Any]) -> str:
 # ───────── orchestrator principal ────────────────────────────────────
 
 def generate_discovery_docs(app_key: str, root: Path,
-                            overwrite: bool = False) -> Dict[str, Any]:
-    """Genera los 9 docs Discovery · retorna dict con paths generados + stats."""
+                            overwrite: bool = False,
+                            pdf: bool = False) -> Dict[str, Any]:
+    """Genera los 9 docs Discovery · retorna dict con paths generados + stats.
+
+    Si `pdf=True`, después de escribir cada MD genera también el PDF equivalente
+    en `<out_dir>/pdfs/<filename>.pdf` usando weasyprint. Si weasyprint no está
+    disponible, los PDFs se omiten silenciosamente y se reporta en el dict.
+    """
     app = resolve_app(app_key)
     out_dir = ensure_output_dir(default_output_dir(root))
 
@@ -501,19 +507,45 @@ def generate_discovery_docs(app_key: str, root: Path,
         ("09_risk_register.md",     lambda: build_doc_09_risk_register(app, scan)),
     ]
 
-    results: List[Dict[str, Any]] = []
-    for filename, build_fn in builders:
-        path = out_dir / filename
-        if path.exists() and not overwrite:
-            results.append({"file": filename, "status": "skipped-exists",
-                            "path": str(path)})
-            continue
-        content = build_fn()
-        write_doc(path, content)
-        results.append({"file": filename, "status": "written",
-                        "path": str(path), "lines": content.count("\n")})
+    pdf_dir = out_dir / "pdfs" if pdf else None
+    if pdf_dir is not None:
+        pdf_dir.mkdir(parents=True, exist_ok=True)
 
-    return {
+    results: List[Dict[str, Any]] = []
+    pdf_total = 0
+    pdf_ok = 0
+    for filename, build_fn in builders:
+        md_path = out_dir / filename
+        existed = md_path.exists()
+        if existed and not overwrite:
+            entry = {"file": filename, "status": "skipped-exists",
+                     "path": str(md_path)}
+        else:
+            content = build_fn()
+            write_doc(md_path, content)
+            entry = {"file": filename, "status": "written",
+                     "path": str(md_path), "lines": content.count("\n")}
+
+        if pdf and pdf_dir is not None and md_path.exists():
+            pdf_total += 1
+            pdf_path = pdf_dir / filename.replace(".md", ".pdf")
+            existed_pdf = pdf_path.exists()
+            if existed_pdf and not overwrite:
+                entry["pdf_status"] = "skipped-exists"
+                entry["pdf_path"] = str(pdf_path)
+            else:
+                success = md_to_pdf(md_path, pdf_path)
+                if success:
+                    pdf_ok += 1
+                    entry["pdf_status"] = "written"
+                    entry["pdf_path"] = str(pdf_path)
+                else:
+                    entry["pdf_status"] = "failed"
+                    entry["pdf_path"] = str(pdf_path)
+
+        results.append(entry)
+
+    report: Dict[str, Any] = {
         "app": app.short, "tier": app.tier, "out_dir": str(out_dir),
         "scan_findings": scan.get("count", 0),
         "scan_error": scan.get("error"),
@@ -521,3 +553,10 @@ def generate_discovery_docs(app_key: str, root: Path,
         "docs": results,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
+    if pdf:
+        report["pdf_enabled"] = True
+        report["pdf_dir"] = str(pdf_dir) if pdf_dir else None
+        report["pdf_generated"] = pdf_ok
+        report["pdf_total"] = pdf_total
+        report["pdf_weasyprint_available"] = pdf_ok > 0 or pdf_total == 0
+    return report

@@ -1568,6 +1568,7 @@ def main():
                    help="Genera también PDF con weasyprint")
 
     # v3.7.0 · Discovery 9 docs generator · auto-crea 01..09 en fase-1-discovery/
+    # v3.7.1 · flag --pdf · genera también PDFs en fase-1-discovery/pdfs/
     p = sub.add_parser("discovery-generate",
                        help="Genera los 9 docs estándar Fase 1 Discovery "
                             "(01_code_scan..09_risk_register) en fase-1-discovery/")
@@ -1577,6 +1578,8 @@ def main():
                    help="root del repo (default: cwd) · busca código para scan + stack detection")
     p.add_argument("--overwrite", action="store_true",
                    help="Sobrescribe docs existentes en fase-1-discovery/ (default: skip)")
+    p.add_argument("--pdf", action="store_true",
+                   help="v3.7.1 · genera también PDFs en fase-1-discovery/pdfs/ (requiere weasyprint)")
     p.add_argument("--format", choices=["human", "json"], default="human",
                    help="Formato salida (human tabla · json reporte completo)")
 
@@ -2216,7 +2219,9 @@ def cmd_discovery_generate(args):
         return
 
     try:
-        result = generate_discovery_docs(args.app, root, overwrite=args.overwrite)
+        result = generate_discovery_docs(args.app, root,
+                                         overwrite=args.overwrite,
+                                         pdf=args.pdf)
     except ValueError as e:
         print(f"\n  ERROR: {e}")
         print(f"  Apps disponibles: {', '.join(sorted(APPS.keys()))}\n")
@@ -2231,13 +2236,31 @@ def cmd_discovery_generate(args):
     print(f"    Scan findings  : {result['scan_findings']}"
           + (f" (error: {result['scan_error']})" if result.get("scan_error") else ""))
     print(f"    Stack detectado: {', '.join(result['stack_detected']) or '(ninguno)'}")
+    if result.get("pdf_enabled"):
+        pdf_ok = result.get("pdf_generated", 0)
+        pdf_total = result.get("pdf_total", 0)
+        print(f"    PDF directory  : {result.get('pdf_dir')}")
+        print(f"    PDFs generados : {pdf_ok}/{pdf_total}" +
+              ("" if pdf_ok == pdf_total else " ⚠ weasyprint no disponible o falló"))
     print()
     print("  Documentos:")
     for d in result["docs"]:
         icon = "✓" if d["status"] == "written" else "·"
         lines = f" ({d.get('lines', 0)} líneas)" if d["status"] == "written" else ""
-        print(f"    {icon} {d['file']:<28} [{d['status']}]{lines}")
+        pdf_suffix = ""
+        if "pdf_status" in d:
+            if d["pdf_status"] == "written":
+                pdf_suffix = " + PDF"
+            elif d["pdf_status"] == "skipped-exists":
+                pdf_suffix = " (PDF existe · skip)"
+            elif d["pdf_status"] == "failed":
+                pdf_suffix = " ⚠ PDF failed"
+        print(f"    {icon} {d['file']:<28} [{d['status']}]{lines}{pdf_suffix}")
     print()
+    if result.get("pdf_enabled") and result.get("pdf_generated", 0) == 0:
+        print("  ⚠ PDFs no generados · verificar: pip install weasyprint\n"
+              "     (Linux/WSL necesita libs sistema: "
+              "sudo apt install libpango-1.0-0 libpangoft2-1.0-0)\n")
     print("  Siguiente paso: revisar docs · completar TODOs humanos · "
           "correr `aios phase1-report --app "
           f"{result['app'].lower()}` para el bundle consolidado.\n")

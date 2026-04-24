@@ -188,3 +188,73 @@ def test_generate_overwrite_true_rewrites(tmp_path: Path):
 def test_generate_invalid_app_raises(tmp_path: Path):
     with pytest.raises(ValueError):
         generate_discovery_docs("no-existe", tmp_path)
+
+
+# ──────── v3.7.1 · tests para --pdf flag ─────────────────────────────
+
+def test_pdf_flag_creates_pdfs_subdir(tmp_path: Path, monkeypatch):
+    """Con --pdf, se crea subcarpeta pdfs/ incluso si weasyprint no existe."""
+    # Mock md_to_pdf para no requerir weasyprint en CI
+    from aios.core.discovery import generate as gen_mod
+
+    def fake_md_to_pdf(md_path: Path, pdf_path: Path, timeout: int = 60) -> bool:
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_bytes(b"%PDF-1.4\nfake\n%%EOF")
+        return True
+
+    monkeypatch.setattr(gen_mod, "md_to_pdf", fake_md_to_pdf)
+
+    result = generate_discovery_docs("sicofav", tmp_path, pdf=True)
+    pdf_dir = Path(result["pdf_dir"])
+    assert pdf_dir.exists()
+    assert pdf_dir.name == "pdfs"
+    assert result["pdf_enabled"] is True
+    assert result["pdf_total"] == 9
+    assert result["pdf_generated"] == 9
+
+
+def test_pdf_flag_without_weasyprint_reports_zero(tmp_path: Path, monkeypatch):
+    """Sin weasyprint, pdf_generated=0 · md_to_pdf retorna False siempre."""
+    from aios.core.discovery import generate as gen_mod
+
+    monkeypatch.setattr(gen_mod, "md_to_pdf",
+                        lambda md, pdf, timeout=60: False)
+
+    result = generate_discovery_docs("sicofav", tmp_path, pdf=True)
+    assert result["pdf_enabled"] is True
+    assert result["pdf_generated"] == 0
+    assert result["pdf_total"] == 9
+    # Los MDs sí se generan aunque los PDFs fallen
+    for d in result["docs"]:
+        assert d["status"] == "written"
+        assert d["pdf_status"] == "failed"
+
+
+def test_pdf_flag_false_no_pdf_dir(tmp_path: Path):
+    """Sin --pdf, no existe subdirectorio pdfs/."""
+    result = generate_discovery_docs("sicofav", tmp_path, pdf=False)
+    assert "pdf_enabled" not in result
+    out_dir = Path(result["out_dir"])
+    assert not (out_dir / "pdfs").exists()
+
+
+def test_md_to_pdf_missing_source_returns_false(tmp_path: Path):
+    """md_to_pdf con MD inexistente retorna False."""
+    from aios.core.discovery.helpers import md_to_pdf
+
+    result = md_to_pdf(tmp_path / "missing.md", tmp_path / "out.pdf")
+    assert result is False
+
+
+def test_minimal_md_to_html_produces_valid_html():
+    from aios.core.discovery.helpers import minimal_md_to_html
+
+    md = "# Title\n\n## Sub\n\nBody with **bold** and `code`.\n\n| A | B |\n|---|---|\n| 1 | 2 |\n"
+    html = minimal_md_to_html(md, "doc-title")
+    assert "<h1>Title</h1>" in html
+    assert "<h2>Sub</h2>" in html
+    assert "<strong>bold</strong>" in html
+    assert "<code>code</code>" in html
+    assert "<table>" in html
+    assert "<th>A</th>" in html
+    assert "<td>1</td>" in html

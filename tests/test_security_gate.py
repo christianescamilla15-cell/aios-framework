@@ -1779,3 +1779,203 @@ def test_amx_sc_construct_with_cfn_parameter_fires(tmp_path):
         f.rule_id == "AMX-SC-CONSTRUCT-WITH-CFN-PARAMETER"
         for f in findings
     )
+
+
+# ═════════════════════════════════════════════════════════════════════
+# v3.6.3 · Sprint 3 · 5 detectores P2 · cierre alineación AMX ~98%
+# ═════════════════════════════════════════════════════════════════════
+
+def test_amx_aspnet_identity_weak_password_srg_pattern(tmp_path):
+    """G-08 · evidencia real SRG backend/api/Program.cs:42 RequiredLength=1."""
+    (tmp_path / "Program.cs").write_text(
+        'builder.Services.Configure<IdentityOptions>(cfg =>\n'
+        '{\n'
+        '    cfg.Password.RequiredLength = 1;\n'
+        '    cfg.Password.RequireNonAlphanumeric = false;\n'
+        '    cfg.Password.RequireUppercase = false;\n'
+        '});\n'
+    )
+    findings = scan_directory(tmp_path)
+    amx = [f for f in findings
+           if f.rule_id == "AMX-ASPNET-IDENTITY-WEAK-PASSWORD"]
+    # 4 líneas débiles (RequiredLength=1 + 3 Require*=false)
+    assert len(amx) >= 3
+
+
+def test_amx_aspnet_identity_weak_password_no_fp_strong(tmp_path):
+    """G-08 · FP-safe · política fuerte (RequiredLength=12 · Require*=true)."""
+    (tmp_path / "Program.cs").write_text(
+        'cfg.Password.RequiredLength = 12;\n'
+        'cfg.Password.RequireNonAlphanumeric = true;\n'
+        'cfg.Password.RequireUppercase = true;\n'
+        'cfg.Password.RequireDigit = true;\n'
+        'cfg.Password.RequiredUniqueChars = 6;\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-ASPNET-IDENTITY-WEAK-PASSWORD" for f in findings
+    )
+
+
+def test_amx_dotnet_trust_server_certificate_appsettings(tmp_path):
+    """G-NEW-TSC · evidencia real SRG appsettings.json:4-5."""
+    (tmp_path / "appsettings.json").write_text(
+        '{\n'
+        '  "ConnectionStrings": {\n'
+        '    "Default": "Data Source=srv;User=x;Password=y;'
+        'TrustServerCertificate=True; Encrypt=True"\n'
+        '  }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
+    )
+
+
+def test_amx_dotnet_trust_server_certificate_webconfig(tmp_path):
+    """G-NEW-TSC · case-insensitive · aplica también a web.config."""
+    (tmp_path / "web.config").write_text(
+        '<connectionStrings>\n'
+        '  <add name="x" connectionString="Data Source=s;'
+        'trustservercertificate=true;Encrypt=True" />\n'
+        '</connectionStrings>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
+    )
+
+
+def test_amx_dotnet_trust_server_certificate_no_fp_false(tmp_path):
+    """G-NEW-TSC · FP-safe · TrustServerCertificate=False no dispara."""
+    (tmp_path / "appsettings.json").write_text(
+        '{\n'
+        '  "Default": "Data Source=s;TrustServerCertificate=False;'
+        'Encrypt=True"\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
+    )
+
+
+def test_amx_dotnet_dpapi_config_provider_robot_pattern(tmp_path):
+    """G-NEW-DPAPI · evidencia real Robot rob_cambio_status/AEP/app.config:15."""
+    (tmp_path / "app.config").write_text(
+        '<?xml version="1.0"?>\n'
+        '<configuration>\n'
+        '  <connectionStrings '
+        'configProtectionProvider="DPAPIProtection">\n'
+        '    <EncryptedData>...</EncryptedData>\n'
+        '  </connectionStrings>\n'
+        '</configuration>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-DPAPI-CONFIG-PROVIDER" for f in findings
+    )
+
+
+def test_amx_dotnet_dpapi_config_provider_data_protection_variant(tmp_path):
+    """G-NEW-DPAPI · variante canónica DataProtectionConfigurationProvider."""
+    (tmp_path / "app.config").write_text(
+        '<connectionStrings '
+        'configProtectionProvider="DataProtectionConfigurationProvider">\n'
+        '</connectionStrings>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-DPAPI-CONFIG-PROVIDER" for f in findings
+    )
+
+
+def test_amx_frontend_angular_eol_fires_on_v15(tmp_path):
+    """G-10 · evidencia real SRG frontend/package.json `@angular/core ^15`."""
+    (tmp_path / "package.json").write_text(
+        '{\n'
+        '  "dependencies": {\n'
+        '    "@angular/core": "^15.0.0",\n'
+        '    "@angular/common": "^15.0.0"\n'
+        '  }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    amx = [f for f in findings if f.rule_id == "AMX-FRONTEND-ANGULAR-EOL"]
+    assert len(amx) >= 2
+
+
+def test_amx_frontend_angular_eol_no_fp_on_v17(tmp_path):
+    """G-10 · FP-safe · Angular 17 LTS no dispara."""
+    (tmp_path / "package.json").write_text(
+        '{\n'
+        '  "dependencies": {\n'
+        '    "@angular/core": "^17.2.0",\n'
+        '    "@angular/common": "~18.0.1"\n'
+        '  }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-FRONTEND-ANGULAR-EOL" for f in findings
+    )
+
+
+def test_amx_aspnet_controller_missing_apicontroller_fires(tmp_path):
+    """G-NEW-1 · Controller hereda ControllerBase SIN [ApiController]."""
+    (tmp_path / "UsersController.cs").write_text(
+        'using Microsoft.AspNetCore.Mvc;\n'
+        'namespace Srg.Api.Controllers;\n'
+        '\n'
+        'public class UsersController : ControllerBase\n'
+        '{\n'
+        '    [HttpGet]\n'
+        '    public IActionResult GetAll() => Ok();\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
+        for f in findings
+    )
+
+
+def test_amx_aspnet_controller_missing_apicontroller_no_fp(tmp_path):
+    """G-NEW-1 · FP-safe · Controller CON [ApiController] arriba no dispara."""
+    (tmp_path / "OrdersController.cs").write_text(
+        'using Microsoft.AspNetCore.Mvc;\n'
+        'namespace Srg.Api.Controllers;\n'
+        '\n'
+        '[ApiController]\n'
+        '[Route("api/[controller]")]\n'
+        'public class OrdersController : ControllerBase\n'
+        '{\n'
+        '    public IActionResult GetAll() => Ok();\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
+        for f in findings
+    )
+
+
+def test_amx_aspnet_controller_missing_apicontroller_no_fp_mvc_controller(
+    tmp_path,
+):
+    """G-NEW-1 · FP-safe · MVC Controller (hereda Controller · no ControllerBase)
+    no aplica · el attribute [ApiController] es específico de API.
+    """
+    (tmp_path / "HomeController.cs").write_text(
+        'using Microsoft.AspNetCore.Mvc;\n'
+        'public class HomeController : Controller\n'
+        '{\n'
+        '    public IActionResult Index() => View();\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
+        for f in findings
+    )

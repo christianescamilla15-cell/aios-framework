@@ -2182,3 +2182,198 @@ def test_amx_cdk_rds_no_storage_encryption_no_fp(tmp_path):
     assert not any(
         f.rule_id == "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION" for f in findings
     )
+
+
+# ═════════════════════════════════════════════════════════════════════
+# v3.6.5 · Sprint 5 · 3 detectores Block 8 app-level (G-21a/b/c)
+# ═════════════════════════════════════════════════════════════════════
+
+def test_amx_cdk_alb_without_waf_fires(tmp_path):
+    """G-21a · ALB sin WebACLAssociation dispara."""
+    (tmp_path / "alb.py").write_text(
+        'from aws_cdk import aws_elasticloadbalancingv2 as elbv2\n'
+        'elbv2.ApplicationLoadBalancer(\n'
+        '    scope, "ALB",\n'
+        '    vpc=vpc, internet_facing=True,\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-ALB-WITHOUT-WAF" for f in findings
+    )
+
+
+def test_amx_cdk_alb_with_waf_no_fp(tmp_path):
+    """G-21a · ALB + WebACLAssociation en mismo archivo no dispara."""
+    (tmp_path / "alb.py").write_text(
+        'from aws_cdk import aws_elasticloadbalancingv2 as elbv2\n'
+        'from aws_cdk import aws_wafv2 as wafv2\n'
+        'alb = elbv2.ApplicationLoadBalancer(\n'
+        '    scope, "ALB", vpc=vpc,\n'
+        ')\n'
+        'wafv2.CfnWebACLAssociation(\n'
+        '    scope, "ALBWebACL",\n'
+        '    resource_arn=alb.load_balancer_arn,\n'
+        '    web_acl_arn=waf_acl.attr_arn,\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-ALB-WITHOUT-WAF" for f in findings
+    )
+
+
+def test_amx_cdk_cloudfront_no_oac_fires_on_oai(tmp_path):
+    """G-21b · CloudFront con OriginAccessIdentity (deprecated) dispara."""
+    (tmp_path / "cf.py").write_text(
+        'from aws_cdk import aws_cloudfront as cloudfront\n'
+        'oai = cloudfront.OriginAccessIdentity(scope, "OAI")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-CLOUDFRONT-NO-OAC" for f in findings
+    )
+
+
+def test_amx_cdk_cloudfront_no_oac_no_fp_on_oac_alone(tmp_path):
+    """G-21b · File sin OAI no dispara (usa OAC por ejemplo)."""
+    (tmp_path / "cf.py").write_text(
+        'from aws_cdk import aws_cloudfront as cloudfront\n'
+        'oac = cloudfront.S3OriginAccessControl(scope, "OAC")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-CLOUDFRONT-NO-OAC" for f in findings
+    )
+
+
+def test_amx_cdk_s3_no_public_access_block_fires(tmp_path):
+    """G-21c · S3 Bucket sin block_public_access dispara."""
+    (tmp_path / "s3.py").write_text(
+        'from aws_cdk import aws_s3 as s3\n'
+        's3.Bucket(\n'
+        '    scope, "DataBucket",\n'
+        '    bucket_name="my-data",\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" for f in findings
+    )
+
+
+def test_amx_cdk_s3_no_public_access_block_no_fp_with_block_all(tmp_path):
+    """G-21c · S3 CON block_public_access=BLOCK_ALL no dispara."""
+    (tmp_path / "s3.py").write_text(
+        'from aws_cdk import aws_s3 as s3\n'
+        's3.Bucket(\n'
+        '    scope, "DataBucket",\n'
+        '    bucket_name="my-data",\n'
+        '    block_public_access=s3.BlockPublicAccess.BLOCK_ALL,\n'
+        '    enforce_ssl=True,\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" for f in findings
+    )
+
+
+# ═════════════════════════════════════════════════════════════════════
+# v3.6.6 · 4 detectores enforcement · conformidad AMX
+# ═════════════════════════════════════════════════════════════════════
+
+def test_amx_cicd_buildspec_missing_tz_fires(tmp_path):
+    """v3.6.6 · buildspec sin TZ America/Mexico_City dispara LOW."""
+    (tmp_path / "buildspec.yaml").write_text(
+        'version: 0.2\n'
+        'env:\n'
+        '  shell: bash\n'
+        '  variables:\n'
+        '    FOO: bar\n'
+        '    BAR: baz\n'
+        'phases:\n'
+        '  install:\n'
+        '    commands: []\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CICD-BUILDSPEC-MISSING-TZ" for f in findings
+    )
+
+
+def test_amx_cicd_buildspec_with_tz_no_fp(tmp_path):
+    """v3.6.6 · buildspec CON TZ: America/Mexico_City no dispara."""
+    (tmp_path / "buildspec.yaml").write_text(
+        'version: 0.2\n'
+        'env:\n'
+        '  shell: bash\n'
+        '  variables:\n'
+        '    TZ: America/Mexico_City\n'
+        '    FOO: bar\n'
+        'phases:\n'
+        '  install:\n'
+        '    commands: []\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CICD-BUILDSPEC-MISSING-TZ" for f in findings
+    )
+
+
+def test_amx_cicd_buildspec_python_311_fires(tmp_path):
+    """v3.6.6 · Python 3.11 dispara (!=3.12)."""
+    (tmp_path / "buildspec.yaml").write_text(
+        'phases:\n'
+        '  install:\n'
+        '    runtime-versions:\n'
+        '      python: 3.11\n'
+        '    commands:\n'
+        '      - pip install aws-sam-cli\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CICD-BUILDSPEC-PYTHON-NOT-3-12" for f in findings
+    )
+
+
+def test_amx_cicd_buildspec_python_312_no_fp(tmp_path):
+    """v3.6.6 · Python 3.12 estándar AMX no dispara."""
+    (tmp_path / "buildspec.yaml").write_text(
+        'phases:\n'
+        '  install:\n'
+        '    runtime-versions:\n'
+        '      python: 3.12\n'
+        '    commands: []\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CICD-BUILDSPEC-PYTHON-NOT-3-12" for f in findings
+    )
+
+
+def test_amx_cdk_eks_raw_bypass_sc_product_fires(tmp_path):
+    """v3.6.6 · CDK crea eks.Cluster raw dispara MEDIUM."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_eks as eks\n'
+        'cluster = eks.Cluster(\n'
+        '    scope, "MyCluster",\n'
+        '    version=eks.KubernetesVersion.V1_29,\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-EKS-RAW-BYPASS-SC-PRODUCT" for f in findings
+    )
+
+
+def test_amx_cdk_ecr_raw_bypass_sc_product_fires(tmp_path):
+    """v3.6.6 · CDK crea ecr.Repository raw dispara LOW."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_ecr as ecr\n'
+        'repo = ecr.Repository(scope, "MyRepo")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-ECR-RAW-BYPASS-SC-PRODUCT" for f in findings
+    )

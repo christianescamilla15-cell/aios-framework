@@ -1979,3 +1979,206 @@ def test_amx_aspnet_controller_missing_apicontroller_no_fp_mvc_controller(
         f.rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
         for f in findings
     )
+
+
+# ═════════════════════════════════════════════════════════════════════
+# v3.6.4 · Sprint 4 · 5 detectores + npm audit wrap · ~98% → ~99%
+# ═════════════════════════════════════════════════════════════════════
+
+def test_amx_sql_encrypt_disabled_false(tmp_path):
+    """G-14 · SQL Server Encrypt=False dispara HIGH."""
+    (tmp_path / "appsettings.json").write_text(
+        '{\n'
+        '  "ConnectionStrings": {\n'
+        '    "Default": "Data Source=srv;User=x;Password=y;'
+        'Encrypt=False;TrustServerCertificate=False"\n'
+        '  }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
+    )
+
+
+def test_amx_sql_encrypt_disabled_optional_sql2022(tmp_path):
+    """G-14 · SQL Server 2022 client Encrypt=Optional alias también dispara."""
+    (tmp_path / "web.config").write_text(
+        '<connectionStrings>\n'
+        '  <add name="x" connectionString="Data Source=s;'
+        'Encrypt=Optional;User=a" />\n'
+        '</connectionStrings>\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
+    )
+
+
+def test_amx_sql_encrypt_disabled_no_fp_true(tmp_path):
+    """G-14 · FP-safe · Encrypt=True (correcto) no dispara."""
+    (tmp_path / "appsettings.json").write_text(
+        '{\n'
+        '  "Default": "Data Source=s;Encrypt=True;'
+        'TrustServerCertificate=False"\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
+    )
+
+
+def test_amx_frontend_angular_eol_widened_to_v16(tmp_path):
+    """G-15 · Angular 16 ahora dispara (widen v3.6.4 · EOL 2024-11)."""
+    (tmp_path / "package.json").write_text(
+        '{\n'
+        '  "dependencies": {\n'
+        '    "@angular/core": "^16.2.0",\n'
+        '    "@angular/common": "~16.0.1"\n'
+        '  }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    amx = [f for f in findings if f.rule_id == "AMX-FRONTEND-ANGULAR-EOL"]
+    assert len(amx) >= 2
+
+
+def test_amx_frontend_angular_still_no_fp_on_v17(tmp_path):
+    """G-15 · Angular 17 LTS sigue sin disparar post-widen."""
+    (tmp_path / "package.json").write_text(
+        '{\n'
+        '  "dependencies": {\n'
+        '    "@angular/core": "^17.2.0",\n'
+        '    "@angular/common": "~18.0.1"\n'
+        '  }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-FRONTEND-ANGULAR-EOL" for f in findings
+    )
+
+
+def test_amx_cdk_lambda_no_log_retention_fires(tmp_path):
+    """G-16a · Lambda Function sin log_retention dispara."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_lambda as lambda_\n'
+        'class MyStack:\n'
+        '    def build(self, scope):\n'
+        '        lambda_.Function(\n'
+        '            scope, "Handler",\n'
+        '            runtime=lambda_.Runtime.PYTHON_3_12,\n'
+        '            handler="app.handler",\n'
+        '            code=lambda_.Code.from_asset("src"),\n'
+        '        )\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-LAMBDA-NO-LOG-RETENTION" for f in findings
+    )
+
+
+def test_amx_cdk_lambda_no_log_retention_no_fp(tmp_path):
+    """G-16a · Lambda CON log_retention no dispara."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_lambda as lambda_\n'
+        'from aws_cdk import aws_logs as logs\n'
+        'class MyStack:\n'
+        '    def build(self, scope):\n'
+        '        lambda_.Function(\n'
+        '            scope, "Handler",\n'
+        '            runtime=lambda_.Runtime.PYTHON_3_12,\n'
+        '            handler="app.handler",\n'
+        '            code=lambda_.Code.from_asset("src"),\n'
+        '            log_retention=logs.RetentionDays.ONE_MONTH,\n'
+        '        )\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-LAMBDA-NO-LOG-RETENTION" for f in findings
+    )
+
+
+def test_amx_cdk_sg_open_ingress_any_ipv4(tmp_path):
+    """G-16b · SG ingress ec2.Peer.any_ipv4() dispara."""
+    (tmp_path / "sg.py").write_text(
+        'from aws_cdk import aws_ec2 as ec2\n'
+        'sg.add_ingress_rule(\n'
+        '    peer=ec2.Peer.any_ipv4(),\n'
+        '    connection=ec2.Port.tcp(443),\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-SG-OPEN-INGRESS" for f in findings
+    )
+
+
+def test_amx_cdk_sg_open_ingress_cidr_literal(tmp_path):
+    """G-16b · CidrIp literal 0.0.0.0/0 en template también dispara."""
+    (tmp_path / "template.yml").write_text(
+        'Resources:\n'
+        '  WebSG:\n'
+        '    Type: AWS::EC2::SecurityGroup\n'
+        '    Properties:\n'
+        '      SecurityGroupIngress:\n'
+        '        - CidrIp: "0.0.0.0/0"\n'
+        '          FromPort: 80\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-SG-OPEN-INGRESS" for f in findings
+    )
+
+
+def test_amx_cdk_sg_open_ingress_no_fp_private_cidr(tmp_path):
+    """G-16b · FP-safe · CIDR privado 10.0.0.0/16 no dispara."""
+    (tmp_path / "sg.py").write_text(
+        'from aws_cdk import aws_ec2 as ec2\n'
+        'sg.add_ingress_rule(\n'
+        '    peer=ec2.Peer.ipv4("10.0.0.0/16"),\n'
+        '    connection=ec2.Port.tcp(443),\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-SG-OPEN-INGRESS" for f in findings
+    )
+
+
+def test_amx_cdk_rds_no_storage_encryption_fires(tmp_path):
+    """G-16c · RDS DatabaseInstance sin storage_encrypted dispara."""
+    (tmp_path / "db.py").write_text(
+        'from aws_cdk import aws_rds as rds\n'
+        'rds.DatabaseInstance(\n'
+        '    scope, "DB",\n'
+        '    engine=rds.DatabaseInstanceEngine.postgres(\n'
+        '        version=rds.PostgresEngineVersion.VER_15\n'
+        '    ),\n'
+        '    instance_type=ec2.InstanceType.of(\n'
+        '        ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION" for f in findings
+    )
+
+
+def test_amx_cdk_rds_no_storage_encryption_no_fp(tmp_path):
+    """G-16c · RDS CON storage_encrypted=True no dispara."""
+    (tmp_path / "db.py").write_text(
+        'from aws_cdk import aws_rds as rds\n'
+        'rds.DatabaseInstance(\n'
+        '    scope, "DB",\n'
+        '    engine=rds.DatabaseInstanceEngine.postgres(\n'
+        '        version=rds.PostgresEngineVersion.VER_15),\n'
+        '    storage_encrypted=True,\n'
+        '    storage_encryption_key=kms_key,\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION" for f in findings
+    )

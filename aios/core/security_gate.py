@@ -251,6 +251,39 @@ _CATCH_LOG_PATTERNS: re.Pattern = re.compile(
 )
 
 
+def _call_body_has_kwarg(content: str, call_open_paren_idx: int,
+                          kwarg_name: str, max_span: int = 3000) -> bool:
+    """v3.6.4 · True si el call (...) que empieza en `call_open_paren_idx`
+    contiene un kwarg `<kwarg_name>=` en su body (respetando paréntesis
+    balanceados · no afecta parens anidados como `from_asset("x")`).
+
+    Usado para eliminar FPs en detectores CDK que buscan el anti-patrón
+    "llamada a Constructor SIN cierto kwarg". Con regex puro las parens
+    anidadas rompen el match · este helper hace un balanceo real.
+    """
+    if call_open_paren_idx < 0 or call_open_paren_idx >= len(content):
+        return False
+    if content[call_open_paren_idx] != "(":
+        return False
+    depth = 0
+    body_start = call_open_paren_idx + 1
+    body_end = -1
+    end = min(len(content), call_open_paren_idx + max_span)
+    for i in range(call_open_paren_idx, end):
+        ch = content[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                body_end = i
+                break
+    if body_end < 0:
+        return False
+    body = content[body_start:body_end]
+    return bool(re.search(r"\b" + re.escape(kwarg_name) + r"\s*=", body))
+
+
 def _class_has_apicontroller_attr(content: str, class_match_start: int,
                                    max_lookback_lines: int = 8) -> bool:
     """v3.6.3 · True si hay `[ApiController]` en las N líneas previas
@@ -1802,16 +1835,17 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     (
         "CWE-1104",
         re.compile(
-            # Angular core versión EOL · Angular ≤ 15 fuera de soporte
-            # (LTS 2026 = 17+). Pattern acota el value del field
+            # Angular core versión EOL · Angular ≤ 16 fuera de soporte
+            # (LTS 2026-04 = 17+). v3.6.4 · widened de ≤15 a ≤16 · Angular
+            # 16 alcanzó EOL 2024-11. Pattern acota el value del field
             # "@angular/core" para evitar FPs en devDependencies wrappers.
             r"""["']@angular/(?:core|common|compiler|platform-browser)["']"""
             r"""\s*:\s*["'][~^]?(?:"""
-            r"""[0-9]|1[0-5])\.[0-9]+\.[0-9]+(?:-[\w.]+)?["']"""
+            r"""[0-9]|1[0-6])\.[0-9]+\.[0-9]+(?:-[\w.]+)?["']"""
         ),
         "AMX-FRONTEND-ANGULAR-EOL",
         "HIGH",
-        "Angular ≤15 fuera de soporte (LTS 2026 = 17+) · deuda "
+        "Angular ≤16 fuera de soporte (LTS 2026-04 = 17+) · deuda "
         "seguridad + ecosistema · amazon-q-rules frontend package "
         "EOL · CWE-1104 · migrar a Angular 17 LTS",
         _APPSETTINGS,
@@ -1835,6 +1869,95 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "pierde validation automático + ProblemDetails + binding source "
         "inference · amazon-q-rules aspnet-controllers · CWE-710",
         _CS,
+    ),
+
+    # ═════════════════════════════════════════════════════════════════
+    # v3.6.4 · Sprint 4 · 4 detectores gaps menores · scope eTride ~98% → ~99%
+    # (24-abr-2026 · G-14 SQL Encrypt · G-15 Angular widened inline ·
+    #  G-16a Lambda log retention · G-16b SG open ingress ·
+    #  G-16c RDS storage encryption)
+    # Evidencia:
+    #   G-14    · patterns AMX `Encrypt=False` / `Encrypt=Optional` SQL Server
+    #   G-16a   · CDK Lambda sin log_retention default INFINITE (coste + PII)
+    #   G-16b   · CDK SecurityGroup 0.0.0.0/0 ingress (wide open)
+    #   G-16c   · CDK RDS sin storage_encryption (at-rest compliance)
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-319",
+        re.compile(
+            # SQL Server connection string con Encrypt=False o
+            # Encrypt=Optional (alias introducido SQL Server 2022 client).
+            # Ambos deshabilitan TLS obligatorio · MITM posible.
+            # Pattern opera sobre value del connection string · matchea
+            # también variantes con espacios.
+            r"""\bEncrypt\s*=\s*(?:false|optional|no)\b""",
+            re.IGNORECASE,
+        ),
+        "AMX-DOTNET-SQL-ENCRYPT-DISABLED",
+        "HIGH",
+        "Connection string SQL Server con Encrypt=False/Optional/No · "
+        "deshabilita TLS obligatorio · MITM + captura plaintext · "
+        "CWE-319 · usar Encrypt=True (Encrypt=Mandatory SQL 2022+) + "
+        "TrustServerCertificate=False",
+        frozenset({".config", ".json", ".cs", ".vb", ".xml"}),
+    ),
+    (
+        "CWE-778",
+        re.compile(
+            # CDK Lambda Function · primer paso: match la call site
+            # `lambda_.Function(` / `lambda.Function(` / `aws_lambda.Function(`.
+            # La verificación de log_retention= se hace post-match vía
+            # `_call_body_has_kwarg` · respeta parens balanceados (evita FP
+            # con kwargs como code=lambda_.Code.from_asset("x")).
+            r"""\b(?:lambda_?|aws_lambda)\.Function\s*\("""
+        ),
+        "AMX-CDK-LAMBDA-NO-LOG-RETENTION",
+        "MEDIUM",
+        "CDK Lambda Function sin log_retention · default INFINITE · "
+        "coste CloudWatch + PII sin política retención · CWE-778 · "
+        "añadir log_retention=logs.RetentionDays.ONE_MONTH (o política "
+        "acorde amazon-q-rules logging-retention)",
+        frozenset({".py", ".ts"}),
+    ),
+    (
+        "CWE-284",
+        re.compile(
+            # SecurityGroup con ingress 0.0.0.0/0 · open to internet.
+            # Patterns:
+            #   peer=ec2.Peer.any_ipv4()
+            #   peer=ec2.Peer.ipv4("0.0.0.0/0")
+            #   "CidrIp": "0.0.0.0/0" · "cidrIp": "0.0.0.0/0"
+            #   .add_ingress_rule(ec2.Peer.any_ipv4(), ...)
+            r"""(?:"""
+            r"""ec2\.Peer\.any_ipv4\s*\(\s*\)|"""
+            r"""ec2\.Peer\.ipv4\s*\(\s*["']0\.0\.0\.0/0["']\s*\)|"""
+            r"""["']0\.0\.0\.0/0["']"""
+            r""")"""
+        ),
+        "AMX-CDK-SG-OPEN-INGRESS",
+        "HIGH",
+        "Security Group / ingress rule con 0.0.0.0/0 · exposición "
+        "internet total · CWE-284 · restringir a CIDR corporativo "
+        "(AMX bastion / VPN) o ALB con WAF delante · amazon-q-rules "
+        "network-security",
+        frozenset({".py", ".ts", ".json", ".yaml", ".yml"}),
+    ),
+    (
+        "CWE-311",
+        re.compile(
+            # CDK RDS · primer paso: match la call site. La verificación
+            # de storage_encrypted= se hace post-match vía
+            # `_call_body_has_kwarg` · respeta parens balanceados (evita FP
+            # con engine=rds.DatabaseInstanceEngine.postgres(version=...)).
+            r"""\brds\.(?:DatabaseInstance|DatabaseCluster)\s*\("""
+        ),
+        "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION",
+        "HIGH",
+        "CDK RDS DatabaseInstance/Cluster sin storage_encrypted=True · "
+        "data at-rest sin cifrado · viola compliance SOX + PCI + AMX "
+        "baseline · CWE-311 · añadir storage_encrypted=True + "
+        "storage_encryption_key=kms.Alias",
+        frozenset({".py", ".ts"}),
     ),
 ]
 
@@ -1994,6 +2117,16 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
                 if rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER" \
                         and _class_has_apicontroller_attr(scan_content,
                                                            m.start()):
+                    continue
+                # v3.6.4 · skip CDK Lambda con log_retention · parens balanceados
+                if rule_id == "AMX-CDK-LAMBDA-NO-LOG-RETENTION" and \
+                        _call_body_has_kwarg(scan_content, m.end() - 1,
+                                              "log_retention"):
+                    continue
+                # v3.6.4 · skip CDK RDS con storage_encrypted · parens balanceados
+                if rule_id == "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION" and \
+                        _call_body_has_kwarg(scan_content, m.end() - 1,
+                                              "storage_encrypted"):
                     continue
                 _emit_unless_comment(Finding(
                     cwe=cwe, severity=eff_severity, rule_id=rule_id,

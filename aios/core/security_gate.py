@@ -251,6 +251,24 @@ _CATCH_LOG_PATTERNS: re.Pattern = re.compile(
 )
 
 
+def _class_has_apicontroller_attr(content: str, class_match_start: int,
+                                   max_lookback_lines: int = 8) -> bool:
+    """v3.6.3 · True si hay `[ApiController]` en las N líneas previas
+    a la declaración de class (incluyendo attribute stacks separados
+    por blank lines). Evita FPs del detector
+    `AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER` cuando el atributo sí
+    está presente pero 2-4 líneas arriba de la clase.
+    """
+    prefix = content[:class_match_start]
+    lines = prefix.splitlines()
+    window = lines[-max_lookback_lines:] if len(lines) > max_lookback_lines \
+        else lines
+    for line in window:
+        if re.search(r"\[\s*ApiController\s*\]", line):
+            return True
+    return False
+
+
 def _catch_block_has_logging(content: str, catch_match_end: int,
                               max_span: int = 2000) -> bool:
     """v3.5.0 · True si el bloque { ... } que sigue al catch contiene una
@@ -1709,6 +1727,115 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "en ProductStack · pasar valores como argumentos ctor",
         frozenset({".py"}),
     ),
+
+    # ═════════════════════════════════════════════════════════════════
+    # v3.6.3 · Sprint 3 · 5 detectores P2 · cierre alineación AMX
+    # (24-abr-2026 · scope eTride ~92% → ~98%)
+    # Evidencia concreta:
+    #   G-08    · SRG Program.cs:42 `Password.RequiredLength = 1`
+    #   G-NEW-TSC · SRG appsettings.json:4-5 `TrustServerCertificate=True`
+    #   G-NEW-DPAPI · Robot rob_cambio_status/AEP/app.config:15
+    #     `configProtectionProvider="DPAPIProtection"` (no portable EKS)
+    #   G-10    · SRG frontend/package.json `"@angular/core": "^15.0.0"`
+    #   G-NEW-1 · SRG/SICOFAV controllers sin [ApiController] attribute
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-521",
+        re.compile(
+            # AspNet Identity PasswordOptions débil · matchea property
+            # assignments sobre `Password.Xxx` que relajan la política.
+            # Casos: RequiredLength < 8 · RequireNonAlphanumeric=false ·
+            # RequireUppercase=false · RequireLowercase=false ·
+            # RequireDigit=false · RequiredUniqueChars < 4.
+            r"""\bPassword\.(?:"""
+            r"""RequiredLength\s*=\s*[0-7]\b(?!\d)|"""
+            r"""Require(?:NonAlphanumeric|Uppercase|Lowercase|Digit)"""
+            r"""\s*=\s*false|"""
+            r"""RequiredUniqueChars\s*=\s*[0-3]\b(?!\d))"""
+        ),
+        "AMX-ASPNET-IDENTITY-WEAK-PASSWORD",
+        "HIGH",
+        "AspNet Identity PasswordOptions relajada · política débil "
+        "(RequiredLength<8 · Require* desactivado) · viola AMX "
+        "password baseline · CWE-521 · usar 8+ chars con mayúscula + "
+        "dígito + no-alfanumérico",
+        _CS,
+    ),
+    (
+        "CWE-295",
+        re.compile(
+            # TrustServerCertificate=True en connection strings ·
+            # deshabilita validación cert TLS · válido solo en dev local
+            # pero nunca en QA/UAT/PROD.
+            r"""\bTrustServerCertificate\s*=\s*true\b""",
+            re.IGNORECASE,
+        ),
+        "AMX-DOTNET-TRUST-SERVER-CERTIFICATE",
+        "HIGH",
+        "Connection string con TrustServerCertificate=True · "
+        "deshabilita validación cert TLS · MITM posible · "
+        "CWE-295 · usar cert válido firmado CA interna AMX o "
+        "Encrypt=Strict con cert bundle",
+        frozenset({".config", ".json", ".cs", ".vb", ".xml"}),
+    ),
+    (
+        "CWE-1104",
+        re.compile(
+            # configProtectionProvider= con provider Windows-DPAPI.
+            # Providers típicos Windows-only:
+            #   DataProtectionConfigurationProvider (DPAPI current user)
+            #   DPAPIProtection (alias DPAPI custom)
+            #   RsaProtectedConfigurationProvider (requires machine keys)
+            # Todos fallan al desplegar en Linux containers (EKS/Fargate).
+            r"""\bconfigProtectionProvider\s*=\s*["']"""
+            r"""(?:DataProtectionConfigurationProvider|DPAPIProtection|"""
+            r"""RsaProtectedConfigurationProvider)["']""",
+            re.IGNORECASE,
+        ),
+        "AMX-DOTNET-DPAPI-CONFIG-PROVIDER",
+        "HIGH",
+        "configProtectionProvider Windows-only (DPAPI/RSA) · "
+        "NO portable a Linux EKS/Fargate · bloquea Block 8 deploy · "
+        "migrar a AWS Secrets Manager + IRSA · CWE-1104",
+        _NETCFG,
+    ),
+    (
+        "CWE-1104",
+        re.compile(
+            # Angular core versión EOL · Angular ≤ 15 fuera de soporte
+            # (LTS 2026 = 17+). Pattern acota el value del field
+            # "@angular/core" para evitar FPs en devDependencies wrappers.
+            r"""["']@angular/(?:core|common|compiler|platform-browser)["']"""
+            r"""\s*:\s*["'][~^]?(?:"""
+            r"""[0-9]|1[0-5])\.[0-9]+\.[0-9]+(?:-[\w.]+)?["']"""
+        ),
+        "AMX-FRONTEND-ANGULAR-EOL",
+        "HIGH",
+        "Angular ≤15 fuera de soporte (LTS 2026 = 17+) · deuda "
+        "seguridad + ecosistema · amazon-q-rules frontend package "
+        "EOL · CWE-1104 · migrar a Angular 17 LTS",
+        _APPSETTINGS,
+    ),
+    (
+        "CWE-710",
+        re.compile(
+            # Controller class declaration · heurística MVC/ApiController
+            # nombra class `XxxController`. Si la clase hereda
+            # ControllerBase (API) y NO tiene `[ApiController]` en las
+            # 8 líneas previas · flag MEDIUM. La verificación de
+            # `[ApiController]` se hace post-match vía
+            # `_class_has_apicontroller_attr` para evitar false-positives
+            # por lookbehind variable.
+            r"""(?m)^\s*public\s+(?:sealed\s+|abstract\s+|partial\s+)?"""
+            r"""class\s+\w+Controller\s*:\s*ControllerBase\b"""
+        ),
+        "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER",
+        "MEDIUM",
+        "Controller hereda ControllerBase sin atributo [ApiController] · "
+        "pierde validation automático + ProblemDetails + binding source "
+        "inference · amazon-q-rules aspnet-controllers · CWE-710",
+        _CS,
+    ),
 ]
 
 
@@ -1862,6 +1989,12 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
                 if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
                         _catch_block_has_logging(scan_content, m.end()):
                     eff_severity = "LOW"
+                # v3.6.3 · skip ApiController controllers que SÍ tienen
+                # el atributo [ApiController] 1-8 líneas arriba.
+                if rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER" \
+                        and _class_has_apicontroller_attr(scan_content,
+                                                           m.start()):
+                    continue
                 _emit_unless_comment(Finding(
                     cwe=cwe, severity=eff_severity, rule_id=rule_id,
                     file=rel, line=line_no, snippet=snippet,

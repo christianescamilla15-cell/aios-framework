@@ -2444,3 +2444,67 @@ def test_amx_kms_aws_managed_yaml_buildspec_fires(tmp_path):
     assert any(
         f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# v3.7.3 · AMX-SERVICE-PROHIBITED · checklist retro arquitectos 20-abr
+# ═══════════════════════════════════════════════════════════════════
+
+def test_amx_service_prohibited_ecs_cdk_import(tmp_path):
+    """v3.7.3 · CDK import aws_ecs prohibido · usar EKS."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_ecs as ecs\n'
+        'cluster = ecs.Cluster(self, "MyCluster")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+    )
+
+
+def test_amx_service_prohibited_ses_cdk(tmp_path):
+    """v3.7.3 · CDK aws_ses prohibido · usar Relay interno AMX."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_ses as ses\n'
+        'id = ses.EmailIdentity(self, "MyEmail", identity=ses.Identity.email("x@x"))\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+    )
+
+
+def test_amx_service_prohibited_sns_topic(tmp_path):
+    """v3.7.3 · CDK aws_sns Topic prohibido."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_sns as sns\n'
+        'topic = sns.Topic(self, "MyTopic")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+    )
+
+
+def test_amx_service_prohibited_sns_subscriptions_NOT_flagged(tmp_path):
+    """v3.7.3 · aws_sns_subscriptions es módulo helper · NO prohibido como sns directo."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_sns_subscriptions as subs\n'
+        'helper = subs.SqsSubscription(queue)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+    )
+
+
+def test_amx_service_prohibited_eks_allowed(tmp_path):
+    """v3.7.3 · EKS (reemplazo de ECS) NO debe firefly."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_eks as eks\n'
+        'cluster = eks.Cluster(self, "MyCluster")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+    )

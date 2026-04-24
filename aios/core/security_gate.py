@@ -1460,6 +1460,27 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         frozenset({".py", ".ts", ".js", ".json", ".yaml", ".yml", ".tf"}),
     ),
     (
+        # v3.7.3 · checklist arq AMX 20-abr (retro Antonio + Pedro)
+        # Servicios prohibidos: ECS · SES · SNS
+        # Reemplazos: EKS (containers) · Relay interno AMX (correo)
+        "CWE-710",
+        re.compile(
+            r"""from\s+aws_cdk\s+import\s+aws_ecs\b|"""
+            r"""aws_cdk\.aws_ecs\.|"""
+            r"""from\s+aws_cdk\s+import\s+aws_ses\b|"""
+            r"""aws_cdk\.aws_ses\.|"""
+            r"""from\s+aws_cdk\s+import\s+aws_sns\b(?!_subscriptions)|"""
+            r"""ecs\.Cluster\s*\(|"""
+            r"""ses\.EmailIdentity\s*\(|"""
+            r"""sns\.Topic\s*\("""
+        ),
+        "AMX-SERVICE-PROHIBITED",
+        "HIGH",
+        "Uso de servicio AMX-prohibido · ECS (usar EKS Fargate) · SES/SNS "
+        "(usar Relay interno AMX para correo) · retro arquitectos 20-abr-2026",
+        frozenset({".py", ".ts", ".js", ".yaml", ".yml", ".tf"}),
+    ),
+    (
         "CWE-272",
         re.compile(
             r"""iam\.Role\s*\([^)]*role_name\s*=\s*["'](?!amx-r-|AMX-R-)[^"']+["']"""

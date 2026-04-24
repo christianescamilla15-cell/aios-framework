@@ -1610,3 +1610,172 @@ def test_amx_dotnet_predictable_salt_no_fp_random_context(tmp_path):
     assert not any(
         f.rule_id == "AMX-DOTNET-PREDICTABLE-SALT" for f in findings
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# v3.6.1 · Sprint 2 · 6 detectores CDK/ServiceCatalog Block 8 infra
+# ═══════════════════════════════════════════════════════════════════
+
+
+def test_amx_cdk_bootstrap_default_forbidden_hits_plain_cdk(tmp_path):
+    """G-NEW-2 · `cdk bootstrap` sin --template dispara."""
+    (tmp_path / "deploy.sh").write_text(
+        "#!/bin/bash\ncdk bootstrap aws://123456789012/us-east-1\n"
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN" for f in findings
+    )
+
+
+def test_amx_cdk_bootstrap_default_no_fp_with_template(tmp_path):
+    """G-NEW-2 · `cdk bootstrap --template X` NO dispara."""
+    (tmp_path / "deploy.sh").write_text(
+        "#!/bin/bash\ncdk bootstrap "
+        "--template cdk_bootstraping/bootstrap-template.yml "
+        "aws://123456789012/us-east-1\n"
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN" for f in findings
+    )
+
+
+def test_amx_cdk_admin_access_policy_managed_name(tmp_path):
+    """G-NEW-2b · AdministratorAccess en CDK code dispara."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_iam as iam\n'
+        'role.add_managed_policy(\n'
+        '    iam.ManagedPolicy.from_aws_managed_policy_name'
+        '("AdministratorAccess"))\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-ADMIN-ACCESS-POLICY" for f in findings
+    )
+
+
+def test_amx_cdk_admin_access_policy_no_fp_scoped_policy(tmp_path):
+    """G-NEW-2b · Policy scoped `AMX-P-DVPS-*` NO dispara."""
+    (tmp_path / "stack.py").write_text(
+        'role.add_managed_policy(\n'
+        '    iam.ManagedPolicy.from_aws_managed_policy_name'
+        '("AMX-P-DVPS-CDK-TOOLKIT"))\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-ADMIN-ACCESS-POLICY" for f in findings
+    )
+
+
+def test_amx_cdk_fstring_with_token_fires(tmp_path):
+    """G-NEW-5 · f-string con CfnParameter.value_as_string dispara."""
+    (tmp_path / "stack.py").write_text(
+        'bucket_name = f"amx-bucket-{env_param.value_as_string}"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-FSTRING-WITH-TOKEN" for f in findings
+    )
+
+
+def test_amx_cdk_fstring_no_fp_static_string(tmp_path):
+    """G-NEW-5 · f-string sin Token NO dispara."""
+    (tmp_path / "stack.py").write_text(
+        'msg = f"deployed {datetime.now()} OK"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-FSTRING-WITH-TOKEN" for f in findings
+    )
+
+
+def test_amx_cdk_str_concat_token_plus(tmp_path):
+    """G-NEW-5b · param.value_as_string + "..." dispara."""
+    (tmp_path / "stack.py").write_text(
+        'bucket_name = param.value_as_string + "-suffix"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-STR-CONCAT-TOKEN" for f in findings
+    )
+
+
+def test_amx_cdk_str_concat_token_str_call(tmp_path):
+    """G-NEW-5b · str(param.value_as_string) dispara."""
+    (tmp_path / "stack.py").write_text(
+        'x = str(env.value_as_string)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-STR-CONCAT-TOKEN" for f in findings
+    )
+
+
+def test_amx_cdk_str_concat_token_lower_method(tmp_path):
+    """G-NEW-5b · param.value_as_string.lower() dispara."""
+    (tmp_path / "stack.py").write_text(
+        'name = p.value_as_string.lower()\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-CDK-STR-CONCAT-TOKEN" for f in findings
+    )
+
+
+def test_amx_cdk_str_concat_no_fp_fn_join(tmp_path):
+    """G-NEW-5b · Fn.join permitido · NO dispara STR-CONCAT."""
+    (tmp_path / "stack.py").write_text(
+        'name = Fn.join("-", ["amx", env.value_as_string])\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-CDK-STR-CONCAT-TOKEN" for f in findings
+    )
+
+
+def test_amx_sc_productstack_missing_validate_false(tmp_path):
+    """G-NEW-6 · ProductStack sin validate_template=False dispara."""
+    (tmp_path / "product.py").write_text(
+        'from aws_cdk import aws_servicecatalog as servicecatalog\n'
+        'class MyProduct(servicecatalog.ProductStack):\n'
+        '    def __init__(self, scope, id, **kwargs):\n'
+        '        super().__init__(scope, id, **kwargs)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE"
+        for f in findings
+    )
+
+
+def test_amx_sc_productstack_with_validate_false_no_fp(tmp_path):
+    """G-NEW-6 · ProductStack con validate_template=False NO dispara."""
+    (tmp_path / "product.py").write_text(
+        'from aws_cdk import aws_servicecatalog as servicecatalog\n'
+        'class MyProduct(servicecatalog.ProductStack):\n'
+        '    def __init__(self, scope, id, **kwargs):\n'
+        '        super().__init__(scope, id, '
+        'validate_template=False, **kwargs)\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE"
+        for f in findings
+    )
+
+
+def test_amx_sc_construct_with_cfn_parameter_fires(tmp_path):
+    """G-NEW-6b · CfnParameter en capa L3 Construct dispara."""
+    (tmp_path / "l3.py").write_text(
+        'from aws_cdk import Construct, CfnParameter\n'
+        'class MyService(Construct):\n'
+        '    def __init__(self, scope, id, **kwargs):\n'
+        '        super().__init__(scope, id, **kwargs)\n'
+        '        p = CfnParameter(self, "Bad", type="String")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-SC-CONSTRUCT-WITH-CFN-PARAMETER"
+        for f in findings
+    )

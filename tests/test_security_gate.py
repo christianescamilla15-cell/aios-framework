@@ -2377,3 +2377,70 @@ def test_amx_cdk_ecr_raw_bypass_sc_product_fires(tmp_path):
     assert any(
         f.rule_id == "AMX-CDK-ECR-RAW-BYPASS-SC-PRODUCT" for f in findings
     )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# v3.7.2 · G-NEW-KMS-AWS-MANAGED · regla AMX kms-aws-managed-keys-prohibition.md
+# ═══════════════════════════════════════════════════════════════════
+
+def test_amx_kms_aws_managed_alias_fires_cdk_python(tmp_path):
+    """G-NEW-KMS · CDK Python usa alias/aws/s3 (AWS-managed) · debe detectar."""
+    (tmp_path / "stack.py").write_text(
+        'from aws_cdk import aws_kms as kms\n'
+        'key = kms.Alias.from_alias_name(self, "MyKey", "alias/aws/s3")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+    )
+
+
+def test_amx_kms_aws_managed_key_id_parameter_fires(tmp_path):
+    """G-NEW-KMS · key_id="alias/aws/secretsmanager" · parameter pattern."""
+    (tmp_path / "config.py").write_text(
+        'secret = secretsmanager.Secret(\n'
+        '    scope, "MySecret",\n'
+        '    encryption_key=key_id = "alias/aws/secretsmanager"\n'
+        ')\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+    )
+
+
+def test_amx_kms_acm_alias_not_flagged(tmp_path):
+    """G-NEW-KMS · alias/aws/acm está explícitamente excluido de la regla."""
+    (tmp_path / "cert.py").write_text(
+        'acm_key = kms.Alias.from_alias_name(self, "ACM", "alias/aws/acm")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+    )
+
+
+def test_amx_kms_customer_managed_not_flagged(tmp_path):
+    """G-NEW-KMS · customer-managed (alias propio) NO debe firefly."""
+    (tmp_path / "stack.py").write_text(
+        'key = kms.Alias.from_alias_name(self, "SicofavKey", "alias/amx-kms-sicofav-secrets")\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+    )
+
+
+def test_amx_kms_aws_managed_yaml_buildspec_fires(tmp_path):
+    """G-NEW-KMS · buildspec YAML con alias/aws/* · debe detectar."""
+    (tmp_path / "buildspec.yml").write_text(
+        'env:\n'
+        '  secrets-manager:\n'
+        '    FOO: "arn:aws:secretsmanager:us-east-1:123:secret:foo"\n'
+        '  variables:\n'
+        '    KMS_KEY: "alias/aws/lambda"\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+    )

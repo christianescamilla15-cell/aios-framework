@@ -1444,6 +1444,22 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         frozenset({".py"}),
     ),
     (
+        # v3.7.2 · regla AMX kms-aws-managed-keys-prohibition.md confirmada en
+        # investigación BO-AMX/CS-IaC-Template/.amazonq/rules/ (24-abr)
+        # Uso de aws-managed KMS (alias/aws/*) · customer-managed only except ACM
+        "CWE-1277",
+        re.compile(
+            r"""alias/aws/(?!acm\b)[a-z0-9\-]+|"""
+            r"""kms\.Alias\.from_alias_name\s*\([^)]*["']alias/aws/(?!acm\b)[^"']+["']|"""
+            r"""key_id\s*=\s*["']alias/aws/(?!acm\b)[^"']+["']"""
+        ),
+        "AMX-KMS-AWS-MANAGED-PROHIBITED",
+        "HIGH",
+        "Uso de AWS-managed KMS (alias/aws/*) prohibido por regla AMX · customer-managed "
+        "only excepto ACM · ver BO-AMX/CS-IaC-Template/.amazonq/rules/kms-aws-managed-keys-prohibition.md",
+        frozenset({".py", ".ts", ".js", ".json", ".yaml", ".yml", ".tf"}),
+    ),
+    (
         "CWE-272",
         re.compile(
             r"""iam\.Role\s*\([^)]*role_name\s*=\s*["'](?!amx-r-|AMX-R-)[^"']+["']"""

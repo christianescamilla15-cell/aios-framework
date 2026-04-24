@@ -1539,6 +1539,62 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "CWE-1104",
         frozenset({".py", ".ts", ".js"}),
     ),
+    # ═════════════════════════════════════════════════════════════════
+    # v3.6.0 · P0 gaps para scope eTride (24-abr-2026)
+    # G-11 · master password hardcoded used for decryption
+    # G-NEW-1 · api-standars.md OpenAPI 3.0 + camelCase
+    # (G-06 coverage gate se implementa como subcomando CLI separado)
+    # Evidencia: SIC-NEW-01 M14t3ch@01 en SICOFAV/Decrypt/cDecrypt.cs:14
+    # no detectado por AIOS v3.5.1 "Hardcoded credentials (0)" falso
+    # negativo · cross-check 23-abr tarde user-driven.
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-798",
+        re.compile(
+            # Master password/key hardcoded en .cs · usado por módulos
+            # Decrypt custom que cifran connection strings. Patron:
+            #   static (readonly)? string (password|masterKey|...) = "...";
+            # Evidencia SIC-NEW-01: 'M14t3ch@01' en Decrypt/cDecrypt.cs.
+            # Min 4 chars en valor (evita FP con string vacío "" o "x").
+            # IGNORECASE para capturar camelCase · PascalCase · snake_case.
+            r"""\bstatic\s+(?:readonly\s+)?string\s+"""
+            r"""(?:password|passwd|pwd|master[_]?key|encryption[_]?key|"""
+            r"""secret[_]?key|api[_]?key|aes[_]?key|passphrase|"""
+            r"""decrypt[_]?key|crypto[_]?key)"""
+            r"""\s*=\s*["'][^"'\s]{4,}["']\s*;""",
+            re.IGNORECASE,
+        ),
+        "AMX-DOTNET-HARDCODED-DECRYPT-KEY",
+        "CRITICAL",
+        "Master password/key hardcoded en .cs · típicamente usado por "
+        "módulo Decrypt custom para descifrar connection strings · "
+        "invalida mitigación 'credenciales encriptadas' · migrar a "
+        "AWS Secrets Manager · CWE-798 + CWE-321",
+        _CS,
+    ),
+    (
+        "CWE-760",
+        re.compile(
+            # Salt predecible en arrays byte[] · usado con
+            # Rfc2898DeriveBytes/PasswordDeriveBytes.
+            # Patterns: {1,2,3,4,5,6,7,8} · {0,0,0,0,...} · new byte[8]
+            # Requiere contexto ("salt" en nombre de variable) para FP-safe.
+            r"""\b(?:salt|saltBytes|saltArray)\b[^=]{0,50}=\s*"""
+            r"""new\s+byte\s*\[\s*\]\s*\{\s*(?:0x[0-9A-Fa-f]+|\d+)"""
+            r"""\s*(?:,\s*(?:0x[0-9A-Fa-f]+|\d+)\s*){2,31}\}"""
+        ),
+        "AMX-DOTNET-PREDICTABLE-SALT",
+        "HIGH",
+        "Salt predecible (byte[] literal con secuencia lineal o "
+        "zeros) usado para derivación de clave · debe ser aleatorio "
+        "per-secret y almacenado con el ciphertext · CWE-760",
+        _CS,
+    ),
+    # G-NEW-1 · ApiController attribute check · deferred to v3.6.1 ·
+    # requiere function-based post-processor con lookback context
+    # (regex lineal produce FP porque [ApiController] suele estar 1-3
+    # líneas arriba de la declaración class · difícil con regex simple).
+    # Tracking: AIOS_GAPS_FROM_BLOCK1.md G-NEW-1 deferred.
 ]
 
 

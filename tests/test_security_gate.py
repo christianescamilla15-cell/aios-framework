@@ -1523,3 +1523,90 @@ def test_sql_fstring_still_fires_with_keyword(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(f.rule_id == "STATIC-SQL-FSTRING" for f in findings)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# v3.6.0 · AMX-alignment P0 gaps · tests
+# ═══════════════════════════════════════════════════════════════════
+
+
+def test_amx_dotnet_hardcoded_decrypt_key_sicofav_pattern(tmp_path):
+    """G-11 · evidencia real SIC-NEW-01 · SICOFAV Decrypt/cDecrypt.cs:14
+    no detectado por v3.5.1 ('Hardcoded credentials (0)' falso negativo).
+    """
+    (tmp_path / "cDecrypt.cs").write_text(
+        'namespace Decrypt\n'
+        '{\n'
+        '   public class cDecrypt\n'
+        '   {\n'
+        '      static readonly string password = "M14t3ch@01";\n'
+        '      public string Decrypt(string encryptedText) {}\n'
+        '   }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-HARDCODED-DECRYPT-KEY" for f in findings
+    )
+
+
+def test_amx_dotnet_hardcoded_decrypt_key_variants(tmp_path):
+    """G-11 · variantes naming · masterKey · encryptionKey · apiKey."""
+    (tmp_path / "Crypto.cs").write_text(
+        'static string masterKey = "AbCdEf123456";\n'
+        'static readonly string encryptionKey = "K3yV4lu3";\n'
+        'static readonly string apiKey = "sk-live-XXXXXXXX";\n'
+    )
+    findings = scan_directory(tmp_path)
+    amx = [f for f in findings if f.rule_id == "AMX-DOTNET-HARDCODED-DECRYPT-KEY"]
+    assert len(amx) >= 3
+
+
+def test_amx_dotnet_hardcoded_decrypt_key_no_fp_empty_string(tmp_path):
+    """G-11 · FP-safe · string vacío o muy corto no debe disparar."""
+    (tmp_path / "Clean.cs").write_text(
+        'static readonly string password = "";\n'
+        'static readonly string pwd = "x";\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AMX-DOTNET-HARDCODED-DECRYPT-KEY" for f in findings
+    )
+
+
+def test_amx_dotnet_predictable_salt_linear(tmp_path):
+    """G-12 · evidencia real SIC-NEW-02 · salt 1..8 en Decrypt/cDecrypt.cs."""
+    (tmp_path / "Crypto.cs").write_text(
+        'public class Crypto\n'
+        '{\n'
+        '   private static byte[] saltBytes = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-PREDICTABLE-SALT" for f in findings
+    )
+
+
+def test_amx_dotnet_predictable_salt_zeros(tmp_path):
+    """G-12 · salt todos ceros · antipatrón común."""
+    (tmp_path / "Crypto.cs").write_text(
+        'var salt = new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 };\n'
+    )
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AMX-DOTNET-PREDICTABLE-SALT" for f in findings
+    )
+
+
+def test_amx_dotnet_predictable_salt_no_fp_random_context(tmp_path):
+    """G-12 · FP-safe · byte array que NO es salt (ej. cmd buffer) no dispara."""
+    (tmp_path / "Buffer.cs").write_text(
+        'var commandBuffer = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };\n'
+        'var packet = new byte[] { 0xFF, 0x00, 0xAA };\n'
+    )
+    findings = scan_directory(tmp_path)
+    # Solo dispara con nombre de variable salt/saltBytes/saltArray
+    assert not any(
+        f.rule_id == "AMX-DOTNET-PREDICTABLE-SALT" for f in findings
+    )

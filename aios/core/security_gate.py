@@ -1959,6 +1959,138 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "storage_encryption_key=kms.Alias",
         frozenset({".py", ".ts"}),
     ),
+
+    # ═════════════════════════════════════════════════════════════════
+    # v3.6.5 · Sprint 5 · 3 detectores Block 8 app-level + 4 CLI wraps
+    # (24-abr-2026 · G-21a ALB-WAF · G-21b CloudFront-OAC ·
+    #  G-21c S3-PublicAccessBlock) · G-18/19/20/22 son módulos separados
+    # (semgrep_scan · trivy_scan · checkov_scan · sbom).
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-693",
+        re.compile(
+            # ApplicationLoadBalancer sin WAF attached. Heurística:
+            # match el constructor, post-check `web_acl_association` o
+            # `WebACLAssociation` en la file completa (WAF se adjunta
+            # típicamente en linea separada post-ALB creation).
+            r"""\belbv2\.ApplicationLoadBalancer\s*\("""
+        ),
+        "AMX-CDK-ALB-WITHOUT-WAF",
+        "MEDIUM",
+        "ApplicationLoadBalancer sin WAF WebACLAssociation · superficie "
+        "expuesta sin layer-7 protection · CWE-693 · asociar "
+        "wafv2.CfnWebACLAssociation(...) con policy AMX-P-WAF-baseline",
+        frozenset({".py", ".ts"}),
+    ),
+    (
+        "CWE-287",
+        re.compile(
+            # CloudFront Distribution con OriginAccessIdentity (OAI) ·
+            # AWS deprecó OAI en favor de OriginAccessControl (OAC) en
+            # 2022 · amazon-q-rules requiere OAC para nuevos buckets.
+            # (detector AMX-CLOUDFRONT-OAI-DEPRECATED ya existe en v3.5
+            # · este refuerza en CDK app-level sin cfn_ prefix).
+            r"""\bOriginAccessIdentity\s*\("""
+        ),
+        "AMX-CDK-CLOUDFRONT-NO-OAC",
+        "MEDIUM",
+        "CloudFront usa OriginAccessIdentity (OAI) deprecated · "
+        "amazon-q-rules requiere OriginAccessControl (OAC) · "
+        "CWE-287 · migrar a cloudfront.S3OriginAccessControl + "
+        "add_behavior con cloudfront_origin_access_control",
+        frozenset({".py", ".ts"}),
+    ),
+    (
+        "CWE-284",
+        re.compile(
+            # S3 Bucket sin block_public_access · default CDK es
+            # BlockPublicAccess.BLOCK_ALL en algunas versiones pero NO
+            # en todas · explícito requerido. Heurística: match
+            # s3.Bucket( y post-check `block_public_access=` vía
+            # `_call_body_has_kwarg`.
+            r"""\bs3\.Bucket\s*\("""
+        ),
+        "AMX-CDK-S3-NO-PUBLIC-ACCESS-BLOCK",
+        "HIGH",
+        "S3 Bucket sin block_public_access explícito · potencial "
+        "exposición pública · CWE-284 · añadir "
+        "block_public_access=s3.BlockPublicAccess.BLOCK_ALL + "
+        "enforce_ssl=True",
+        frozenset({".py", ".ts"}),
+    ),
+
+    # ═════════════════════════════════════════════════════════════════
+    # v3.6.6 · Sprint 6 · 3 detectores enforcement · conformidad AMX
+    # (24-abr-2026) · valida que usamos patterns AMX canónicos vs
+    # reinventar. Evidencia base: dyn-devops-service-catalog + 20+
+    # buildspecs analizados en _analogos/.
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-1188",
+        re.compile(
+            # buildspec.yaml con sección `env:` pero sin TZ America/Mexico_City
+            # explícito. Pattern de enforcement para uniformar timezone
+            # en todos los pipelines AMX (estándar en Miaeromexico_EKS_CICD ·
+            # RevAcc_Praxis_ASIS_CI/CD · todos los *_IaC_CICD).
+            # Match heurístico: `env:` + `variables:` sin `TZ:` "America/Mexico_City".
+            r"""(?s)\benv\s*:[^\n]*\n(?:[ \t]+[^\n]*\n){0,20}?"""
+            r"""[ \t]+variables\s*:(?:(?!America/Mexico_City)[\s\S]){0,400}?"""
+            r"""(?:phases\s*:|$)"""
+        ),
+        "AMX-CICD-BUILDSPEC-MISSING-TZ",
+        "LOW",
+        "buildspec.yaml con env.variables SIN TZ: 'America/Mexico_City' · "
+        "estándar AMX · genera logs con hora inconsistente · añadir "
+        "TZ: America/Mexico_City bajo env.variables · CWE-1188",
+        frozenset({".yaml", ".yml"}),
+    ),
+    (
+        "CWE-1104",
+        re.compile(
+            # runtime-versions.python con versión != 3.12 · estándar AMX
+            # consolidado en todos los buildspecs analizados. Detecta
+            # explícitamente: python: 3.9 / 3.10 / 3.11 / 3.13
+            r"""\bruntime-versions\s*:[^\n]*\n(?:[ \t]+[^\n]*\n){0,3}?"""
+            r"""[ \t]+python\s*:\s*["']?(?:3\.(?:[0-9]|1[013])|2\.\d)["']?(?:\s|$)"""
+        ),
+        "AMX-CICD-BUILDSPEC-PYTHON-NOT-3-12",
+        "LOW",
+        "buildspec runtime-versions.python != 3.12 · estándar AMX "
+        "consolidado en todos los pipelines · CWE-1104 · actualizar "
+        "a python: 3.12",
+        frozenset({".yaml", ".yml"}),
+    ),
+    (
+        "CWE-1357",
+        re.compile(
+            # CDK stack que crea EKS Cluster raw · cuando existe
+            # dyn-devops-service-catalog `eks_cluster_product.py` aprobado.
+            # Flag como sugerencia de refactor · NO CRITICAL. Match:
+            #   aws_eks.Cluster(  ·  eks.Cluster(
+            # acompañado de contexto de CDK stack (import `aws_cdk`).
+            r"""(?:\baws_eks|\beks)\.Cluster\s*\("""
+        ),
+        "AMX-CDK-EKS-RAW-BYPASS-SC-PRODUCT",
+        "MEDIUM",
+        "CDK crea EKS Cluster raw · existe producto Service Catalog "
+        "`eks_cluster_product` en dyn-devops-service-catalog · "
+        "reutilizar Service Catalog product para compliance + "
+        "governance uniforme · CWE-1357",
+        frozenset({".py", ".ts"}),
+    ),
+    (
+        "CWE-1357",
+        re.compile(
+            # Idem para ECR: existe `ecr_product.py` aprobado
+            r"""(?:\baws_ecr|\becr)\.Repository\s*\("""
+        ),
+        "AMX-CDK-ECR-RAW-BYPASS-SC-PRODUCT",
+        "LOW",
+        "CDK crea ECR Repository raw · existe producto Service Catalog "
+        "`ecr_product` · reutilizar para compliance (scan on push + "
+        "lifecycle policy consistente)",
+        frozenset({".py", ".ts"}),
+    ),
 ]
 
 
@@ -2127,6 +2259,16 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
                 if rule_id == "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION" and \
                         _call_body_has_kwarg(scan_content, m.end() - 1,
                                               "storage_encrypted"):
+                    continue
+                # v3.6.5 · skip ALB si WAF WebACLAssociation existe en el archivo
+                if rule_id == "AMX-CDK-ALB-WITHOUT-WAF" and \
+                        re.search(r"\b(?:wafv2\.CfnWebACLAssociation|"
+                                  r"WebACLAssociation)\b", scan_content):
+                    continue
+                # v3.6.5 · skip S3 Bucket con block_public_access explícito
+                if rule_id == "AMX-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" and \
+                        _call_body_has_kwarg(scan_content, m.end() - 1,
+                                              "block_public_access"):
                     continue
                 _emit_unless_comment(Finding(
                     cwe=cwe, severity=eff_severity, rule_id=rule_id,

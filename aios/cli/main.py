@@ -1567,6 +1567,69 @@ def main():
     p.add_argument("--pdf", action="store_true",
                    help="Genera también PDF con weasyprint")
 
+    # v3.6.6 · AMX Knowledge Base · catalog + analog advisor
+    p = sub.add_parser("amx-catalog",
+                       help="AMX knowledge base · browse BO-AMX repos + SC products")
+    p.add_argument("action", choices=["list", "search", "show",
+                                       "sc-products", "mapping"],
+                   help="list | search <q> | show <repo> | sc-products [cat] | mapping <app>")
+    p.add_argument("query", nargs="?", default="",
+                   help="query para search / name para show / category para sc-products / aplicativo para mapping")
+    p.add_argument("--purpose", help="Filter por purpose (app|template|pipeline|sc-product|...)")
+    p.add_argument("--language", help="Filter por lenguaje (C#|Python|VB.NET|Shell|...)")
+    p.add_argument("--aplicativo",
+                   help="Filter por aplicativo (SICOFAV|SRG|Robot|NoShow|CFDIs|ARC|BSP|ASR)")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    p = sub.add_parser("amx-analog",
+                       help="Fingerprint repo actual · sugiere análogos BO-AMX")
+    p.add_argument("--root", default=".", help="Path del repo a fingerprint")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v3.6.5 · G-18 · Semgrep SAST wrap
+    p = sub.add_parser("semgrep-scan",
+                       help="Semgrep SAST wrap · pattern-based vuln detector")
+    p.add_argument("--root", default=".")
+    p.add_argument("--config", default="p/ci",
+                   help="Ruleset: p/ci | auto | path/to/rules · default p/ci")
+    p.add_argument("--fail-on", choices=["low", "medium", "high", "critical"],
+                   default=None)
+    p.add_argument("--timeout", type=int, default=300)
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v3.6.5 · G-19 · Trivy container/fs scan wrap
+    p = sub.add_parser("trivy-scan",
+                       help="Trivy CVE wrap · Docker image o filesystem")
+    p.add_argument("--image",
+                   help="Imagen Docker/OCI a escanear (p.ej. nginx:1.21)")
+    p.add_argument("--source",
+                   help="Path local a escanear (filesystem · lockfiles)")
+    p.add_argument("--fail-on", choices=["low", "medium", "high", "critical"],
+                   default=None)
+    p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v3.6.5 · G-20 · Checkov IaC scan wrap
+    p = sub.add_parser("iac-scan",
+                       help="Checkov IaC wrap · Terraform/CFN/K8s/CDK misconfig")
+    p.add_argument("--root", default=".")
+    p.add_argument("--framework", default="all",
+                   help="terraform | cloudformation | kubernetes | cdk | all")
+    p.add_argument("--fail-on", choices=["low", "medium", "high", "critical"],
+                   default=None)
+    p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
+    # v3.6.5 · G-22 · SBOM (CycloneDX) generation
+    p = sub.add_parser("sbom",
+                       help="SBOM CycloneDX wrap · Python o Node deps")
+    p.add_argument("--root", default=".")
+    p.add_argument("--lang", choices=["python", "node"], default="python")
+    p.add_argument("--output", default=None,
+                   help="Path JSON output · default stdout (con --format json)")
+    p.add_argument("--timeout", type=int, default=300)
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # v3.6.4 · G-17 · npm audit supply-chain wrap
     p = sub.add_parser("npm-audit",
                        help="npm audit wrap · supply-chain vuln gate para frontend")
@@ -1643,6 +1706,14 @@ def main():
         "coverage": cmd_coverage,
         # v3.6.4 · G-17 npm audit supply-chain wrap
         "npm-audit": cmd_npm_audit,
+        # v3.6.5 · G-18/19/20/22 · SAST / container / IaC / SBOM wraps
+        "semgrep-scan": cmd_semgrep_scan,
+        "trivy-scan": cmd_trivy_scan,
+        "iac-scan": cmd_iac_scan,
+        "sbom": cmd_sbom,
+        # v3.6.6 · AMX Knowledge Base · catalog + analog advisor
+        "amx-catalog": cmd_amx_catalog,
+        "amx-analog": cmd_amx_analog,
     }
 
     if args.command in commands:
@@ -1776,6 +1847,278 @@ def cmd_npm_audit(args):
         print(format_human(report))
 
     sys.exit(0 if report.passed else 1)
+
+
+def cmd_semgrep_scan(args):
+    """v3.6.5 · G-18 · Semgrep SAST gate."""
+    import sys
+    from aios.core.semgrep_scan import (
+        run_semgrep, parse_semgrep_output, apply_gate,
+        format_human, format_json,
+    )
+
+    root = Path(args.root).resolve()
+    data = run_semgrep(root, config=args.config,
+                       timeout_seconds=args.timeout)
+    report = parse_semgrep_output(data, root=str(root))
+    report = apply_gate(report, args.fail_on)
+
+    if args.format == "json":
+        print(format_json(report))
+    else:
+        print(format_human(report))
+
+    sys.exit(0 if report.passed else 1)
+
+
+def cmd_trivy_scan(args):
+    """v3.6.5 · G-19 · Trivy CVE gate · image o filesystem."""
+    import sys
+    from aios.core.trivy_scan import (
+        run_trivy, parse_trivy_output, apply_gate,
+        format_human, format_json,
+    )
+
+    if not args.image and not args.source:
+        print("\n  ERROR: requerido --image <tag> o --source <path>\n")
+        sys.exit(2)
+    if args.image and args.source:
+        print("\n  ERROR: --image y --source son mutuamente exclusivos\n")
+        sys.exit(2)
+
+    target = args.image or args.source
+    scan_type = "image" if args.image else "fs"
+
+    data = run_trivy(target, scan_type=scan_type,
+                     timeout_seconds=args.timeout)
+    report = parse_trivy_output(data, target=target, scan_type=scan_type)
+    report = apply_gate(report, args.fail_on)
+
+    if args.format == "json":
+        print(format_json(report))
+    else:
+        print(format_human(report))
+
+    sys.exit(0 if report.passed else 1)
+
+
+def cmd_iac_scan(args):
+    """v3.6.5 · G-20 · Checkov IaC misconfig gate."""
+    import sys
+    from aios.core.checkov_scan import (
+        run_checkov, parse_checkov_output, apply_gate,
+        format_human, format_json,
+    )
+
+    root = Path(args.root).resolve()
+    data = run_checkov(root, framework=args.framework,
+                       timeout_seconds=args.timeout)
+    report = parse_checkov_output(data, root=str(root),
+                                   framework=args.framework)
+    report = apply_gate(report, args.fail_on)
+
+    if args.format == "json":
+        print(format_json(report))
+    else:
+        print(format_human(report))
+
+    sys.exit(0 if report.passed else 1)
+
+
+def cmd_sbom(args):
+    """v3.6.5 · G-22 · SBOM CycloneDX generation."""
+    import sys
+    from aios.core.sbom import (
+        run_sbom_python, run_sbom_node, parse_cyclonedx_bom,
+        write_sbom, format_human, format_json,
+    )
+
+    root = Path(args.root).resolve()
+    if args.lang == "python":
+        data = run_sbom_python(root, timeout_seconds=args.timeout)
+    else:
+        data = run_sbom_node(root, timeout_seconds=args.timeout)
+
+    report = parse_cyclonedx_bom(data, root=str(root), lang=args.lang)
+
+    if args.output and report.scanner_available and not report.error:
+        report = write_sbom(report, Path(args.output))
+
+    if args.format == "json":
+        print(format_json(report))
+    else:
+        print(format_human(report))
+
+    # SBOM no tiene gate · exit 0 si generó · 1 si CLI faltante/error
+    sys.exit(0 if (report.scanner_available and not report.error) else 1)
+
+
+def cmd_amx_catalog(args):
+    """v3.6.6 · AMX Knowledge Base · browse BO-AMX catalog."""
+    import json
+    import sys
+    from aios.core import amx_catalog as cat
+
+    def _repo_row(r: "cat.AmxRepo") -> str:
+        lang = r.language or "-"
+        local = " [LOCAL]" if r.local_path else ""
+        return f"  · {r.name:<45} {lang:<12} {r.purpose:<15}{local}"
+
+    def _ser_repo(r: "cat.AmxRepo") -> dict:
+        return {
+            "name": r.name, "language": r.language, "purpose": r.purpose,
+            "description": r.description, "size_kb": r.size_kb,
+            "applies_to_aplicativos": list(r.applies_to_aplicativos),
+            "local_path": r.local_path,
+        }
+
+    if args.action == "list":
+        repos = cat.list_repos(purpose=args.purpose, language=args.language,
+                                aplicativo=args.aplicativo)
+        if args.format == "json":
+            print(json.dumps([_ser_repo(r) for r in repos], indent=2,
+                             ensure_ascii=False))
+        else:
+            print(f"\n  AMX Catalog · {len(repos)} repos "
+                  f"(refreshed {cat.CATALOG_LAST_REFRESHED})")
+            print("  " + "-" * 72)
+            for r in repos:
+                print(_repo_row(r))
+            print()
+
+    elif args.action == "search":
+        if not args.query:
+            print("\n  ERROR: search requiere un query\n")
+            sys.exit(2)
+        repos = cat.search_repos(args.query)
+        if args.format == "json":
+            print(json.dumps([_ser_repo(r) for r in repos], indent=2,
+                             ensure_ascii=False))
+        else:
+            print(f"\n  Search '{args.query}' · {len(repos)} matches")
+            print("  " + "-" * 72)
+            for r in repos:
+                print(_repo_row(r))
+                print(f"      {r.description}")
+            print()
+
+    elif args.action == "show":
+        if not args.query:
+            print("\n  ERROR: show requiere nombre del repo\n")
+            sys.exit(2)
+        r = cat.get_repo(args.query)
+        if r is None:
+            print(f"\n  ERROR: repo '{args.query}' no encontrado\n")
+            sys.exit(2)
+        if args.format == "json":
+            print(json.dumps(_ser_repo(r), indent=2, ensure_ascii=False))
+        else:
+            print(f"\n  {r.name}")
+            print("  " + "-" * 72)
+            print(f"  Lang        : {r.language or '-'}")
+            print(f"  Purpose     : {r.purpose}")
+            print(f"  Size        : {r.size_kb} KB")
+            print(f"  Description : {r.description}")
+            print(f"  Aplica a    : {', '.join(r.applies_to_aplicativos) or '-'}")
+            print(f"  Local path  : {r.local_path or '(no clonado)'}")
+            print()
+
+    elif args.action == "sc-products":
+        category = args.query or None
+        products = cat.list_sc_products(category)
+        if args.format == "json":
+            print(json.dumps([{"name": p.name, "category": p.category,
+                                "description": p.description,
+                                "use_for": list(p.use_for)}
+                               for p in products], indent=2, ensure_ascii=False))
+        else:
+            print(f"\n  Service Catalog products · {len(products)} "
+                  f"(dyn-devops-service-catalog)")
+            print("  " + "-" * 72)
+            for p in products:
+                print(f"  · [{p.category}] {p.name}")
+                print(f"      {p.description}")
+                if p.use_for:
+                    print(f"      use for: {', '.join(p.use_for)}")
+            print()
+
+    elif args.action == "mapping":
+        if not args.query:
+            print("\n  ERROR: mapping requiere aplicativo (SICOFAV|SRG|...)\n")
+            sys.exit(2)
+        m = cat.get_aplicativo_mapping(args.query)
+        if m is None:
+            print(f"\n  ERROR: aplicativo '{args.query}' no encontrado\n")
+            sys.exit(2)
+        if args.format == "json":
+            print(json.dumps({
+                "aplicativo": m.aplicativo,
+                "stack_actual": m.stack_actual,
+                "stack_target": m.stack_target,
+                "best_analogs": list(m.best_analogs),
+                "sc_products_recommended": list(m.sc_products_recommended),
+                "gaps": list(m.gaps),
+            }, indent=2, ensure_ascii=False))
+        else:
+            print(f"\n  Mapping · {m.aplicativo}")
+            print("  " + "-" * 72)
+            print(f"  Stack actual : {m.stack_actual}")
+            print(f"  Stack target : {m.stack_target}")
+            print(f"  Best analogs ({len(m.best_analogs)}):")
+            for a in m.best_analogs:
+                print(f"    · {a}")
+            print(f"  SC products  ({len(m.sc_products_recommended)}):")
+            for p in m.sc_products_recommended:
+                print(f"    · {p}")
+            if m.gaps:
+                print(f"  Gaps:")
+                for g in m.gaps:
+                    print(f"    ⚠ {g}")
+            print()
+
+
+def cmd_amx_analog(args):
+    """v3.6.6 · Fingerprint repo actual · sugiere análogos."""
+    import json
+    import sys
+    from aios.core import amx_catalog as cat
+
+    root = Path(args.root).resolve()
+    fp = cat.fingerprint_repo(root)
+
+    if "error" in fp:
+        print(f"\n  ERROR: {fp['error']}\n")
+        sys.exit(2)
+
+    analogs = cat.suggest_analogs(fp)
+
+    if args.format == "json":
+        out = {
+            "fingerprint": fp,
+            "analogs": [{
+                "name": r.name, "language": r.language,
+                "purpose": r.purpose, "description": r.description,
+                "local_path": r.local_path,
+            } for r in analogs],
+        }
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+    else:
+        print(f"\n  AMX Analog Advisor · {root}")
+        print("  " + "-" * 72)
+        print(f"  Languages    : {', '.join(fp['languages']) or '-'}")
+        print(f"  Frameworks   : {', '.join(fp['frameworks']) or '-'}")
+        print(f"  Signals      : {', '.join(fp['signals']) or '-'}")
+        print()
+        if analogs:
+            print(f"  Top {len(analogs)} análogos BO-AMX (ordenados por score):")
+            for r in analogs:
+                local = " [LOCAL]" if r.local_path else ""
+                print(f"    · {r.name} ({r.language or '-'}) · "
+                      f"{r.purpose}{local}")
+                print(f"        {r.description}")
+        else:
+            print("  Sin análogos claros · considera CS-App-Template como base")
+        print()
 
 
 def cmd_phase1_report(args):

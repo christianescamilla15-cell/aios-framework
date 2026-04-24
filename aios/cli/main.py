@@ -1567,6 +1567,19 @@ def main():
     p.add_argument("--pdf", action="store_true",
                    help="Genera también PDF con weasyprint")
 
+    # v3.7.0 · Discovery 9 docs generator · auto-crea 01..09 en fase-1-discovery/
+    p = sub.add_parser("discovery-generate",
+                       help="Genera los 9 docs estándar Fase 1 Discovery "
+                            "(01_code_scan..09_risk_register) en fase-1-discovery/")
+    p.add_argument("--app", required=True,
+                   help="aplicativo del plan v5: sicofav · arc · bsp · srg · robot · etc.")
+    p.add_argument("--root", default=".",
+                   help="root del repo (default: cwd) · busca código para scan + stack detection")
+    p.add_argument("--overwrite", action="store_true",
+                   help="Sobrescribe docs existentes en fase-1-discovery/ (default: skip)")
+    p.add_argument("--format", choices=["human", "json"], default="human",
+                   help="Formato salida (human tabla · json reporte completo)")
+
     # v3.6.6 · AMX Knowledge Base · catalog + analog advisor
     p = sub.add_parser("amx-catalog",
                        help="AMX knowledge base · browse BO-AMX repos + SC products")
@@ -1702,6 +1715,8 @@ def main():
         "buildspec-validate": cmd_buildspec_validate,
         # v3.5.1 · plan v5 integration
         "phase1-report": cmd_phase1_report,
+        # v3.7.0 · Discovery 9 docs auto-generator
+        "discovery-generate": cmd_discovery_generate,
         # v3.6.0 · G-06 coverage gate
         "coverage": cmd_coverage,
         # v3.6.4 · G-17 npm audit supply-chain wrap
@@ -2181,6 +2196,51 @@ def cmd_phase1_report(args):
         except (FileNotFoundError, subprocess.TimeoutExpired):
             print("  ⚠ weasyprint no disponible · PDF skipped")
     print()
+
+
+def cmd_discovery_generate(args):
+    """v3.7.0 · Genera los 9 docs estándar Fase 1 Discovery.
+
+    Crea `<root>/analisis/fase-1-discovery/{01_code_scan..09_risk_register}.md`
+    con templates pre-llenados usando metadata del plan v5 + scan AIOS + stack
+    detectado. Humano completa los TODOs marcados.
+    """
+    import json
+    from pathlib import Path
+    from aios.core.discovery.generate import generate_discovery_docs
+    from aios.core.plan_v5 import APPS
+
+    root = Path(args.root).resolve()
+    if not root.exists():
+        print(f"\n  ERROR: root '{root}' no existe\n")
+        return
+
+    try:
+        result = generate_discovery_docs(args.app, root, overwrite=args.overwrite)
+    except ValueError as e:
+        print(f"\n  ERROR: {e}")
+        print(f"  Apps disponibles: {', '.join(sorted(APPS.keys()))}\n")
+        return
+
+    if args.format == "json":
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        return
+
+    print(f"\n  ✓ Discovery 9 docs generados · {result['app']} · Tier {result['tier']}")
+    print(f"    Output dir     : {result['out_dir']}")
+    print(f"    Scan findings  : {result['scan_findings']}"
+          + (f" (error: {result['scan_error']})" if result.get("scan_error") else ""))
+    print(f"    Stack detectado: {', '.join(result['stack_detected']) or '(ninguno)'}")
+    print()
+    print("  Documentos:")
+    for d in result["docs"]:
+        icon = "✓" if d["status"] == "written" else "·"
+        lines = f" ({d.get('lines', 0)} líneas)" if d["status"] == "written" else ""
+        print(f"    {icon} {d['file']:<28} [{d['status']}]{lines}")
+    print()
+    print("  Siguiente paso: revisar docs · completar TODOs humanos · "
+          "correr `aios phase1-report --app "
+          f"{result['app'].lower()}` para el bundle consolidado.\n")
 
 
 def _minimal_md_to_html(md: str, title: str) -> str:

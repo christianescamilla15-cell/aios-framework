@@ -1567,6 +1567,20 @@ def main():
     p.add_argument("--pdf", action="store_true",
                    help="Genera también PDF con weasyprint")
 
+    # v3.6.4 · G-17 · npm audit supply-chain wrap
+    p = sub.add_parser("npm-audit",
+                       help="npm audit wrap · supply-chain vuln gate para frontend")
+    p.add_argument("--root", default=".",
+                   help="Directorio con package.json · default '.'")
+    p.add_argument("--fail-on", choices=["low", "medium", "high", "critical"],
+                   default=None,
+                   help="Falla si hay vulns >= este nivel · default (solo reporta)")
+    p.add_argument("--production-only", action="store_true",
+                   help="Ignora devDependencies (npm audit --omit=dev)")
+    p.add_argument("--timeout", type=int, default=120,
+                   help="Timeout en segundos · default 120")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     # v3.6.0 · G-06 coverage gate · T0 SOX enforcement
     p = sub.add_parser("coverage",
                        help="Coverage gate · T0 SOX ≥80%% lines · 100%% SOX-critical branches")
@@ -1627,6 +1641,8 @@ def main():
         "phase1-report": cmd_phase1_report,
         # v3.6.0 · G-06 coverage gate
         "coverage": cmd_coverage,
+        # v3.6.4 · G-17 npm audit supply-chain wrap
+        "npm-audit": cmd_npm_audit,
     }
 
     if args.command in commands:
@@ -1730,6 +1746,34 @@ def cmd_coverage(args):
         print(format_json(report))
     else:
         print(format_human(report, args.min_line, args.min_branch, args.sox_threshold))
+
+    sys.exit(0 if report.passed else 1)
+
+
+def cmd_npm_audit(args):
+    """v3.6.4 · G-17 · npm audit supply-chain gate.
+
+    Envuelve `npm audit --json` para integrar findings de dependencias
+    vulnerables al pipeline AIOS. Si npm no está disponible · skip sin
+    bloquear (para compat con environments sin Node).
+    """
+    import sys
+    from aios.core.npm_audit import (
+        run_npm_audit, parse_npm_audit_output, apply_gate,
+        format_human, format_json,
+    )
+
+    root = Path(args.root).resolve()
+
+    data = run_npm_audit(root, production_only=args.production_only,
+                         timeout_seconds=args.timeout)
+    report = parse_npm_audit_output(data, root=str(root))
+    report = apply_gate(report, args.fail_on)
+
+    if args.format == "json":
+        print(format_json(report))
+    else:
+        print(format_human(report))
 
     sys.exit(0 if report.passed else 1)
 

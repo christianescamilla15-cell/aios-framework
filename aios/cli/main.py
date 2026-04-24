@@ -1567,6 +1567,22 @@ def main():
     p.add_argument("--pdf", action="store_true",
                    help="Genera también PDF con weasyprint")
 
+    # v3.6.0 · G-06 coverage gate · T0 SOX enforcement
+    p = sub.add_parser("coverage",
+                       help="Coverage gate · T0 SOX ≥80%% lines · 100%% SOX-critical branches")
+    p.add_argument("--root", default=".")
+    p.add_argument("--min-line", type=float, default=80.0,
+                   help="Umbral mínimo de cobertura de líneas · default 80.0 (T0 SOX)")
+    p.add_argument("--min-branch", type=float, default=80.0,
+                   help="Umbral mínimo de cobertura de ramas · default 80.0 (T0)")
+    p.add_argument("--sox-threshold", type=float, default=100.0,
+                   help="Umbral para paquetes marcados SOX-critical · default 100.0")
+    p.add_argument("--sox-pattern",
+                   help="Regex para identificar paquetes SOX-critical (ej. 'Domain|Billing')")
+    p.add_argument("--cobertura-file",
+                   help="Path específico al cobertura.xml · sino busca en TestResults/*/")
+    p.add_argument("--format", choices=["human", "json"], default="human")
+
     args = parser.parse_args()
 
     commands = {
@@ -1609,6 +1625,8 @@ def main():
         "buildspec-validate": cmd_buildspec_validate,
         # v3.5.1 · plan v5 integration
         "phase1-report": cmd_phase1_report,
+        # v3.6.0 · G-06 coverage gate
+        "coverage": cmd_coverage,
     }
 
     if args.command in commands:
@@ -1673,6 +1691,45 @@ def cmd_buildspec_validate(args):
     report = validate(root)
     for line in format_report(report):
         print(line)
+
+
+def cmd_coverage(args):
+    """v3.6.0 · G-06 · Coverage gate · T0 SOX enforcement.
+
+    Parsea cobertura.xml (coverlet default) y compara contra umbrales.
+    Exit 1 si falla · exit 0 si pasa · para integración CI/CD.
+    """
+    import sys
+    from aios.core.coverage_gate import (
+        find_cobertura_file, parse_cobertura, apply_gate,
+        format_human, format_json,
+    )
+
+    root = get_root(args)
+
+    if getattr(args, "cobertura_file", None):
+        xml_path = Path(args.cobertura_file)
+        if not xml_path.exists():
+            print(f"\n  ERROR: file no encontrado · {xml_path}\n")
+            sys.exit(2)
+    else:
+        xml_path = find_cobertura_file(root)
+        if xml_path is None:
+            print(
+                f"\n  ERROR: no se encontró cobertura.xml bajo {root}\n"
+                f"  Sugerencia: correr 'dotnet test --collect:\"XPlat Code Coverage\"'\n"
+            )
+            sys.exit(2)
+
+    report = parse_cobertura(xml_path, sox_pattern=args.sox_pattern)
+    report = apply_gate(report, args.min_line, args.min_branch, args.sox_threshold)
+
+    if args.format == "json":
+        print(format_json(report))
+    else:
+        print(format_human(report, args.min_line, args.min_branch, args.sox_threshold))
+
+    sys.exit(0 if report.passed else 1)
 
 
 def cmd_phase1_report(args):

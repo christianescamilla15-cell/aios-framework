@@ -1595,6 +1595,120 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     # (regex lineal produce FP porque [ApiController] suele estar 1-3
     # líneas arriba de la declaración class · difícil con regex simple).
     # Tracking: AIOS_GAPS_FROM_BLOCK1.md G-NEW-1 deferred.
+
+    # ═════════════════════════════════════════════════════════════════
+    # v3.6.1 · Sprint 2 · 6 detectores CDK/ServiceCatalog Block 8 infra
+    # (24-abr-2026) · cierra gaps G-NEW-2/5/6 del ALIGNMENT v2
+    # Evidencia: amazon-q-rules/global/devops/cdk-rules.md +
+    # corporate-solutions/cdk-cfnparameter-token-rules.md +
+    # service-catalog-architecture-es.md
+    # Aplicables a: Block 8 infra de SICOFAV · SRG · Robot · NoShow
+    # ═════════════════════════════════════════════════════════════════
+    (
+        "CWE-1357",
+        re.compile(
+            # `cdk bootstrap` sin --template custom · viola Rule 1
+            # cdk-rules.md · AMX requiere bootstrap-template.yml AMX.
+            # Usa [ \t]* (no \s*) para que el match NO cruce newlines ·
+            # evita que los findings caigan en línea shebang tras
+            # strip_inline_comments.
+            r"""(?m)^[ \t]*(?:npx[ \t]+)?cdk[ \t]+bootstrap\b"""
+            r"""(?![^\n]*?(?:--template|-t[ \t]+))"""
+            r"""[^\n]*"""
+        ),
+        "AMX-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN",
+        "HIGH",
+        "cdk bootstrap sin --template custom · amazon-q-rules "
+        "cdk-rules Rule 1 · debe usar cdk_bootstraping/bootstrap-"
+        "template.yml con policy AMX-P-DVPS-CDK-TOOLKIT",
+        frozenset({".sh", ".yaml", ".yml", ".md", ".bash"}),
+    ),
+    (
+        "CWE-269",
+        re.compile(
+            # AdministratorAccess en bootstrap / CDK policies ·
+            # viola Rule 2 cdk-rules.md least-privilege.
+            r"""(?:arn:aws:iam::aws:policy/|"policy_arn"\s*:\s*"|"""
+            r""""ManagedPolicyArns"\s*:\s*\[\s*"|"""
+            r"""iam\.ManagedPolicy\.from_aws_managed_policy_name\(\s*["'])"""
+            r"""AdministratorAccess"""
+        ),
+        "AMX-CDK-ADMIN-ACCESS-POLICY",
+        "HIGH",
+        "AdministratorAccess attached · viola Rule 2 "
+        "cdk-rules least-privilege · usar AMX-P-DVPS-CDK-TOOLKIT "
+        "scoped policy (arn:aws:iam::*:policy/AMX-P-DVPS-*)",
+        frozenset({".py", ".ts", ".json", ".yaml", ".yml"}),
+    ),
+    (
+        "CWE-1336",
+        re.compile(
+            # f-string con .value_as_string · token CloudFormation
+            # opacado · viola cdk-cfnparameter-token-rules.
+            # Pattern Python: f"...{X.value_as_string}..." o similar.
+            r"""\bf["'][^"']*\{\s*\w+\.value_as_(?:string|number|list)"""
+        ),
+        "AMX-CDK-FSTRING-WITH-TOKEN",
+        "HIGH",
+        "f-string envuelve CfnParameter.value_as_* · Token CFN no se "
+        "resuelve en build-time · usar Fn.join / Fn.sub · "
+        "cdk-cfnparameter-token-rules",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-1336",
+        re.compile(
+            # Concatenación / método Python sobre .value_as_string:
+            #   param.value_as_string + "..."
+            #   str(param.value_as_string)
+            #   param.value_as_string.lower()/.upper()/.replace()
+            r"""\w+\.value_as_(?:string|number|list)"""
+            r"""\s*(?:\+\s*["']|\.(?:lower|upper|replace|strip|"""
+            r"""format|split|join)\s*\()|"""
+            r"""\bstr\s*\(\s*\w+\.value_as_(?:string|number|list)\s*\)"""
+        ),
+        "AMX-CDK-STR-CONCAT-TOKEN",
+        "HIGH",
+        "Token CfnParameter manipulado con operador Python (+, str(), "
+        ".lower/.upper/.replace) · build-time resolution forzada · "
+        "usar Fn.join / Fn.sub · cdk-cfnparameter-token-rules",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-1277",
+        re.compile(
+            # ProductStack (Service Catalog) sin validate_template=False
+            # dentro del super().__init__ call. Match class que hereda de
+            # servicecatalog.ProductStack y busca ausencia de validate.
+            # Heurística stream-based: capturar class hasta super().__init__
+            # completo · si no contiene validate_template=False → flag.
+            r"""class\s+\w+\s*\(\s*servicecatalog\.ProductStack\s*\):"""
+            r"""[\s\S]{0,500}?super\(\)\.__init__\("""
+            r"""(?:(?!validate_template)[\s\S]){0,400}?\)"""
+        ),
+        "AMX-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE",
+        "MEDIUM",
+        "ProductStack sin validate_template=False en super().__init__ · "
+        "previene despliegue accidental en cuenta CTDO · "
+        "service-catalog-architecture Capa 1 (products/)",
+        frozenset({".py"}),
+    ),
+    (
+        "CWE-710",
+        re.compile(
+            # CfnParameter instanciado dentro de clase que hereda Construct
+            # (Capa L3 `templates/`) · viola regla de separación ·
+            # CfnParameter solo en ProductStack Capa 1.
+            r"""class\s+\w+\s*\(\s*(?:aws_cdk\.)?[Cc]onstruct\s*\)\s*:"""
+            r"""[\s\S]{0,1500}?\bCfnParameter\s*\("""
+        ),
+        "AMX-SC-CONSTRUCT-WITH-CFN-PARAMETER",
+        "MEDIUM",
+        "CfnParameter dentro de clase Construct (capa L3 templates/) · "
+        "viola service-catalog-architecture Capa 2 · CfnParameter solo "
+        "en ProductStack · pasar valores como argumentos ctor",
+        frozenset({".py"}),
+    ),
 ]
 
 

@@ -35,7 +35,7 @@ pip install -e .
 
 # Verificar
 aios version
-# Esperado: AIOS v3.7.0 (o superior)
+# Esperado: AIOS v3.7.5 (o superior)
 ```
 
 ### Dependencias opcionales (solo si las usas)
@@ -331,4 +331,57 @@ aios version   # verifica versión nueva
 
 ---
 
-**Versión de esta guía**: compatible con AIOS v3.7.0+ · actualizada 2026-04-24.
+**Versión de esta guía**: compatible con AIOS v3.7.5+ · actualizada 2026-04-27.
+
+---
+
+## 6 · Cambios v3.7.4 + v3.7.5 que afectan documentación generada
+
+### Detector quality (v3.7.4 · 5 gaps cerrados)
+
+Los detectores AIOS ahora producen menos false positives en documentación Discovery:
+
+- **`AUTH-MISSING-NET-CONTROLLER`** · ya respeta class-level `[Authorize]` (12-line lookback) y método-inline `[Authorize(Roles=...)]` post-`[HttpPost]` (span-aware). Resultado en `02_hallazgos_mapped.md`: cero FPs sobre controllers .NET ya autorizados.
+- **`STATIC-GENERIC-EXCEPTION-CATCH-CSHARP`** · `catch (Ex) when (...)` se degrada MED→LOW automáticamente (filter es intent específico, no sloppy catch-all). Doc reporta correctamente sev real.
+- **`HARDCODED-INTERNAL-HOSTNAME` + alias `CWE-547`** · suppression con `rule: "CWE-547"` (alias) cubre detectores que emiten ese CWE con rule_id distinto. Reduce ruido en `05_vulns.md`.
+- **`compliance-report` consume suppressions** · igual que `aios release` y `aios iterate`. Antes (≤v3.7.3) sólo `release` aplicaba waivers, lo que causaba divergencia entre marcos regulatorios y release gate.
+
+### Framework path/timeout (v3.7.5 · 3 gaps cerrados)
+
+Mejora robustez de `aios discovery-generate` y `aios compliance-report`:
+
+- **`G-PATH-NORMALIZATION` (T8-N1)** · suppressions declaradas con repo-root path (`infra/cdk-pipeline/stacks/x.py`) ahora matchean findings emitidos con scope-reducido (`stacks/x.py` cuando `--root infra/cdk-pipeline`). Discovery generation con scope reducido respeta waivers correctamente.
+- **`G-REGEX-TIMEOUT` (T8-N3)** · `_safe_finditer()` con `signal.SIGALRM` 2s default (override `AIOS_REGEX_TIMEOUT_SECONDS=N`). Cierra hangs sobre archivos YAML grandes (k8s manifests · 100+ LOC). Discovery generation completa < 90s incluso con `infra/k8s/`.
+- **`compliance-report --output` resuelve relativo a CWD** · `aios compliance-report --root src --output reports/compliance.md` escribe en `<cwd>/reports/compliance.md` (no `src/reports/`). Comportamiento Unix-estándar.
+
+### Override env vars (v3.7.5)
+
+| Env var | Default | Uso |
+|---|---|---|
+| `AIOS_REGEX_TIMEOUT_SECONDS` | `2` | Aumentar para archivos extremadamente grandes (e.g., generated SQL files) |
+
+### Migración suppressions (v3.7.4 → v3.7.5)
+
+Si tu `aios-suppressions.json` tiene entries con `rule` (alias) o `rule_id="CWE-NNN"` (CWE-form):
+
+- Antes (≤v3.7.3) · matcher requería `rule_id` exacto de detector. Suppressions con CWE-form fallaban.
+- Ahora (≥v3.7.4) · alias `rule` aceptado · CWE-form fallback case-insensitive · separator-aware path normalization (v3.7.5).
+
+**No se requiere migración** · entries existentes siguen funcionando · más entries pueden simplificarse usando alias `rule` o `rule_id="CWE-NNN"`.
+
+### Tests cross-app (v3.7.4 + v3.7.5)
+
+| Métrica | v3.7.3 | v3.7.4 | v3.7.5 |
+|---|---:|---:|---:|
+| Tests pass | 401 | 419 | **428** |
+| Detectores AMX | 29 | 29 | 29 (quality only) |
+| Subcommands consume suppressions | release | release · iterate · compliance-report | idem |
+
+Para SICOFAV (post-v3.7.5):
+- `aios iterate --root .` full-repo · 0 CRIT/HIGH/MED · 21 LOW · 4 suppressed
+- `aios iterate --root infra/k8s/` ya no se cuelga · termina < 90s
+- `aios discovery-generate --app sicofav --root <repo>` produce 9 docs sin FPs sobre code post-T6/T7/T8 fixes
+
+---
+
+**Versión de esta guía**: compatible con AIOS v3.7.5+ · actualizada 2026-04-27.

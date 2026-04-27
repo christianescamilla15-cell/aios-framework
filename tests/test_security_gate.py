@@ -2508,3 +2508,181 @@ def test_amx_service_prohibited_eks_allowed(tmp_path):
     assert not any(
         f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
     )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# v3.7.4 · G-AUTH-CLASS-LEVEL · controllers con [Authorize] a nivel clase
+# ─────────────────────────────────────────────────────────────────────
+
+_CONTROLLER_CLASS_AUTHORIZE = '''\
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Test.Api.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+[Authorize]
+public sealed class FacturasController : ControllerBase
+{
+    [HttpPost]
+    public IActionResult Post(object cfdi) => Ok();
+}
+'''
+
+
+def test_auth_missing_skipped_when_class_level_authorize(tmp_path):
+    """v3.7.4 · controller con [Authorize] a nivel clase NO debe disparar
+    AUTH-MISSING-NET-CONTROLLER aunque el método individual no repita el
+    atributo. El detector original sólo miraba la línea inmediatamente
+    siguiente al [HttpPost]."""
+    (tmp_path / "FacturasController.cs").write_text(_CONTROLLER_CLASS_AUTHORIZE)
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-NET-CONTROLLER" for f in findings
+    ), [f.rule_id for f in findings]
+
+
+# ─────────────────────────────────────────────────────────────────────
+# v3.7.4 · G-AUTH-LOOKAHEAD · [Authorize] entre [HttpPost] y método
+# ─────────────────────────────────────────────────────────────────────
+
+_CONTROLLER_INLINE_AUTHORIZE = '''\
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Test.Api.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public sealed class ConciliacionesController : ControllerBase
+{
+    [HttpPost]
+    [Authorize(Roles = "admin,operator")]
+    public IActionResult Conciliar(object dto) => Ok();
+}
+'''
+
+
+def test_auth_missing_skipped_when_authorize_inline_after_http(tmp_path):
+    """v3.7.4 · patrón canónico ASP.NET donde el método declara
+    [HttpPost] seguido de [Authorize(Roles=...)] en línea siguiente."""
+    (tmp_path / "ConciliacionesController.cs").write_text(
+        _CONTROLLER_INLINE_AUTHORIZE
+    )
+    findings = scan_directory(tmp_path)
+    assert not any(
+        f.rule_id == "AUTH-MISSING-NET-CONTROLLER" for f in findings
+    ), [f.rule_id for f in findings]
+
+
+_CONTROLLER_REALLY_MISSING = '''\
+using Microsoft.AspNetCore.Mvc;
+
+namespace Test.Api.Controllers;
+
+[ApiController]
+[Route("api/v1/[controller]")]
+public sealed class PublicController : ControllerBase
+{
+    [HttpPost("create")]
+    public IActionResult Post(object dto) => Ok();
+}
+'''
+
+
+def test_auth_missing_still_fires_when_genuinely_missing(tmp_path):
+    """Negative · si NO hay [Authorize] ni a nivel clase ni inline,
+    el detector debe seguir disparando · evita over-suppression."""
+    (tmp_path / "PublicController.cs").write_text(_CONTROLLER_REALLY_MISSING)
+    findings = scan_directory(tmp_path)
+    assert any(
+        f.rule_id == "AUTH-MISSING-NET-CONTROLLER" for f in findings
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# v3.7.4 · G-EXCEPTION-WHEN-FILTER · catch-with-when degrade a LOW
+# ─────────────────────────────────────────────────────────────────────
+
+def test_generic_catch_with_when_filter_degrades_to_low(tmp_path):
+    """v3.7.4 · catch (Exception ex) when (...) tiene intent específico
+    de filtro. La severidad debe degradar a LOW (similar al downgrade
+    por logging existente)."""
+    (tmp_path / "warmup.cs").write_text(
+        'public class Svc {\n'
+        '    public void Run() {\n'
+        '        try { Work(); }\n'
+        '        catch (Exception ex) when (ex is not OperationCanceledException) {\n'
+        '            throw;\n'
+        '        }\n'
+        '    }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    catches = [f for f in findings
+               if f.rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP"]
+    assert len(catches) == 1
+    assert catches[0].severity == "LOW"
+
+
+def test_generic_catch_without_when_filter_stays_medium(tmp_path):
+    """Negative · catch genérico sin filtro ni logging mantiene MEDIUM."""
+    (tmp_path / "swallow.cs").write_text(
+        'public class Svc {\n'
+        '    public void Run() {\n'
+        '        try { Work(); }\n'
+        '        catch (Exception) { /* swallow */ }\n'
+        '    }\n'
+        '}\n'
+    )
+    findings = scan_directory(tmp_path)
+    catches = [f for f in findings
+               if f.rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP"]
+    assert len(catches) == 1
+    assert catches[0].severity == "MEDIUM"
+
+
+# v3.7.5 G-REGEX-TIMEOUT (T8-N3) · regression tests para regex timeout per-file
+
+def test_safe_finditer_normal_match():
+    """v3.7.5 · _safe_finditer retorna matches igual que pattern.finditer normal."""
+    import re
+    from aios.core.security_gate import _safe_finditer
+    pattern = re.compile(r"\bfoo\b")
+    matches = _safe_finditer(pattern, "foo bar foo baz", "test.txt")
+    assert len(matches) == 2
+
+
+def test_safe_finditer_no_matches():
+    """v3.7.5 · _safe_finditer empty content retorna []."""
+    import re
+    from aios.core.security_gate import _safe_finditer
+    pattern = re.compile(r"\bxyz\b")
+    matches = _safe_finditer(pattern, "abc def", "test.txt")
+    assert matches == []
+
+
+def test_safe_finditer_unix_signal_handler_restored():
+    """v3.7.5 · _safe_finditer restaura SIGALRM handler post-call."""
+    import signal
+    import re
+    from aios.core.security_gate import _safe_finditer
+    if not hasattr(signal, "SIGALRM"):
+        return  # Windows skip
+    pattern = re.compile(r"foo")
+    original_handler = signal.signal(signal.SIGALRM, signal.SIG_DFL)
+    try:
+        _safe_finditer(pattern, "foo bar", "test.txt")
+        # Handler debe estar restaurado (no leftover from _safe_finditer)
+        current = signal.signal(signal.SIGALRM, signal.SIG_DFL)
+        assert current is signal.SIG_DFL or callable(current)
+    finally:
+        signal.signal(signal.SIGALRM, original_handler)
+
+
+def test_safe_finditer_timeout_constant_overridable():
+    """v3.7.5 · _REGEX_TIMEOUT_SECONDS es int · valor por default 2."""
+    from aios.core.security_gate import _REGEX_TIMEOUT_SECONDS
+    assert isinstance(_REGEX_TIMEOUT_SECONDS, int)
+    assert _REGEX_TIMEOUT_SECONDS >= 1

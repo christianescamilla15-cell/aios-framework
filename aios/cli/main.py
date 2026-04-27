@@ -596,6 +596,21 @@ def cmd_compliance_report(args):
     print(f"{'='*60}")
 
     findings = _scan_directory(root)
+    # v3.7.4 G-SUPPRESSIONS-COMPLIANCE · compliance-report consume
+    # `aios-suppressions.json` igual que `aios release` y `aios iterate`.
+    # Antes (≤v3.7.3) sólo `release` aplicaba suppressions, lo que causaba
+    # divergencia: una FP suppressed por release seguía apareciendo en
+    # los marcos regulatorios mostrados por compliance-report.
+    try:
+        from aios.core.suppressions import apply_suppressions, load_suppressions
+        suppressions = load_suppressions(root)
+        if suppressions:
+            findings, suppressed = apply_suppressions(findings, suppressions)
+            if suppressed:
+                print(f"  · {len(suppressed)} findings suppressed via "
+                      f"aios-suppressions.json")
+    except ImportError:
+        pass
     if not findings:
         print("  [OK] 0 findings · sin mapeos a marcos regulatorios")
         print(f"{'='*60}\n")
@@ -612,9 +627,13 @@ def cmd_compliance_report(args):
             print("  [!!] --format pdf requires --output <file.pdf>")
             print(f"{'='*60}\n")
             return
+        # v3.7.5 T8-N2 fix · --output relativo se resuelve desde CWD del usuario,
+        # NO desde --root. Antes (≤v3.7.4) `--root src --output reports/x.md`
+        # escribía a `src/reports/x.md` (mensaje engañoso). Ahora respeta
+        # expectation Unix estándar: relative paths from CWD.
         dest = Path(args.output)
         if not dest.is_absolute():
-            dest = root / dest
+            dest = Path.cwd() / dest
         dest.parent.mkdir(parents=True, exist_ok=True)
         ok, msg = render_compliance_report_pdf(findings, dest, project_name)
         icon = "OK" if ok else "!!"
@@ -626,12 +645,13 @@ def cmd_compliance_report(args):
         ext = ".md"
 
     if args.output:
+        # v3.7.5 T8-N2 fix · --output relativo desde CWD (no desde --root)
         dest = Path(args.output)
         if not dest.is_absolute():
-            dest = root / dest
+            dest = Path.cwd() / dest
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(out, encoding="utf-8")
-        rel = dest.relative_to(root) if dest.is_relative_to(root) else dest
+        rel = dest.relative_to(Path.cwd()) if dest.is_relative_to(Path.cwd()) else dest
         print(f"  Written: {rel}")
     else:
         print(out)

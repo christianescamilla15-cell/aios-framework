@@ -172,3 +172,146 @@ def test_security_gate_respects_suppressions(tmp_path):
     r2 = run_security_gate(tmp_path)
     assert r2.get("suppressed_count", 0) >= 1
     assert r2["status"] == "pass"  # 0 CRITICAL restantes
+
+
+# ─────────────────────────────────────────────────────────────────────
+# v3.7.4 · G-RULE-ID-UNIFY · alias `rule` + match por CWE
+# ─────────────────────────────────────────────────────────────────────
+
+def test_load_accepts_rule_alias_for_rule_id(tmp_path):
+    """v3.7.4 · suppressions externas suelen usar `rule`. Aceptarlo
+    como alias de `rule_id` evita que el usuario tenga que duplicar
+    entries cuando migra desde otros formatos."""
+    data = [{
+        "rule": "STATIC-SQL-FSTRING",  # alias
+        "file": "x.py",
+        "line": 42,
+    }]
+    (tmp_path / "aios-suppressions.json").write_text(
+        json.dumps(data), encoding="utf-8"
+    )
+    sups = load_suppressions(tmp_path)
+    assert len(sups) == 1
+    assert sups[0].rule_id == "STATIC-SQL-FSTRING"
+
+
+def test_load_prefers_rule_id_over_alias_when_both_present(tmp_path):
+    """Si la entry trae ambos, el campo canónico gana."""
+    data = [{"rule_id": "CANONICAL", "rule": "ALIAS", "file": "x"}]
+    (tmp_path / "aios-suppressions.json").write_text(json.dumps(data))
+    sups = load_suppressions(tmp_path)
+    assert sups[0].rule_id == "CANONICAL"
+
+
+def test_matches_falls_back_to_cwe_when_rule_id_is_cwe_form():
+    """v3.7.4 · suppression con rule_id="CWE-547" debe cubrir cualquier
+    detector que emita ese CWE (HARDCODED-INTERNAL-HOSTNAME, etc.).
+    Patrón observado en SICOFAV donde la misma línea es flagged por
+    detectores con rule_id distinto pero comparten CWE."""
+    sup = Suppression(rule_id="CWE-547", file="x.cs", line=144)
+    finding = _f("HARDCODED-INTERNAL-HOSTNAME", "x.cs", 144, cwe="CWE-547")
+    assert sup.matches(finding) is True
+
+
+def test_matches_cwe_fallback_is_case_insensitive():
+    sup = Suppression(rule_id="cwe-547", file="x.cs", line=10)
+    finding = _f("HARDCODED-X", "x.cs", 10, cwe="CWE-547")
+    assert sup.matches(finding) is True
+
+
+def test_matches_cwe_fallback_does_not_match_when_cwe_differs():
+    sup = Suppression(rule_id="CWE-547", file="x.cs", line=10)
+    finding = _f("HARDCODED-X", "x.cs", 10, cwe="CWE-89")
+    assert sup.matches(finding) is False
+
+
+def test_matches_with_only_cwe_set_requires_finding_cwe():
+    """rule_id vacío + cwe set → exige match exacto en finding.cwe."""
+    sup = Suppression(rule_id="", cwe="CWE-547", file="x.cs", line=10)
+    fmatch = _f("ANY-RULE", "x.cs", 10, cwe="CWE-547")
+    fmiss = _f("ANY-RULE", "x.cs", 10, cwe="CWE-89")
+    assert sup.matches(fmatch) is True
+    assert sup.matches(fmiss) is False
+
+
+def test_load_legacy_entry_with_rule_alias_and_cwe_field(tmp_path):
+    """Entry legacy SICOFAV-shape: { id, rule (alias), file, line }.
+    Carga sin error y matchea findings por rule_id resuelto."""
+    data = [{
+        "id": "T3-FP-001",
+        "rule": "CWE-547",
+        "file": "src/x.cs",
+        "line": 144,
+        "reason": "denylist intencional · T-06 IMDS",
+    }]
+    (tmp_path / "aios-suppressions.json").write_text(
+        json.dumps(data), encoding="utf-8"
+    )
+    sups = load_suppressions(tmp_path)
+    assert len(sups) == 1
+    # rule_id = "CWE-547" via alias resolution
+    assert sups[0].rule_id == "CWE-547"
+    # matchea finding emitido con rule_id distinto pero mismo CWE (gap fix)
+    finding = _f("HARDCODED-INTERNAL-HOSTNAME", "src/x.cs", 144, cwe="CWE-547")
+    assert sups[0].matches(finding) is True
+
+
+def test_paths_match_helper_exact():
+    """v3.7.5 G-PATH-NORMALIZATION T8-N1 · _paths_match helper · exact match"""
+    from aios.core.suppressions import _paths_match
+    assert _paths_match("src/x.cs", "src/x.cs") is True
+    assert _paths_match("x.py", "x.py") is True
+
+
+def test_paths_match_helper_scope_reduced():
+    """v3.7.5 G-PATH-NORMALIZATION T8-N1 · scope-reduced match.
+    Caso real: suppression con repo-root path + finding con --root subdir path."""
+    from aios.core.suppressions import _paths_match
+    # suppression repo-root, finding scope-reduced
+    assert _paths_match(
+        "infra/cdk-pipeline/stacks/sicofav_kms_stack.py",
+        "stacks/sicofav_kms_stack.py",
+    ) is True
+    # symmetric: finding repo-root, suppression scope-reduced
+    assert _paths_match(
+        "stacks/sicofav_kms_stack.py",
+        "infra/cdk-pipeline/stacks/sicofav_kms_stack.py",
+    ) is True
+
+
+def test_paths_match_helper_separator_aware():
+    """v3.7.5 G-PATH-NORMALIZATION T8-N1 · separator-aware · NO false positives"""
+    from aios.core.suppressions import _paths_match
+    # NO match · 'admin-x.py' termina con 'x.py' pero sin separator
+    assert _paths_match("stacks/admin-x.py", "x.py") is False
+    # NO match · paths divergen completamente
+    assert _paths_match("other/x.py", "stacks/x.py") is False
+    # NO match · prefix-only sin separator
+    assert _paths_match("stacks_old/x.py", "stacks/x.py") is False
+
+
+def test_paths_match_helper_windows_paths():
+    """v3.7.5 · normalize backslash → forward slash (Windows path tolerance)"""
+    from aios.core.suppressions import _paths_match
+    assert _paths_match(
+        "infra\\cdk-pipeline\\stacks\\x.py",
+        "stacks/x.py",
+    ) is True
+
+
+def test_t8_n1_e2e_suppression_matches_with_scope_reduced_finding():
+    """T8-N1 e2e · suppression repo-root path matchea finding emitido con --root subdir."""
+    sup = Suppression(
+        rule_id="AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS",
+        file="infra/cdk-pipeline/stacks/sicofav_kms_stack.py",
+        line=31,
+    )
+    # Finding emitido por `aios iterate --root infra/cdk-pipeline` · path relativo a --root
+    finding = _f(
+        "AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS",
+        "stacks/sicofav_kms_stack.py",
+        31,
+    )
+    assert sup.matches(finding) is True, (
+        "T8-N1 fix: suppression con repo-root path debe matchear finding scope-reduced"
+    )

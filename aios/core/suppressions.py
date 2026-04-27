@@ -40,6 +40,39 @@ from .security_gate import Finding
 _SUPPRESSIONS_FILE = "aios-suppressions.json"
 
 
+def _paths_match(suppression_file: str, finding_file: str) -> bool:
+    """v3.7.5 G-PATH-NORMALIZATION (T8-N1) · match tolerante a scope-reduced paths.
+
+    Caso: `aios-suppressions.json` declara `file: "infra/cdk-pipeline/stacks/x.py"`
+    (repo-root path) pero `aios iterate --root infra/cdk-pipeline` emite finding con
+    `file: "stacks/x.py"` (relativo a --root) · matcher legacy con `==` falla.
+
+    Match si:
+    1. Exact match (caso normal · scope completo)
+    2. El path largo termina con `/` + el path corto (separator-aware)
+
+    Ejemplos OK:
+    - "infra/cdk-pipeline/stacks/x.py" ↔ "stacks/x.py" → match (long.endswith('/' + short))
+    - "x.py" ↔ "x.py" → match (exact)
+
+    Ejemplos NO match (separator-aware previene false positives):
+    - "stacks/admin-x.py" vs "x.py" → no match (no separator antes de 'x.py')
+    - "other/x.py" vs "stacks/x.py" → no match (paths divergen)
+    """
+    if suppression_file == finding_file:
+        return True
+    s = suppression_file.replace("\\", "/")
+    f = finding_file.replace("\\", "/")
+    if s == f:
+        return True
+    # Pick the longer · short debe ser sufijo del long con separator
+    if len(s) > len(f):
+        long_path, short_path = s, f
+    else:
+        long_path, short_path = f, s
+    return long_path.endswith("/" + short_path)
+
+
 @dataclass
 class Suppression:
     rule_id: str
@@ -52,9 +85,28 @@ class Suppression:
     expires_at: str = ""  # ISO date · vacio = no expira
 
     def matches(self, finding: Finding) -> bool:
+        # v3.7.4 G-RULE-ID-UNIFY · si el usuario puso un valor en rule_id que
+        # parece una referencia CWE (ej. "CWE-547") y no matchea el rule_id
+        # del finding, intentar match contra finding.cwe. Esto permite que
+        # una suppression escrita con rule_id="CWE-547" cubra todos los
+        # detectores que emiten ese CWE (HARDCODED-INTERNAL-HOSTNAME,
+        # STATIC-XYZ, etc.) sin requerir una entry por rule_id concreto.
         if self.rule_id and self.rule_id != finding.rule_id:
-            return False
+            looks_like_cwe = (
+                self.rule_id.upper().startswith("CWE-")
+                and finding.cwe
+                and self.rule_id.upper() == finding.cwe.upper()
+            )
+            if not looks_like_cwe:
+                return False
+        # v3.7.4 · si rule_id está vacío pero hay CWE, exigir match exacto
+        if not self.rule_id and self.cwe:
+            if not finding.cwe or self.cwe.upper() != finding.cwe.upper():
+                return False
         # v3.3.2 · file field soporta globs (fnmatch-style): archive/** · *.generated.*
+        # v3.7.5 G-PATH-NORMALIZATION (T8-N1) · soporta scope-reduced paths:
+        #   suppression "infra/cdk-pipeline/stacks/x.py" matchea finding "stacks/x.py"
+        #   cuando `aios iterate --root infra/cdk-pipeline` produce paths relativos a --root.
         if self.file:
             if any(c in self.file for c in "*?["):
                 import fnmatch
@@ -62,7 +114,7 @@ class Suppression:
                 pat_norm = self.file.replace("\\", "/")
                 if not fnmatch.fnmatch(file_norm, pat_norm):
                     return False
-            elif self.file != finding.file:
+            elif not _paths_match(self.file, finding.file):
                 return False
         if self.line > 0 and self.line != finding.line:
             return False
@@ -107,7 +159,10 @@ def load_suppressions(root: Path) -> list[Suppression]:
         # como wildcard rule_id + file=pattern · aplica a todos los findings
         # cuyo path matchea el pattern (ej. "archive/**")
         pattern = item.get("pattern", "")
-        rule_id = item.get("rule_id", "")
+        # v3.7.4 · acepta `rule` como alias de `rule_id` (UX común en
+        # suppressions externas tipo SARIF/Sonar). El alias pierde
+        # frente al campo canónico si ambos están presentes.
+        rule_id = item.get("rule_id") or item.get("rule") or ""
         file_field = item.get("file", "")
         if pattern and not rule_id and not file_field:
             file_field = pattern  # glob path exclusion

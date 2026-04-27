@@ -86,6 +86,10 @@ class IterativeReport:
     stop_reason: str
     per_iteration: list[IterationResult] = field(default_factory=list)
     all_findings: list[IterativeFinding] = field(default_factory=list)
+    # v3.7.4 G-SUPPRESSIONS-ITERATE · cantidad de findings filtrados por
+    # waivers en `aios-suppressions.json`. Se reporta en stop_reason
+    # cuando > 0 para auditabilidad.
+    suppressed_count: int = 0
 
     def by_severity(self) -> dict[str, int]:
         counts: dict[str, int] = {}
@@ -112,6 +116,8 @@ class IterativeReport:
             "by_severity": self.by_severity(),
             "by_strategy": self.by_strategy(),
             "findings": [f.to_dict() for f in self.all_findings],
+            # v3.7.4 G-SUPPRESSIONS-ITERATE · expone count en JSON output
+            "suppressed_count": self.suppressed_count,
         }
 
 
@@ -546,7 +552,59 @@ class IterativeScanner:
                 )
 
         report.all_findings = list(all_findings.values())
+
+        # v3.7.4 G-SUPPRESSIONS-ITERATE · aplicar `aios-suppressions.json`
+        # antes de devolver el report. El subcommand iterate hasta v3.7.3
+        # NO consumía suppressions (sólo `aios release` lo hacía vía
+        # security_gate). Esto causaba que FPs documentadas reaparecieran
+        # en cada run del scanner iterative.
+        report.all_findings, report.suppressed_count = _apply_iterate_suppressions(
+            self.root, report.all_findings,
+        )
+        if report.suppressed_count:
+            extra = (
+                f" · {report.suppressed_count} findings suppressed via "
+                f"aios-suppressions.json"
+            )
+            report.stop_reason = (
+                report.stop_reason + extra if report.stop_reason else extra.lstrip(" ·")
+            )
         return report
+
+
+def _apply_iterate_suppressions(
+    root: Path,
+    findings: list[IterativeFinding],
+) -> tuple[list[IterativeFinding], int]:
+    """v3.7.4 · adapta IterativeFinding al matcher Finding-based del módulo
+    `suppressions` y retorna `(active, suppressed_count)`. Falla suave: si
+    el módulo no está disponible o el archivo está malformado, no filtra
+    nada (preserva comportamiento legacy).
+    """
+    try:
+        from aios.core.suppressions import (  # local import: keeps module load lazy
+            apply_suppressions, load_suppressions,
+        )
+        from aios.core.security_gate import Finding
+    except ImportError:
+        return findings, 0
+    suppressions = load_suppressions(root)
+    if not suppressions:
+        return findings, 0
+    proxies = [
+        Finding(
+            cwe=f.cwe, severity=f.severity, rule_id=f.rule_id,
+            file=f.file, line=f.line, snippet="",
+        )
+        for f in findings
+    ]
+    active_proxies, suppressed_pairs = apply_suppressions(proxies, suppressions)
+    active_keys = {(p.rule_id, p.file, p.line) for p in active_proxies}
+    active = [
+        f for f in findings
+        if (f.rule_id, f.file, f.line) in active_keys
+    ]
+    return active, len(suppressed_pairs)
 
 
 def run_iterative(

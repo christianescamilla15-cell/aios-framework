@@ -408,3 +408,145 @@ Cross-file semantic analysis (capacidad 4) es transversal · se implementa gradu
 Este RFC es el **más crítico** del backlog · cierra la brecha entre "framework juguete" y "herramienta profesional". Sin esto · todo el pre-deploy (CI/CD · gates · release_gate) es teatro: el código refactorizado puede tener bugs de dominio intactos o nuevos · y ningún gate los detecta.
 
 Prioridad: ALTA · pre-requisito para cualquier piloto con cliente real (NoShow · otros AMX).
+
+---
+
+## v3.7.4 SHIPPED · 5 detector quality gaps cerrados · 2026-04-27
+
+**Branch**: `feat/v3.7.4-detector-quality-gaps`
+**Origen**: SICOFAV refactor triangulaciones T3..T6 (`docs/security-reviews/FINDINGS_TRIANGULATION.md` §13–§17)
+**Tests**: 419/419 ✅ (+18 nuevos vs 401 baseline v3.7.3)
+**Stat**: 8 files modified · +417 -4
+
+### Gaps cerrados (los 5 que estaban siendo trackeados implícitamente en triangulaciones SICOFAV)
+
+| ID | Severidad | Finding pre-fix | Fix v3.7.4 | Test cover |
+|---|---|---|---|---|
+| **G-AUTH-CLASS-LEVEL** | ALTA | detector `AUTH-MISSING-NET-CONTROLLER` ignoraba `[Authorize]` a nivel clase · FPs HIGH en SICOFAV `FacturasController` y `ConciliacionesController` | `_class_has_authorize_attr` (12-line lookback antes de declaración `class`) en `aios/core/security_gate.py` | `test_auth_missing_skipped_when_class_level_authorize` |
+| **G-AUTH-LOOKAHEAD** | ALTA | detector consumía greedy el stack de attributes `[^\]]*\]` y luego `(?!Authorize)` solo veía la siguiente línea · `[HttpPost]\n[Authorize(Roles=...)]\npublic` matcheaba como FP | `_method_has_authorize_attr_inline` inspecciona el span match completo | `test_auth_missing_skipped_when_authorize_inline_after_http` + negative regression |
+| **G-EXCEPTION-WHEN-FILTER** | MEDIA | detector `STATIC-GENERIC-EXCEPTION-CATCH-CSHARP` flageaba MED a `catch (Ex) when (ex is not OperationCanceledException)` · diseño defendible, no catch-all sloppy | `_catch_has_when_filter` degrada MED→LOW (similar al downgrade existente por logging) | `test_generic_catch_with_when_filter_degrades_to_low` + negative |
+| **G-SUPPRESSIONS-ITERATE** | ALTA | `aios iterate` y `aios compliance-report` NO consumían `aios-suppressions.json` · sólo `aios release` lo hacía · suppressions documentadas seguían apareciendo en cada run | `_apply_iterate_suppressions` al final de `IterativeScanner.run()` + `suppressed_count` en `IterativeReport.to_dict()` · `cmd_compliance_report` también consume waivers | 6 tests integración (`tests/test_iterative_scanner_suppressions.py` nuevo) |
+| **G-RULE-ID-UNIFY** | MEDIA | `aios-suppressions.json` con `rule="CWE-547"` no matcheaba findings `rule_id=HARDCODED-INTERNAL-HOSTNAME` aunque ambos comparten CWE · UX inconsistente con SARIF/Sonar (que usan `rule`) | `load_suppressions` acepta `rule` como alias de `rule_id` · `Suppression.matches()` fallback CWE case-insensitive cuando `rule_id` parece `CWE-NNN` | 7 tests (alias · CWE fallback · case insensitive · legacy SICOFAV-shape) |
+
+### Helpers nuevos en `aios/core/security_gate.py`
+
+```python
+_AUTHORIZE_ATTR_PATTERN = re.compile(
+    r"\[\s*(?:Authorize|RequireAuthorization|AuthorizeRoles|"
+    r"ApiKeyRequired|CustomAuth|AuthorizePolicy)(?:\s*\(|\s*\])"
+)
+
+def _class_has_authorize_attr(content, member_match_start, max_lookback_lines=12)
+def _method_has_authorize_attr_inline(matched_span)
+def _catch_has_when_filter(content, catch_match_end, max_span=200)
+```
+
+Wire-up en `scan_directory` y `scan_files` (cobertura ambos paths · pre-commit hook + full repo scan).
+
+### Cambios subcommands
+
+| Subcommand | v3.7.3 | v3.7.4 |
+|---|---|---|
+| `aios release` | consume `aios-suppressions.json` | igual |
+| `aios iterate` | NO consume waivers | **consume + reporta `suppressed_count` en JSON y stop_reason** |
+| `aios compliance-report` | NO consume waivers | **consume + log inline** |
+
+### Smoke validación vs SICOFAV
+
+| Métrica | T6 pre-fix v3.7.3 | T6 post-fix v3.7.4 | Δ |
+|---|---|---|---|
+| HIGH | 2 (FP × 2) | **0** | -2 ✅ |
+| MEDIUM | 5 | 3 (todos genuinos AMX-CDK tagging) | -2 |
+| `suppressed_count` (JSON) | 0 (gap) | **1** (T3-FP-001b activo via CWE fallback) | ✅ |
+| `BalanceadorUrlValidator.cs:144` en compliance LFPDPPP/PCI | sí (FP propagado) | **no** (suppressed) | ✅ |
+
+### Impacto framework-wide
+
+- Beneficia las 10 apps Revenue Accounting (no sólo SICOFAV) · cualquier .NET ApiController con `[Authorize]` clase + `[Authorize(Roles=...)]` método ya no FP
+- `catch ... when` C# 6+ pattern reconocido como diseño correcto cross-codebase
+- Suppressions retroactivamente aplicables a iterate/compliance · cierra divergencia release vs reporting
+- Alias `rule` baja la barrera de entrada para teams que migran desde SARIF/Sonar/CodeQL
+
+### Files modified
+
+```
+aios/__init__.py                                             |   2 +-
+aios/cli/main.py                                             |  15 +
+aios/core/iterative_scanner.py                               |  58 +
+aios/core/security_gate.py                                   | 106 +
+aios/core/suppressions.py                                    |  23 +
+pyproject.toml                                               |   2 +-
+tests/test_security_gate.py                                  | 133 +
+tests/test_suppressions.py                                   |  82 +
+tests/test_iterative_scanner_suppressions.py (nuevo)         |  98 +
+```
+
+### Patrón operativo cementado
+
+> **Detector quality regla**: cada vez que un detector AIOS reporta un FP en una app real, abrir gap en framework backlog (no sólo suppression táctica). Suppressions cubren la app específica · gaps framework cubren el universo de apps AMX.
+
+Aplicado: 5 gaps de SICOFAV → 5 fixes de framework v3.7.4 que benefician las 10 apps R.A.
+
+### Pendientes post-shipping
+
+- ⏸ Tag `v3.7.4` post-merge a `main`
+- ⏸ Push origin (christianescamilla15-cell · público)
+- ⏸ Push amx (chernandeze_amx · privado · regla AMX)
+- ⏸ Smoke vs apps adicionales R.A. cuando estén disponibles (Robot · SRG · BSP refactor)
+
+---
+
+## v3.7.5 · 3 framework gaps cerrados (T8 close · 2026-04-27)
+
+Derivado de SICOFAV triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULATION.md` §20-B) · 3 gaps detectados durante AIOS T8 run sobre repo SICOFAV post-T7 close:
+
+### G-PATH-NORMALIZATION (T8-N1) · MED · CWE-1110
+
+**Problema**: `Suppression.matches()` comparaba `self.file != finding.file` con strings exactos. Cuando `aios-suppressions.json` declara `file: "infra/cdk-pipeline/stacks/x.py"` (repo-root path) pero `aios iterate --root infra/cdk-pipeline` emite finding con `file: "stacks/x.py"` (relative-to-root) · matcher fallaba · `suppressed_count=0` cuando deberían aplicarse 3.
+
+**Fix**: helper `_paths_match()` en `aios/core/suppressions.py` con normalización separator-aware:
+1. Exact match (caso normal)
+2. El path largo termina con `/` + path corto (scope-reduced match)
+3. Backslash → forward slash (Windows path tolerance)
+
+**Test coverage**: 5 tests (`test_paths_match_helper_*` + `test_t8_n1_e2e_*`) en `tests/test_suppressions.py`.
+
+### G-REGEX-TIMEOUT (T8-N3) · MED · operacional
+
+**Problema**: `aios iterate --root infra/k8s/` colgaba indefinidamente (>40min · 90% CPU) sobre `sicofav-deployment.yaml` (147 LOC YAML multiline) · regex catastrophic backtracking · gap framework documentado doble evidencia (iterate + compliance-report).
+
+**Fix**: helper `_safe_finditer()` en `aios/core/security_gate.py` usa `signal.SIGALRM` con timeout configurable (default 2s · override `AIOS_REGEX_TIMEOUT_SECONDS`):
+- Unix-only protection (Linux/Mac/WSL · cubre 99% AIOS prod runs)
+- Windows fallback: direct `pattern.finditer()` sin timeout (acceptable trade-off · dev local only)
+- Si regex excede timeout · log warning + return `[]` · scan continúa con próximos detectores
+
+**Test coverage**: 4 tests (`test_safe_finditer_*`) en `tests/test_security_gate.py`.
+
+**Smoke test SICOFAV**: `aios iterate --root infra/k8s` ahora termina en <60s (antes hung indefinidamente).
+
+### T8-N2 · compliance-report `--output` CWD · LOW · CWE-22
+
+**Problema**: `aios compliance-report --root src --output reports/x.md` resolvía `--output` relative to `--root`, escribiendo a `src/reports/x.md` con mensaje engañoso `Written: reports/...`. Inconsistente con expectation Unix estándar (relative paths from CWD).
+
+**Fix**: en `aios/cli/main.py` 2 sites donde `dest = root / dest` cambiado a `dest = Path.cwd() / dest`. Display `rel = dest.relative_to(Path.cwd())` para mensaje correcto.
+
+**Smoke test SICOFAV**: `aios compliance-report --root src --output /tmp/x.md` y `--output reports/x.md` ambos resuelven correctamente desde CWD.
+
+### Métricas v3.7.5
+
+| Métrica | v3.7.4 | v3.7.5 |
+|---|---|---|
+| Tests pass | 419 | **428** (+9) |
+| Detectores AMX-specific | 29 | 29 (mejoras de calidad) |
+| Cross-app applicability | sí · base | sí · más robusto |
+
+### Smoke validación post-fix vs SICOFAV
+
+- `aios iterate --root infra/k8s` · ✅ termina <60s (antes hung indefinido)
+- `aios compliance-report --root src --output reports/x.md` · ✅ escribe en `<repo-root>/reports/x.md` (antes `src/reports/`)
+- Suppressions T7-FP-003-KMS/LOGS/S3 · esperado aplicar correctamente al re-correr SICOFAV T8 con `--root infra/cdk-pipeline` · `suppressed_count: 3` (antes 0)
+
+### Pendiente post-v3.7.5
+
+- ⏸ Commit + merge main + tag `v3.7.5` + push origin/amx (cross-app · pendiente confirmación user)
+- ⏸ Update version en `pyproject.toml` + `aios/__init__.py` (DONE)

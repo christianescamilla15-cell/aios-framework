@@ -26,12 +26,60 @@ Configuracion via aios-config.json (seccion `security_gate`):
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
 import shutil
+import signal
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+
+# v3.7.5 G-REGEX-TIMEOUT (T8-N3) · per-regex timeout para evitar catastrophic
+# backtracking sobre archivos largos (k8s YAML manifests · large config files).
+# Override via env var: AIOS_REGEX_TIMEOUT_SECONDS (default 2s).
+_REGEX_TIMEOUT_SECONDS = int(os.environ.get("AIOS_REGEX_TIMEOUT_SECONDS", "2"))
+_logger = logging.getLogger(__name__)
+
+
+def _safe_finditer(pattern: re.Pattern, content: str, file_path: str = "") -> list:
+    """v3.7.5 G-REGEX-TIMEOUT (T8-N3) · regex con timeout per-call.
+
+    Si SIGALRM interrumpe (catastrophic backtracking) · retorna [] + log warning ·
+    scan continúa con próximos detectores · NO crash + NO hang.
+
+    Unix-only (SIGALRM); Windows fallback es direct finditer sin protección
+    (acceptable trade-off: AIOS prod corre Linux/Mac · Windows solo dev local).
+
+    Override timeout: env var AIOS_REGEX_TIMEOUT_SECONDS (default 2s).
+    """
+    if not hasattr(signal, "SIGALRM"):
+        # Windows fallback · no signal-based timeout disponible
+        return list(pattern.finditer(content))
+
+    class _RegexTimeout(Exception):
+        pass
+
+    def _handler(signum, frame):
+        raise _RegexTimeout()
+
+    old_handler = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(_REGEX_TIMEOUT_SECONDS)
+    try:
+        return list(pattern.finditer(content))
+    except _RegexTimeout:
+        _logger.warning(
+            "regex timeout · pattern=%r file=%s · skipped this rule for this file "
+            "(set AIOS_REGEX_TIMEOUT_SECONDS=N to extend)",
+            pattern.pattern[:80] if hasattr(pattern, "pattern") else "?",
+            file_path,
+        )
+        return []
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
 
 
 DEFAULT_CONFIG = {
@@ -300,6 +348,82 @@ def _class_has_apicontroller_attr(content: str, class_match_start: int,
         if re.search(r"\[\s*ApiController\s*\]", line):
             return True
     return False
+
+
+_AUTHORIZE_ATTR_PATTERN: re.Pattern = re.compile(
+    r"\[\s*(?:Authorize|RequireAuthorization|AuthorizeRoles|"
+    r"ApiKeyRequired|CustomAuth|AuthorizePolicy)"
+    r"(?:\s*\(|\s*\])"
+)
+
+
+def _class_has_authorize_attr(content: str, member_match_start: int,
+                              max_lookback_lines: int = 12) -> bool:
+    """v3.7.4 G-AUTH-CLASS-LEVEL · True si la `class` que envuelve al
+    match tiene `[Authorize]` (o equivalente) en las N líneas previas
+    a su declaración.
+
+    Reduce FPs del detector `AUTH-MISSING-NET-CONTROLLER` cuando el
+    controller protege todos sus endpoints declarando auth a nivel
+    clase y los métodos individuales sólo añaden Roles específicos.
+    """
+    prefix = content[:member_match_start]
+    cls_matches = list(re.finditer(
+        r"^[\s\t]*(?:public|internal|protected|private|sealed|abstract|"
+        r"partial|static|\s)+class\s+\w+",
+        prefix,
+        flags=re.MULTILINE,
+    ))
+    if not cls_matches:
+        return False
+    last_class_decl = cls_matches[-1]
+    upto_class = prefix[:last_class_decl.start()]
+    lines = upto_class.splitlines()
+    window = lines[-max_lookback_lines:] if len(lines) > max_lookback_lines \
+        else lines
+    for line in window:
+        if _AUTHORIZE_ATTR_PATTERN.search(line):
+            return True
+    return False
+
+
+def _method_has_authorize_attr_inline(matched_span: str) -> bool:
+    """v3.7.4 G-AUTH-LOOKAHEAD · True si el span del match del detector
+    `AUTH-MISSING-NET-CONTROLLER` contiene `[Authorize]` (u otro decorator
+    equivalente) entre el `[HttpPost/Put/Delete/Patch]` y la declaración
+    del método.
+
+    Cubre el patrón canónico ASP.NET Core:
+
+        [HttpPost]
+        [Authorize(Roles = "admin,operator")]
+        public IActionResult Crear(...)
+
+    El regex original consume el stack de attributes greedy en
+    `[^\\]]*\\]` y luego el negative lookahead sólo inspecciona la
+    siguiente línea · si `[Authorize]` quedó dentro del span consumido,
+    pasa la lookahead pero el método SÍ está protegido. Este helper
+    examina el span efectivamente matched para detectarlo.
+    """
+    return bool(_AUTHORIZE_ATTR_PATTERN.search(matched_span))
+
+
+def _catch_has_when_filter(content: str, catch_match_end: int,
+                            max_span: int = 200) -> bool:
+    """v3.7.4 G-EXCEPTION-WHEN-FILTER · True si el `catch (...)` tiene
+    una cláusula `when (...)` antes del bloque `{`.
+
+    Indica que el catch filtra explícitamente el subset de excepciones
+    que va a manejar (ej. `catch (Exception ex) when (ex is not
+    OperationCanceledException)` · `catch (HttpRequestException ex)
+    when (IsTransient(ex))`). No es catch-all sloppy; el detector
+    `STATIC-GENERIC-EXCEPTION-CATCH-CSHARP` debe degradar la severidad
+    en ese caso (similar a la degradación por logging existente).
+    """
+    tail = content[catch_match_end:catch_match_end + max_span]
+    brace = tail.find("{")
+    span = tail[:brace] if brace >= 0 else tail
+    return bool(re.search(r"\bwhen\s*\(", span))
 
 
 def _catch_block_has_logging(content: str, catch_match_end: int,
@@ -2273,7 +2397,7 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
             if file_exts is not None and fp_ext not in file_exts:
                 continue
             # v1.7.3 · detector regex opera sobre content sin comentarios
-            for m in pattern.finditer(scan_content):
+            for m in _safe_finditer(pattern, scan_content, rel):
                 line_no = scan_content.count("\n", 0, m.start()) + 1
                 snippet = lines_cache[line_no - 1].strip()[:160] if line_no - 1 < len(lines_cache) else ""
                 # v3.5.0 · degradar catch genérico a LOW si hay logging
@@ -2281,6 +2405,24 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
                 if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
                         _catch_block_has_logging(scan_content, m.end()):
                     eff_severity = "LOW"
+                # v3.7.4 G-EXCEPTION-WHEN-FILTER · degradar catch genérico
+                # a LOW si tiene cláusula `when (...)` (intent específico
+                # de filtro · no es catch-all sloppy).
+                if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
+                        _catch_has_when_filter(scan_content, m.end()):
+                    eff_severity = "LOW"
+                # v3.7.4 G-AUTH-CLASS-LEVEL + G-AUTH-LOOKAHEAD · skip
+                # AUTH-MISSING-NET-CONTROLLER cuando la clase tiene
+                # `[Authorize]` o el método sí lo declara debajo del
+                # `[HttpPost/Put/Delete/Patch]`. El regex original sólo
+                # mira la línea inmediatamente siguiente.
+                if rule_id == "AUTH-MISSING-NET-CONTROLLER":
+                    if _class_has_authorize_attr(scan_content, m.start()):
+                        continue
+                    if _method_has_authorize_attr_inline(
+                        scan_content[m.start():m.end()]
+                    ):
+                        continue
                 # v3.6.3 · skip ApiController controllers que SÍ tienen
                 # el atributo [ApiController] 1-8 líneas arriba.
                 if rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER" \
@@ -2501,7 +2643,7 @@ def scan_files(
         for cwe, pattern, rule_id, severity, desc, file_exts in _DETECTORS:
             if file_exts is not None and fp_ext not in file_exts:
                 continue
-            for m in pattern.finditer(scan_content):
+            for m in _safe_finditer(pattern, scan_content, str(fp)):
                 line_no = scan_content.count("\n", 0, m.start()) + 1
                 snippet = (
                     lines_cache[line_no - 1].strip()[:160]
@@ -2512,6 +2654,18 @@ def scan_files(
                 if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
                         _catch_block_has_logging(scan_content, m.end()):
                     eff_severity = "LOW"
+                # v3.7.4 G-EXCEPTION-WHEN-FILTER · degrade if `when` filter
+                if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
+                        _catch_has_when_filter(scan_content, m.end()):
+                    eff_severity = "LOW"
+                # v3.7.4 G-AUTH-CLASS-LEVEL + G-AUTH-LOOKAHEAD
+                if rule_id == "AUTH-MISSING-NET-CONTROLLER":
+                    if _class_has_authorize_attr(scan_content, m.start()):
+                        continue
+                    if _method_has_authorize_attr_inline(
+                        scan_content[m.start():m.end()]
+                    ):
+                        continue
                 _emit_unless_comment(Finding(
                     cwe=cwe, severity=eff_severity, rule_id=rule_id,
                     file=file_rel, line=line_no, snippet=snippet,

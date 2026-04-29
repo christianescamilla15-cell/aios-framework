@@ -1694,6 +1694,11 @@ def main():
                    help="Regex para identificar paquetes SOX-critical (ej. 'Domain|Billing')")
     p.add_argument("--cobertura-file",
                    help="Path específico al cobertura.xml · sino busca en TestResults/*/")
+
+    # v3.8.0 · Governance Pack · check · request · audit · escalate
+    from aios.cli.governance import add_governance_subcommand, add_tier_subcommand
+    add_governance_subcommand(sub)
+    add_tier_subcommand(sub)
     p.add_argument("--format", choices=["human", "json"], default="human")
 
     args = parser.parse_args()
@@ -1752,6 +1757,9 @@ def main():
         # v3.6.6 · AMX Knowledge Base · catalog + analog advisor
         "amx-catalog": cmd_amx_catalog,
         "amx-analog": cmd_amx_analog,
+        # v3.8.0 · Governance Pack · check · request · audit · escalate
+        "governance": cmd_governance_dispatch,
+        "tier": cmd_tier_dispatch,
     }
 
     if args.command in commands:
@@ -3196,6 +3204,38 @@ def cmd_iterate(args):
     for s, n in sorted(report.by_strategy().items(), key=lambda x: -x[1]):
         print(f"    {s:22s} : {n}")
     print()
+
+
+# ---------------------------------------------------------------------------
+# v3.8.0 · Governance Pack dispatchers
+# ---------------------------------------------------------------------------
+
+def cmd_governance_dispatch(args):
+    """Despacha aios governance {check|request|audit|escalate}."""
+    from aios.cli.governance import cmd_check, cmd_request, cmd_audit, cmd_escalate
+
+    action = getattr(args, "governance_action", None)
+    if action == "check":
+        return cmd_check(args)
+    if action == "request":
+        return cmd_request(args)
+    if action == "audit":
+        return cmd_audit(args)
+    if action == "escalate":
+        return cmd_escalate(args)
+    print("Usage: aios governance {check|request|audit|escalate} ...", file=sys.stderr)
+    return 2
+
+
+def cmd_tier_dispatch(args):
+    """Despacha aios tier {classify}."""
+    from aios.cli.governance import cmd_tier_classify
+
+    action = getattr(args, "tier_action", None)
+    if action == "classify":
+        return cmd_tier_classify(args)
+    print("Usage: aios tier classify --app <app>", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

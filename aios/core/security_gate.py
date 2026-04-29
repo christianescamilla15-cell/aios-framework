@@ -2076,8 +2076,9 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "MEDIUM",
         "CDK Lambda Function sin log_retention · default INFINITE · "
         "coste CloudWatch + PII sin política retención · CWE-778 · "
-        "añadir log_retention=logs.RetentionDays.ONE_MONTH (o política "
-        "acorde amazon-q-rules logging-retention)",
+        "añadir log_retention=logs.RetentionDays.THREE_MONTHS (mínimo 90d "
+        "exigido por AMX CS_Scripts/check_f03_compliance.py · alineado "
+        "amazon-q-rules logging-retention)",
         frozenset({".py", ".ts"}),
     ),
     (

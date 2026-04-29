@@ -1,0 +1,72 @@
+{# AIOS Governance Template · BD Access Request · Jinja2 markdown skeleton #}
+{# Variables esperadas: ver templates/README.md · sección "Variables comunes" #}
+{# Implementación real F2 Día 4 · 02-may-2026 · este es el SKELETON inicial #}
+
+# Caso de Uso · {{ app_display }} · Solicitud de Acceso a Base de Datos Legacy
+
+**Programa:** Revenue Accounting Modernization · {{ tier }} · {{ tier_description }}
+
+---
+
+## Metadata
+
+- **Aplicativo:** {{ app_display }} (#{{ app_id }}) · {{ tier }} · {{ tier_priority_label }}
+- **Fase del refactor:** {{ phase_current }} → {{ phase_next }}
+- **Solicitante:** {{ requester.name }} · {{ requester.role }} · {{ requester.email }}
+{% if co_requester %}- **Co-solicitante (Read Only):** {{ co_requester.name }} · {{ co_requester.email }}
+{% endif %}- **Para:** {{ for_recipients | join(' · ') }}
+- **CC:** {{ cc_recipients | join(' · ') }}
+- **Fecha solicitud:** {{ request_date }}
+- **Vigencia requerida:** {{ valid_for_days }} días (renovable)
+- **Request ID:** `{{ request_id }}`
+
+---
+
+## 1 · Contexto
+
+{{ context }}
+
+Para el arranque de **{{ phase_next }}**, el equipo eTride requiere acceso de **lectura a la base de datos legacy {{ app_display }}** para los siguientes propósitos técnicos.
+
+## 2 · Solicitud puntual de acceso
+
+| # | Recurso | Tipo de acceso | Justificación |
+|---|---|---|---|
+{% for resource in resources %}| {{ loop.index }} | {{ resource.name }} | {{ resource.access_type }} | {{ resource.justification }} |
+{% endfor %}
+
+## 3 · Roles AWS solicitados
+
+| Persona | Email | Rol AWS | Perfil IAM |
+|---|---|---|---|
+{% for member in team %}| {{ member.name }} | {{ member.email }} | {{ member.aws_role }} | `{{ member.iam_profile }}` |
+{% endfor %}
+
+## 4 · Compromiso de uso seguro · LFPDPPP / SOX
+
+{% for commitment in compliance_commitments %}- {{ commitment }}
+{% endfor %}
+
+## 5 · Cuenta AWS dedicada · alineación AMX
+
+Solicitamos provisión paralela de la **cuenta AWS dedicada {{ app_display }}**:
+
+- {{ environments_count }} ambientes · `amx-revacc-{{ app }}-{{ '{' }}des/qa/prod{{ '}' }}`
+- 3 perfiles IAM por cuenta · `AMX-R-{{ app | upper }}-A` · `-DES` · `-SL`
+- {{ cmk_count }} CMKs (Customer-managed) · ticket umbrella vía GateOne (Antonio Oropeza):
+{% for cmk in cmk_list %}  - `amx-kms-{{ app }}-{{ cmk.scope }}` ({{ cmk.purpose }})
+{% endfor %}{% if multiregion_required %}- Activación Multi-región Activo-Activo (Virginia us-east-1 + Oregon us-west-2) · per ADR-002 v2
+{% endif %}- 1 YubiKey física al admin (Christian) · trámite con CYBER
+
+## 6 · Aprobaciones requeridas en orden
+
+{% for step in approval_chain %}{{ loop.index }}. **{{ step.role }}** · {{ step.name }} · {{ step.action }}
+{% endfor %}
+
+---
+
+**Bloqueador crítico cronograma:** sin este acceso, {{ blocking_block }} no puede arrancar · pierden {{ blocking_weeks }} semanas · impacta go-live {{ golive_target }}. Solicitamos respuesta en menos de {{ response_sla_days }} días hábiles.
+
+---
+
+*eTride · {{ requester.name }} · {{ request_date }} · template adaptable a Robot · NoShow · BSP · ARC · CFDIs · SRG · ASR*

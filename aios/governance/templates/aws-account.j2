@@ -1,0 +1,50 @@
+{# AIOS Governance Template · AWS Account Creation Request · skeleton F1 Día 2 #}
+
+# Solicitud creación cuentas AWS · {{ app_display }} · {{ tier }}
+
+**Para:** {{ operator.email }}
+**CC:**  luisertuche@aeromexico.com; jlperezi@aeromexico.com
+**Asunto:** Solicitud creación {{ environments_count }} cuentas AWS {{ account_type }} · {{ app_display }} ({{ tier }})
+
+---
+
+Hola {{ operator.short_name }},
+
+Solicito formalmente la creación de las **{{ environments_count }} cuentas AWS {{ account_type }}** para el aplicativo **{{ app_display }}** ({{ tier }} · {{ tier_priority_label }}), conforme al proceso explicado por Fernando en la sesión del {{ reference_session_date }}.
+
+## Detalle de cuentas
+
+{% for env in environments %}  - `{{ env.name }}` · {{ env.description }}
+{% endfor %}
+
+## Configuración solicitada
+
+- **Project Code Optimo:** {{ project_code | default('pendiente confirmar con Luis Ertuche') }}
+- **Lista de Distribución:** `amcssolutionarchitects@aeromexico.com` ({{ dl_status }})
+- **Roles IAM:**
+  - `AMX-R-{{ app | upper }}-A` (Administrador · YubiKey)
+  - `AMX-R-{{ app | upper }}-DES` (Desarrollador · Power User)
+  - `AMX-R-{{ app | upper }}-SL` (Solo Lectura)
+- **YubiKey:** {{ yubikey_status }} (CYBER · Carlos Reyes / Miguel Rachid)
+- **CMKs:** {{ cmk_count }} por cuenta · ticket umbrella separado vía GateOne (Antonio Oropeza)
+{% if multiregion_required %}- **Multi-región:** us-east-1 (primaria) + us-west-2 (DR) · per ADR-002 v2
+{% endif %}{% if account_type == 'shared' %}- **Validador agrupación T2:** Roberto Carlos Osorio + José Ángel León (validación previa requerida)
+- **Apps consolidadas:** {{ apps_consolidated | join(' · ') }} (máx 6 per regla T2)
+{% endif %}
+
+## Justificación · {{ tier }}
+
+{% for reason in tier_justification %}- {{ reason }}
+{% endfor %}
+
+Adjunto el caso de uso {{ app_display }} con el detalle técnico completo (`{{ attachment_filename }}`).
+
+Quedo atento.
+
+Saludos,
+**{{ requester.name }}**
+{{ requester.role }}
+
+---
+
+*Request ID: `{{ request_id }}` · Audit trail: `aios governance audit --app {{ app }}` · v3.8.0*

@@ -1,0 +1,494 @@
+# AIOS Governance · Stakeholders por proceso · Aeroméxico
+# Fuente: sesiones 23-abr a 28-abr · transcripciones · imagen GateOne · thread Teams
+# Versión: 1.0 · catálogo base v3.8.0
+
+schema_version: 1
+last_updated: "2026-04-28"
+
+# ---------------------------------------------------------------------------
+# Equipo eTride · 5 personas oficiales (confirmado 28-abr)
+# ---------------------------------------------------------------------------
+
+etride_team:
+
+  - name: "Christian Hernández Escamilla"
+    email: "chernandeze@aeromexico.com"
+    github_amx: "chernandeze_amx"
+    github_personal: "christianescamilla15-cell"
+    role_etride: "Líder técnico · Admin programa"
+    role_aws: "Administrador (FullAccess)"
+    iam_profile: "A"
+    yubikey_required: true
+    yubikey_status: "trámite_iniciado"  # Update post-CYBER acta
+    apps_lead:
+      - "sicofav"
+      - "arc"
+    apps_extra: []
+    contact_methods: ["email", "teams"]
+
+  - name: "Oscar Alejandro Pulido Campos"
+    email: "opulidoc@aeromexico.com"
+    github_amx: "opulidoc_amx"
+    role_etride: "Desarrollador · único con Kiro confirmado"
+    role_aws: "Desarrollador (Power User)"
+    iam_profile: "DES"
+    yubikey_required: false
+    apps_lead:
+      - "srg"
+      - "asr"
+    apps_extra: []
+    notes: "Único con Kiro entregado · maneja .NET 7→8 + Angular 15→18"
+
+  - name: "Alonso Montiel Villar"
+    email: "amontielv@aeromexico.com"
+    github_amx: "amontielv_amx"
+    role_etride: "Desarrollador · lead NoShow"
+    role_aws: "Desarrollador (Power User)"
+    iam_profile: "DES"
+    yubikey_required: false
+    apps_lead:
+      - "noshow"
+    apps_extra:
+      - "cfdi"  # apoya custodia AMX TI Eban Valdo
+    notes: "Lead NoShow custodia DxC · arranque inmediato"
+
+  - name: "Gustavo Magallanes Guijón"
+    email: "gmagallanes@aeromexico.com"
+    github_amx: "gmagallanes_amx"
+    role_etride: "Desarrollador · skill COBOL SPOF"
+    role_aws: "Desarrollador (Power User)"
+    iam_profile: "DES"
+    yubikey_required: false
+    apps_lead:
+      - "robot"  # post-asignación 27-abr (reasignado de Comisiones D+I OUT)
+    apps_extra:
+      - "bsp"
+    notes: "Skill COBOL SPOF · liberado tras OUT Comisiones D+I el 27-abr"
+
+  - name: "Víctor Hugo Araiza"
+    email: "varaiza@aeromexico.com"
+    github_amx: "varaiza_amx"
+    role_etride: "Sponsor IT · Consultor/Soporte"
+    role_aws: "Consultor/Soporte (Read Only)"
+    iam_profile: "SL"
+    yubikey_required: false
+    apps_lead: []
+    apps_extra: ["all"]  # Read Only en todas
+    notes: "Sponsor IT · monitoreo + escalación · NO modifica recursos · post-provisión también dar SL a Elías"
+
+# ---------------------------------------------------------------------------
+# Stakeholders AMX · clasificados por proceso/rol
+# ---------------------------------------------------------------------------
+
+amx_stakeholders:
+
+  # ---- Solution Architects (Cuerpo Solutions) ----
+
+  - name: "Jose Fernando Pérez Izquierdo"
+    aliases: ["Fer", "Fernando"]
+    email: "jlperezi@aeromexico.com"  # confirmar en thread Teams
+    role: "Solution Architect lead AMX"
+    team: "Solution Architects · Cuerpo Solutions"
+    domain_expertise:
+      - "Cert privado dominio amxbo.com (renovación junio 2026)"
+      - "Service Catalog AMX (CDK preaprobado)"
+      - "Process explainer · sesión 27-abr 03:30 PM"
+    contact_for:
+      - "Inclusión DL amcssolutionarchitects@aeromexico.com"
+      - "Validación Service Catalog usage"
+      - "Despliegues vía CDK preaprobado"
+
+  - name: "Rigo Ferqui"
+    aliases: ["Rigo"]
+    email: "[pending confirmar]"
+    role: "Solution Architect AMX"
+    team: "Solution Architects"
+    domain_expertise:
+      - "Reglas consolidación T2 (3 cuentas mínimo · 6 apps max)"
+      - "Co-explainer sesión 27-abr"
+
+  - name: "Gerardo Téllez Pacheco"
+    aliases: ["Gerardo TP"]
+    email: "[pending confirmar · dominio amxbo.com]"
+    role: "Admin clusters Kubernetes/EKS · equipo Fernando"
+    team: "Solution Architects · sub-equipo EKS"
+    domain_expertise:
+      - "Administración EKS clusters"
+      - "Soporte despliegues · 2 semanas en equipo (a 27-abr)"
+      - "Service Catalog operación"
+
+  - name: "Cora"
+    aliases: ["Coraima"]
+    email: "[pending confirmar]"
+    role: "Solution Architect AMX · ERP Cloud Oracle"
+    team: "Solution Architects"
+    availability: "NO disponible para Revenue Accounting (proyecto paralelo ERP Cloud Oracle)"
+    notes: "Pedirle ayuda solo si imprescindible · escalar a Elías"
+
+  - name: "Paula Rengifo"
+    email: "[pending confirmar]"
+    role: "Solution Architect AMX · ERP Cloud Oracle"
+    team: "Solution Architects"
+    availability: "NO disponible para Revenue Accounting (proyecto paralelo ERP Cloud Oracle)"
+
+  # ---- Cumplimiento / Validadores TIER ----
+
+  - name: "Roberto Carlos Osorio"
+    aliases: ["Roberto Carlos", "RC"]
+    email: "[pending confirmar · sesión Fernando 27-abr]"
+    role: "Equipo arquitectura/cumplimiento AMX"
+    team: "Cumplimiento + Arquitectura"
+    domain_expertise:
+      - "DECISOR final TIER + agrupación T2"
+      - "Validador oficial reglas Tiers 2.xlsx"
+      - "Reglas regulatorias (PII · PCI · SOX)"
+    contact_for:
+      - "Validación TIER por aplicativo"
+      - "Aprobación agrupación cuenta T2 compartida"
+      - "Reclasificación TIER (ej. SRG T3→T2)"
+    contact_protocol: "Vía Luis Ertuche · respetar DND status (estaba en DND el 27-abr)"
+
+  - name: "José Ángel León"
+    aliases: ["JAL"]
+    email: "[pending confirmar]"
+    role: "Equipo cumplimiento AMX"
+    team: "Cumplimiento"
+    domain_expertise:
+      - "Co-evaluador con Roberto Carlos"
+      - "Cumplimiento regulatorio"
+    contact_protocol: "Vía Roberto Carlos típicamente"
+
+  - name: "Domini"
+    aliases: ["Dominic"]
+    email: "[pending confirmar]"
+    role: "Equipo cumplimiento AMX"
+    team: "Cumplimiento"
+    domain_expertise:
+      - "Dueño archivo Tiers 2.xlsx (catálogo TIER oficial)"
+      - "Formatos de evaluación"
+      - "Mantiene los formatos perdidos cuando salió 'Casa él' (ex-AMX)"
+
+  # ---- Operadores AWS Account / GateOne ----
+
+  - name: "Juan Carlos Vázquez Lorenzo"
+    email: "[pending confirmar]"
+    role: "Admin entrega cuentas AMX"
+    team: "Cloud Platform · Operaciones"
+    domain_expertise:
+      - "Operador entrega de cuentas AWS"
+      - "Entrega YubiKeys"
+      - "Alta de tickets cuentas + IAM"
+    contact_for:
+      - "Tickets creación cuentas AWS"
+      - "Provisionamiento IAM roles iniciales"
+      - "Coordinación YubiKey delivery"
+
+  - name: "Antonio Hernández Oropeza"
+    aliases: ["Antonio", "Toño"]
+    email: "[pending confirmar]"
+    role: "Arquitecto AMX · GateOne KMS"
+    team: "Arquitectura + GateOne"
+    domain_expertise:
+      - "Provisión CMKs vía GateOne"
+      - "Co-arquitecto del programa (sesión retro 20-abr)"
+    contact_for:
+      - "Tickets KMS (5 CMKs por cuenta · 30 totales programa)"
+      - "Validación arquitectura CDK"
+
+  - name: "Pedro Emmanuel Abaonza"
+    email: "[pending confirmar]"
+    role: "Arquitecto AMX"
+    team: "Arquitectura"
+    domain_expertise:
+      - "Co-arquitecto del programa (sesión retro 20-abr)"
+      - "Validación diagramas TO-BE"
+
+  # ---- Borde Arquitectura · firma ADRs ----
+
+  - name: "Israel Miguel González Sandoval"
+    aliases: ["Israel", "Borde Arq"]
+    email: "israelmiguel@aeromexico.com"
+    role: "Borde Arquitectura AMX"
+    team: "Borde Arquitectura"
+    domain_expertise:
+      - "Firma ADRs (Architecture Decision Records)"
+      - "ÚNICO autorizado upload C4 a LeanIX"
+      - "Validación arquitectónica final"
+      - "Sign-off TIER reclassification"
+    contact_for:
+      - "Firma ADR-001..N"
+      - "Reclasificación TIER (junto con RC + JAL)"
+      - "Upload LeanIX C4 niveles 2-3"
+      - "VPC + CIDRs (junto con Diego Zarate)"
+
+  # ---- Networking · Diego Zarate ----
+
+  - name: "Diego Zarate"
+    email: "[pending confirmar]"
+    role: "NetSec / Networking AMX"
+    team: "NetSec"
+    domain_expertise:
+      - "VPC + CIDRs assignment"
+      - "Network Firewall + rutas"
+      - "Direct Connect / Transit Gateway hacia NTG"
+    contact_for:
+      - "Asignación rango IP por aplicativo (Plan v6 R134-145)"
+      - "Reglas Security Groups"
+      - "Validación tráfico inspección"
+
+  # ---- Ciberseguridad ----
+
+  - name: "Carlos Reyes"
+    email: "carlosreyes@aeromexico.com"
+    role: "Ciberseguridad AMX"
+    team: "Ciberseguridad"
+    domain_expertise:
+      - "Aprobación CYBER gates (Veracode · WIZ · Tenable · Prisma)"
+      - "Workshops IRSA + EKS access"
+      - "Rotación de credenciales expuestas (D3 SICOFAV)"
+    contact_for:
+      - "Aprobación CYBER pre-walkthrough"
+      - "YubiKey física entrega"
+      - "Tokens CYBER (Veracode · Tenable · WIZ)"
+      - "Pen-test scoping"
+
+  - name: "Eloisa Sánchez"
+    email: "eloisa.sanchez@aeromexico.com"
+    role: "Cumplimiento AMX"
+    team: "Ciberseguridad + Cumplimiento"
+    domain_expertise:
+      - "LFPDPPP · SOX · PCI-DSS"
+      - "Validación cumplimiento solicitudes"
+    contact_for:
+      - "Validación regulatoria solicitudes"
+      - "Reportes ejecutivos cumplimiento"
+
+  - name: "Miguel Rachid"
+    email: "[pending confirmar]"
+    role: "Gerente Ciberseguridad AMX"
+    team: "Ciberseguridad"
+    domain_expertise:
+      - "4 gates externos CYBER (Veracode · Tenable · WIZ · Prisma)"
+      - "AMX IdP integration · IRSA roles"
+      - "Pre-prod final approval"
+    contact_for:
+      - "Escalación CYBER bloqueada"
+      - "Workshop IRSA + EKS"
+      - "AMX IdP integration"
+
+  # ---- Sponsorship Programa ----
+
+  - name: "Elías Tapia"
+    email: "etapia@aeromexico.com"
+    role: "Sponsor único interno AMX · Revenue Accounting"
+    team: "Revenue / IT"
+    domain_expertise:
+      - "Sponsor del programa modernización"
+      - "Decisiones de scope"
+      - "Sign-off Dirección"
+    contact_for:
+      - "Escalación cuando 2+ firmas atoradas"
+      - "Decisión scope (inclusión/exclusión apps)"
+      - "Comunicación a dirección"
+    notes: "Único stakeholder INTERNO AMX en eTride · resto es consultoría"
+
+  - name: "Luis Ertuche"
+    aliases: ["Luis Sertuche"]
+    email: "luisertuche@aeromexico.com"
+    role: "Program Manager · Revenue Accounting"
+    team: "Consultoría · PM eTride"
+    domain_expertise:
+      - "Cronograma Plan v6"
+      - "Project Codes Optimo"
+      - "Intermediación con Roberto Carlos · DND"
+    contact_for:
+      - "Pertinencia al plan (step 1 firmas)"
+      - "Project Code Optimo de cada app"
+      - "Reuniones agenda con stakeholders senior"
+
+  - name: "Víctor Araiza"
+    email: "varaiza@aeromexico.com"
+    role: "Sponsor IT AMX"
+    team: "IT · Sponsorship"
+    domain_expertise:
+      - "Sponsor IT del programa"
+      - "B-AWS-ACCT (cuenta sandbox)"
+    contact_for:
+      - "Cuenta AWS sandbox / greenfield"
+      - "Decisiones sponsor IT"
+
+  - name: "J.T."
+    email: "[pending confirmar]"
+    role: "Sponsor business AMX · VP Revenue"
+    team: "Revenue · Business"
+    domain_expertise:
+      - "Sponsor business del programa"
+      - "Decisión STANDBY Comisiones D+I (post-27-abr OUT)"
+    contact_for:
+      - "Decisiones de scope nivel business"
+      - "Comisiones D+I si reactivación futura"
+
+  # ---- Custodios externos · vendor management ----
+
+  - name: "Cynthia Soriano"
+    aliases: ["Cynthia"]
+    email: "[pending confirmar]"
+    role: "Coordinadora Miatech · Praxis"
+    team: "AMX TI · liaison Miatech"
+    domain_expertise:
+      - "Coordinación con Miatech (custodia múltiples apps)"
+      - "BSP · ARC · ASR · Robot composite custodia"
+    contact_for:
+      - "Workshop DBA Miatech (D5 SICOFAV_AM)"
+      - "Disputa propiedad BSP"
+      - "Coordinación entrega código real Miatech"
+
+  - name: "Carlos Ramírez"
+    email: "[pending confirmar]"
+    role: "DBA Miatech (probable · pending confirmar)"
+    team: "Miatech · DBA"
+    domain_expertise:
+      - "Bases de datos legacy SICOFAV · 67 SPs"
+      - "Estado SICOFAV_AM (D5 Paquete Ejecutivo)"
+    contact_for:
+      - "Acceso BD SICOFAV legacy (read-only)"
+      - "Workshop audit 67 SPs"
+      - "Confirmación dual-BD"
+
+  - name: "Eban Valdo Flores"
+    email: "[pending confirmar]"
+    role: "AMX TI custodio CFDIs"
+    team: "AMX TI"
+    domain_expertise:
+      - "Custodia FEBOL_MX_DescargaMasivaSAT (CFDIs · #04)"
+      - "Migración hace ~1 año desde Miatech"
+    contact_for:
+      - "Acceso código CFDIs"
+      - "Coordinación SAT cert + Object Lock"
+
+  - name: "Corato Ledo"
+    email: "[pending confirmar]"
+    role: "AMX TI · supervisor Eban"
+    team: "AMX TI"
+    domain_expertise:
+      - "Supervisión custodia CFDIs"
+
+  - name: "Juanito"
+    email: "[pending confirmar]"
+    role: "Miatech · COBOL coordinator"
+    team: "Miatech"
+    domain_expertise:
+      - "Coordinación COBOL backend (Precompras · PLM · ARC · BSP · ASR pending)"
+      - "Entregas código real Miatech"
+
+  - name: "Guillermo de Jesús Alcocer"
+    email: "[pending confirmar]"
+    role: "AMX TI · owner Parrilla (NO scope)"
+    team: "AMX TI"
+    notes: "Workshop CFDIs realizado 23-abr 16:30 · transcript pending"
+
+  - name: "Lucia · Ricardo (Miatech)"
+    email: "[pending confirmar]"
+    role: "Miatech · Mixed Commission V3"
+    team: "Miatech"
+    domain_expertise:
+      - "Comisiones Indirectas V3 (post-OUT 27-abr)"
+    notes: "OUT del scope post-27-abr · reactivación pending sponsors"
+
+  # ---- Operadores Dynamics / Kiro (probable · pending confirmar) ----
+
+  - name: "[jlmartineze]"
+    email: "jlmartineze@aeromexico.com"
+    role: "[pending confirmar · probable equipo Dynamics/Kiro support]"
+    team: "[pending]"
+    notes: "Aparece en correo GateOne 28-abr (grupo Kiro AMX-DYN-G-C-AMQ-DES(01))"
+
+  - name: "[jreyeslo]"
+    email: "jreyeslo@aeromexico.com"
+    role: "[pending confirmar · probable equipo Dynamics/Kiro support]"
+    team: "[pending]"
+    notes: "Aparece en correo GateOne 28-abr · NO confundir con Carlos Reyes"
+
+  - name: "[labravo]"
+    email: "labravo@aeromexico.com"
+    role: "[pending confirmar · probable equipo Dynamics/Kiro support]"
+    team: "[pending]"
+    notes: "Aparece en correo GateOne 28-abr"
+
+# ---------------------------------------------------------------------------
+# Listas de distribución oficiales
+# ---------------------------------------------------------------------------
+
+distribution_lists:
+
+  - email: "amcssolutionarchitects@aeromexico.com"
+    description: "Solution Architects AMX · contiene equipo Fernando · Rigo · Cora · Paula · Gerardo · etc."
+    contact_for_inclusion: "Jose Fernando Pérez Izquierdo"
+    benefit: "Evita 'agregar correo por correo' en cada permiso AWS · ahorra ~10 días al programa"
+    use_case: "SNS topics · CloudWatch alarms · notifications cuentas AWS"
+
+# ---------------------------------------------------------------------------
+# Stakeholders mapping por process
+# ---------------------------------------------------------------------------
+# Quién contactar cuando aplica X proceso
+
+contact_matrix:
+
+  bd_legacy_access:
+    primary: "DBA del custodio (varía por app)"
+    sicofav_dba: "Carlos Ramírez (Miatech · pending confirmar)"
+    noshow_dba: "DxC team (pending nombre exacto)"
+    cfdi_dba: "Eban Valdo Flores (AMX TI)"
+    robot_dba: "Cynthia Soriano (Miatech composite)"
+    cyber_review: "Carlos Reyes / Eloisa Sánchez"
+
+  aws_account_creation:
+    operator: "Juan Carlos Vázquez Lorenzo"
+    architect_review: "Israel Miguel González Sandoval (Borde Arq) · informativo"
+    pm_validation: "Luis Ertuche"
+
+  cmk_request:
+    operator: "Antonio Hernández Oropeza (GateOne)"
+    cyber_review: "Carlos Reyes"
+    pm_validation: "Luis Ertuche"
+
+  yubikey_request:
+    operator: "Carlos Reyes / Miguel Rachid (CYBER)"
+    pm_validation: "Luis Ertuche (corresponsabilidad consultoría)"
+
+  vpc_creation:
+    operator: "Diego Zarate (NetSec)"
+    architect_review: "Israel Miguel González Sandoval"
+    pm_validation: "Luis Ertuche"
+
+  tier_validation:
+    primary: "Roberto Carlos Osorio"
+    co_validator: "José Ángel León"
+    catalog_keeper: "Domini"
+    pm_intermediation: "Luis Ertuche (si RC en DND)"
+
+  adr_signature:
+    primary: "Israel Miguel González Sandoval"
+    peers_for_review: ["Antonio Hernández Oropeza", "Pedro Emmanuel Abaonza"]
+
+  custodia_external:
+    miatech: "Cynthia Soriano (general) + Carlos Ramírez (DBA)"
+    dxc: "[pending nombre · NoShow custodian]"
+    amx_ti_cfdis: "Eban Valdo Flores + Corato Ledo"
+    atos_lima: "Juanito (intermediación · COBOL ATOS-LIMA 2009)"
+
+  scope_change:
+    pm: "Luis Ertuche"
+    sponsor_it: "Víctor Araiza"
+    sponsor_business: "J.T. (VP Revenue)"
+    sponsor_intern_amx: "Elías Tapia"
+
+  cyber_walkthrough:
+    operator: "Carlos Reyes"
+    escalation: "Miguel Rachid"
+    cumplimiento: "Eloisa Sánchez"
+
+  scheduling:
+    pm_calendar: "Luis Ertuche"
+    sponsor_calendar: "Elías Tapia"
+    rc_intermediation: "Luis Ertuche (RC en DND frecuente)"

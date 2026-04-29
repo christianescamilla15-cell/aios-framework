@@ -550,3 +550,57 @@ Derivado de SICOFAV triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULAT
 
 - ⏸ Commit + merge main + tag `v3.7.5` + push origin/amx (cross-app · pendiente confirmación user)
 - ⏸ Update version en `pyproject.toml` + `aios/__init__.py` (DONE)
+
+---
+
+## v3.8.0 Governance Pack · Drift items detectados pre-release · 29-abr-2026
+
+Antes de publicar v3.8.0, audit cruzado contra repos AMX detectó 3 alignment gaps que NO bloquean release pero deben tratarse en v3.8.1.
+
+### G-DRIFT-1 · ADEA naming exception · MEDIUM · alineación BO-AMX
+
+**Origen**: `BO-AMX/CS_Scripts@v0.12.0` · `compliance/check_f06_compliance.py` (Fer Pérez · 2026-04-29 12:15PM).
+
+**Síntoma**: detector `G-NEW-IAM-NAMING-FULL` flaggearía como FAIL los nombres exactos ADEA actuales:
+- `AMX-R-ADEA-WEBAPP-ADMIN`
+- `AMX-R-ADEA-RESOURCE-ACCESS`
+
+Mi regex actual `^AMX-R-{App}-{A|DES|SL}$` no admite sufijos `WEBAPP-ADMIN` ni `RESOURCE-ACCESS`.
+
+**Fix v3.8.1**:
+- Añadir lista `iam_role_naming.exceptions` en `aios/governance/rules/naming.yaml` con prefijos reservados (`ADEA`, `WEBAPP`, etc.).
+- Actualizar `NamingChecker._check_iam_naming()` para skip si token coincide con exception.
+- Test: assert `AMX-R-ADEA-WEBAPP-ADMIN` NO produce finding.
+
+**Esfuerzo**: ~30min · 1 commit + test.
+
+### G-DRIFT-2 · log-retention threshold ≥90d · LOW · alineación f03
+
+**Origen**: `BO-AMX/CS_Scripts@compliance/check_f03_compliance.py:447` exige `retentionInDays >= 90`.
+
+**Status v3.8.0**: Sugerencia del detector `AMX-CDK-LAMBDA-NO-LOG-RETENTION` actualizada a `RetentionDays.THREE_MONTHS` (90d) · ✅ ya alineado con commit del sprint v3.8.0.
+
+**Pendiente v3.8.1**: añadir un detector secundario que flague Lambdas con `log_retention=RetentionDays.ONE_MONTH` (30d) explícitamente como WARN ("log retention < 90d · AMX exige 90d hot tier").
+
+### G-DRIFT-3 · _iter_files() no soporta prefijos en globs · LOW
+
+**Origen**: descubierto durante F3 testing del sprint v3.8.0 (`tests/test_governance_naming_checker.py`).
+
+**Síntoma**: `FILE_GLOBS["cmk"]` incluye `**/cdk*.py` pero `_iter_files()` solo extrae sufijos `**/*.ext`. Resultado: archivos `cdk_stack.py` con aliases custom NO son escaneados por detectores `G-NEW-CMK-NAMING` ni `G-CDK-KMS-AWS-MANAGED-PROHIBITION` desde código Python.
+
+**Workaround**: scan vía `.tf`/`.ts` files (que sí matchean por sufijo).
+
+**Fix v3.8.1**: refactorizar `_iter_files()` para soportar `fnmatch` sobre nombres de archivo además de sufijos. Esfuerzo ~1h · revisar tests existentes.
+
+### Pre-publish v3.8.0 audit context
+
+Audit ejecutado 29-abr-2026 17:50 sobre 4 repos BO-AMX ancla:
+
+| Repo | Última commit relevante | Status |
+|---|---|---|
+| `amazon-q-rules` | 4 meses atrás (PR #15) | ✅ sin cambios |
+| `devops-kiro-gov` | 2026-04-28 (v0.1.6 · rule_update PR #9) | ✅ sólo update spec dynamic-lambda-dashboard · no afecta governance |
+| `CS_Scripts` | 2026-04-29 12:15PM (v0.12.0) | ⚠ 3 drift items (ver G-DRIFT-1/2/3) |
+| `CS_CI_Artifacts` | 2026-04-29 (v2.26.0) | ✅ buildspec patterns sin cambio relevante |
+
+**Conclusión**: v3.8.0 sale con G-DRIFT-2 ya corregido en flight · G-DRIFT-1 y G-DRIFT-3 documentados para v3.8.1.

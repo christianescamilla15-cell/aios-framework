@@ -1,0 +1,56 @@
+{# AIOS Governance Template · CMK Umbrella Request via GateOne · skeleton F1 Día 2 #}
+
+# Solicitud {{ cmk_count }} CMKs Customer-Managed · {{ app_display }} · GateOne ticket umbrella
+
+**Para:** {{ operator.email }} (Antonio Oropeza · GateOne)
+**CC:**  carlosreyes@aeromexico.com; luisertuche@aeromexico.com
+**Asunto:** Solicitud {{ cmk_count }} CMKs vía GateOne · {{ app_display }} · ticket umbrella
+
+---
+
+Estimado Antonio,
+
+Como parte del programa **Revenue Accounting Modernization 2026**, solicitamos la creación de **{{ cmk_count }} CMKs (Customer-managed)** para el aplicativo **{{ app_display }}** ({{ tier }}).
+
+Conforme a la regla AMX (`kms-aws-managed-keys-prohibition` · amazon-q-rules), AWS-managed keys (`alias/aws/*`) están **prohibidas** excepto ACM. Cada servicio cifrado requiere su propia CMK customer-managed.
+
+## CMKs solicitadas (ticket umbrella · {{ environments_count }} ambientes)
+
+{% for env in environments %}### Ambiente {{ env.name | upper }}
+
+{% for cmk in cmk_list %}- **`{{ cmk.alias_pattern | replace('{env}', env.short) }}`**
+  - Propósito: {{ cmk.purpose }}
+  - Servicios usuarios: {{ cmk.consumers | join(', ') }}
+  - Rotación: {{ cmk.rotation }}
+  - Tag-based DENY policy: {{ "Sí" if cmk.tag_deny else "No" }}
+{% endfor %}
+
+{% endfor %}
+**Total:** {{ cmk_count_per_env }} CMKs × {{ environments_count }} ambientes = **{{ cmk_count }} CMKs**
+
+## Configuración común a todas
+
+- `enable_key_rotation`: **true** (rotación anual obligatoria · Aeroméxico policy)
+- `removal_policy`: **RETAIN** (NO destruir CMKs accidentalmente · SOX retention)
+- `pending_window_days`: 30 (cool-off pre-deletion · double-confirm)
+- `tag_based_deny`: requiere `aws:PrincipalTag/app={{ app }}` para todas las operaciones (R5-2 fix · CWE-732)
+- 8 tags AMX canónicos en español: CentroDeCosto · DuenoDeLaCuenta · Proyecto · Ambiente · ImpactoANegocio · Aplicacion · GrupoDeParcheo · SistemaOperativo
+
+## Justificación · TIER {{ tier }}
+
+{% for reason in tier_justification %}- {{ reason }}
+{% endfor %}
+
+## SLA solicitado
+
+Conforme a la sesión del 27-abr 03:30 PM con Fernando, los CMKs requieren ~2-3 días por llave. Para las {{ cmk_count }} CMKs umbrella · estimamos **{{ sla_days_estimated }} días hábiles**.
+
+Quedo atento a confirmación del ticket umbrella.
+
+Saludos,
+**{{ requester.name }}**
+{{ requester.role }}
+
+---
+
+*Request ID: `{{ request_id }}` · Audit trail: `aios governance audit --app {{ app }}` · v3.8.0*

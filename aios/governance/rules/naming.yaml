@@ -1,0 +1,353 @@
+# AIOS Governance · Naming patterns oficiales · Aeroméxico
+# Fuente: thread Teams 27-abr 03:52 PM · spec creación repos AMX 28-abr · sesión Fernando
+# Aplica a: 5 detectores nuevos v3.8.0
+# Versión: 1.0 · catálogo base v3.8.0
+
+schema_version: 1
+last_updated: "2026-04-28"
+
+# ---------------------------------------------------------------------------
+# AppPrefix oficiales · 8 aplicativos Revenue Accounting
+# ---------------------------------------------------------------------------
+
+app_prefixes:
+  sicofav: { id: "01", canonical: "Sicofav", short: "SCV", display: "SICOFAV" }
+  arc:     { id: "02", canonical: "Arc",     short: "ARC", display: "ARC" }
+  bsp:     { id: "03", canonical: "Bsp",     short: "BSP", display: "BSP" }
+  cfdi:    { id: "04", canonical: "Cfdi",    short: "CFDI", display: "CFDIs" }
+  srg:     { id: "05", canonical: "Srg",     short: "SRG", display: "SRG" }
+  asr:     { id: "06", canonical: "Asr",     short: "ASR", display: "ASR" }
+  robot:   { id: "07", canonical: "Robot",   short: "ROB", display: "Robot" }
+  noshow:  { id: "10", canonical: "NoShow",  short: "NS",  display: "NoShow" }
+
+# AppPrefixes de utility · NO scope (Revenue Federation general · post 28-abr)
+revenue_accounting_program_prefix: "RFED"  # Revenue Federation · usado en AMX-R-RFED-DES inicial
+
+# ---------------------------------------------------------------------------
+# 1. IAM Role Naming · AMX-R-{App}-{Profile}
+# ---------------------------------------------------------------------------
+
+iam_role_naming:
+  detector_id: "G-NEW-IAM-NAMING-FULL"
+  severity: "HIGH"
+  pattern_regex: "^AMX-R-([A-Z][A-Z0-9_]{1,30})-(A|DES|SL)$"
+  description: "Nombre IAM role debe seguir AMX-R-{APP}-{PROFILE} donde PROFILE = A · DES · SL"
+
+  examples_valid:
+    - "AMX-R-SICOFAV-A"     # Admin de SICOFAV
+    - "AMX-R-SICOFAV-DES"   # Developer de SICOFAV
+    - "AMX-R-SICOFAV-SL"    # Solo Lectura SICOFAV
+    - "AMX-R-RFED-DES"      # Revenue Federation Developer (cross-program)
+    - "AMX-R-NOSHOW-A"
+    - "AMX-R-ROBOT-DES"
+
+  examples_invalid:
+    - "amx-r-sicofav-A"            # lowercase prefix no permitido
+    - "AMX-R-SICOFAV-ADMIN"        # ADMIN en lugar de A
+    - "AMX-R-SICOFAV-DEV"          # DEV en lugar de DES
+    - "AMX-R-SICOFAV-READONLY"     # READONLY en lugar de SL
+    - "AMX-SICOFAV-A"              # falta R-
+    - "ROLE-AMX-R-SICOFAV-A"       # prefijo extra
+
+  profiles:
+    A:
+      description: "Administrador (FullAccess)"
+      yubikey_required: true
+      max_per_account: 1
+      typical_assignee: "Líder técnico del programa (Christian Hernández)"
+    DES:
+      description: "Desarrollador (Power User)"
+      yubikey_required: false
+      max_per_account: 8  # razonable
+      typical_assignee: "Devs del equipo (Oscar · Alonso · Gustavo)"
+    SL:
+      description: "Solo Lectura (Read Only)"
+      yubikey_required: false
+      max_per_account: 5  # sponsors · auditoría
+      typical_assignee: "Sponsors (Víctor · Elías) · auditoría externa"
+
+  detection_locations:
+    - "src/**/cdk*.py"
+    - "src/**/iam*.ts"
+    - "infra/cdk-pipeline/**/*.py"
+    - "infra/terraform/**/*.tf"
+
+# ---------------------------------------------------------------------------
+# 2. Repository Naming · RevAcc_{App}{Type}
+# ---------------------------------------------------------------------------
+
+repo_naming:
+  detector_id: "G-NEW-REPO-NAMING"
+  severity: "MEDIUM"
+  pattern_regex: "^RevAcc_(Sicofav|Arc|Bsp|Cfdi|Srg|Asr|Robot|NoShow)(Backend|Front|IaC|PPL|Lambda)$"
+  description: "Nombre de repositorio TO-BE debe seguir RevAcc_{AppPrefix}{Tipo}"
+
+  legacy_pattern_regex: "^RevAcc_Praxis_ASIS_.+"
+  legacy_description: "Repos AS-IS (legacy) usan prefijo RevAcc_Praxis_ASIS_*"
+
+  types_allowed:
+    Backend:
+      description: "API .NET 8 · Worker · backend services"
+      git_strategy: "GitLab Flow"
+    Front:
+      description: "SPA frontend · React · Angular · Blazor"
+      git_strategy: "GitLab Flow"
+    IaC:
+      description: "Infrastructure as Code · CDK Python · Terraform"
+      git_strategy: "GitLab Flow"
+    PPL:
+      description: "Pipelines · GitHub Actions · CodeBuild · CodePipeline"
+      git_strategy: "GitHub Flow"
+    Lambda:
+      description: "AWS Lambda functions · scheduled jobs · CFDIs SAT · NoShow nightly"
+      git_strategy: "GitLab Flow"
+
+  examples_valid:
+    - "RevAcc_SicofavBackend"
+    - "RevAcc_SicofavFront"
+    - "RevAcc_SicofavIaC"
+    - "RevAcc_SicofavPPL"
+    - "RevAcc_RobotBackend"
+    - "RevAcc_RobotIaC"
+    - "RevAcc_RobotPPL"
+    - "RevAcc_CfdiLambda"
+    - "RevAcc_NoShowLambda"
+
+  examples_invalid:
+    - "revacc_sicofav_backend"            # snake_case no permitido
+    - "RevAcc_Sicofav_Backend"            # underscore entre App y Tipo no permitido
+    - "RevAcc_SICOFAVBackend"             # SICOFAV en mayúsculas no permitido
+    - "RevAccSicofavBackend"              # falta underscore después de RevAcc
+    - "Sicofav_Backend"                   # falta prefix RevAcc_
+    - "RevAcc_SicofavApi"                 # Api en lugar de Backend
+
+  detection_locations:
+    - ".git/config"
+    - ".github/workflows/*.yml"
+    - "package.json (name field)"
+
+# ---------------------------------------------------------------------------
+# 3. KMS CMK Naming · amx-kms-{app}-{scope}
+# ---------------------------------------------------------------------------
+
+cmk_naming:
+  detector_id: "G-NEW-CMK-NAMING"
+  severity: "MEDIUM"
+  pattern_regex: "^amx-kms-(sicofav|arc|bsp|cfdi|srg|asr|robot|noshow|t2)-(secrets|aurora|s3-cfdis|s3|logs|ebs|sqs|dynamodb)$"
+  description: "Nombre de CMK alias debe seguir amx-kms-{app}-{scope}"
+
+  required_5_per_dedicated_account:
+    - "secrets"     # Secrets Manager
+    - "aurora"      # RDS Aurora encryption at rest + backups
+    - "s3-cfdis"    # S3 (CFDIs · Object Lock 7 años) · variant · 's3' generic
+    - "logs"        # CloudWatch Logs
+    - "ebs"         # EBS / Fargate task storage
+
+  optional_extra_scopes:
+    - "sqs"         # SQS message encryption
+    - "dynamodb"    # DynamoDB
+    - "kinesis"     # Kinesis streams
+    - "rds"         # RDS non-Aurora (rare)
+
+  examples_valid:
+    - "amx-kms-sicofav-secrets"
+    - "amx-kms-sicofav-aurora"
+    - "amx-kms-sicofav-s3-cfdis"
+    - "amx-kms-sicofav-logs"
+    - "amx-kms-sicofav-ebs"
+    - "amx-kms-noshow-secrets"
+    - "amx-kms-noshow-aurora"
+    - "amx-kms-t2-secrets"           # Cuenta T2 compartida (SRG+ASR+NoShow)
+
+  examples_invalid:
+    - "alias/aws/s3"                 # AWS-managed key prohibida (regla AMX)
+    - "AMX-KMS-SICOFAV-SECRETS"      # MAYÚSCULAS no permitidas
+    - "amx-kms-Sicofav-secrets"      # CamelCase no permitido
+    - "amx-kms-sicofav-database"     # 'database' en lugar de 'aurora'
+    - "kms-sicofav-secrets"          # falta prefix amx-
+
+  prohibited_aws_managed:
+    pattern_regex: "^alias/aws/.+"
+    severity: "CRITICAL"
+    detector_id: "G-CDK-KMS-AWS-MANAGED-PROHIBITION"
+    description: "AMX prohíbe AWS-managed keys (alias/aws/*) excepto ACM · regla amazon-q-rules"
+
+  required_properties:
+    enable_key_rotation: true   # Rotation anual obligatoria
+    pending_window_days_min: 7  # Mínimo 7 días pre-deletion
+    pending_window_days_default: 30  # SOX recomienda 30
+    removal_policy: "RETAIN"    # NO destruir CMKs accidentalmente
+    tag_based_deny_required: true  # R5-2 fix · solo tag app=X puede usar
+    multi_region: false         # Default false · explicit true para T0 multi-región
+
+# ---------------------------------------------------------------------------
+# 4. Secrets Manager Naming · amx/{##-app}/{type}
+# ---------------------------------------------------------------------------
+
+secret_naming:
+  detector_id: "G-NEW-SECRET-NAMING"
+  severity: "MEDIUM"
+  pattern_regex: "^amx/(0[1-9]|10)-([a-z][a-z0-9-]{1,30})/[a-z][a-z0-9-]{1,40}$"
+  description: "Secret name debe seguir amx/{##-app}/{type}"
+
+  examples_valid:
+    - "amx/01-sicofav/db"
+    - "amx/01-sicofav/db-readonly"
+    - "amx/01-sicofav/praxis-api"
+    - "amx/01-sicofav/balanceador-api"
+    - "amx/07-robot/cybersource"
+    - "amx/07-robot/sabre-prod"
+    - "amx/10-noshow/sabre-sandbox"
+    - "amx/10-noshow/sabre-prod"
+    - "amx/04-cfdi/sat-cert"
+
+  examples_invalid:
+    - "amx/sicofav/db"                # falta numeración ##
+    - "amx/01-Sicofav/db"             # MAYÚSCULAS no permitidas
+    - "AMX/01-sicofav/DB"             # MAYÚSCULAS no permitidas
+    - "01-sicofav/db"                 # falta prefix amx/
+    - "amx-01-sicofav-db"             # delimiter wrong (debe ser /)
+    - "amx/01-sicofav/db_password"    # underscore no permitido (usar dash)
+
+  required_secret_per_app:
+    - app: "sicofav"
+      secrets:
+        - "amx/01-sicofav/db"
+        - "amx/01-sicofav/praxis-api"
+        - "amx/01-sicofav/balanceador-api"
+    - app: "noshow"
+      secrets:
+        - "amx/10-noshow/sabre-sandbox"  # Agent ID · Password · IPCC
+        - "amx/10-noshow/sabre-prod"
+        - "amx/10-noshow/db"
+    - app: "robot"
+      secrets:
+        - "amx/07-robot/cybersource"
+        - "amx/07-robot/sabre-prod"
+        - "amx/07-robot/db"
+    - app: "cfdi"
+      secrets:
+        - "amx/04-cfdi/sat-cert"
+        - "amx/04-cfdi/db"
+
+  rotation_policy:
+    rotation_required: true
+    rotation_period_days_default: 365  # anual mínimo
+    rotation_period_days_pci: 90       # PCI-DSS scope (Robot · CFDIs)
+    rotation_lambda_pattern: "amx-rotation-{app}-{type}"
+
+# ---------------------------------------------------------------------------
+# 5. Branch Naming · feature/etriber working master
+# ---------------------------------------------------------------------------
+
+branch_naming:
+  detector_id: "G-NEW-BRANCH-PROTECT"
+  severity: "MEDIUM"
+  description: "Convención branch eTride · feature/etriber como working master · NO push directo a develop/main"
+
+  protected_branches:
+    - branch: "main"
+      protection: "no-direct-push"
+      requires_pr: true
+      requires_approvers: 2
+      escalation_required:
+        - "Borde Arquitectura (firma CDK)"
+        - "CYBER review"
+
+    - branch: "develop"
+      protection: "no-direct-push"
+      requires_pr: true
+      requires_approvers: 1
+
+    - branch: "feature/etriber"
+      protection: "etride-team-only"
+      description: "Working master del equipo eTride · acumula commits del equipo"
+      max_pr_size_lines: 5000  # PRs grandes son OK aquí
+
+  allowed_pattern_regex: "^(feature|fix|chore|docs|test|refactor)/[a-z][a-z0-9-]+$"
+  examples_valid:
+    - "feature/etriber"            # Working master eTride
+    - "feature/sicofav-block4-p2"
+    - "fix/audit-interceptor-shadow"
+    - "chore/update-deps"
+    - "docs/discovery-guide-v2"
+    - "test/golden-file-baseline"
+    - "refactor/cqrs-handlers"
+
+  examples_invalid:
+    - "Feature/Etriber"               # CamelCase no permitido
+    - "feat/something"                # 'feat' no permitido (usar 'feature')
+    - "MyBranch"                      # falta prefix
+    - "main-fix"                      # branches con palabra reservada
+    - "feature_etriber"               # underscore no permitido
+
+  workflow:
+    description: |
+      Workflow oficial eTride:
+      1. Cada dev crea feature/{app}-{módulo} desde feature/etriber
+      2. PR a feature/etriber · 1 approver del equipo
+      3. Cuando feature/etriber está listo · PR de feature/etriber a develop
+      4. develop a main por release · 2 approvers + Borde Arq + CYBER
+      5. Tag de release desde main
+
+    git_strategies:
+      Backend: "GitLab Flow"
+      Front: "GitLab Flow"
+      IaC: "GitLab Flow"
+      PPL: "GitHub Flow"   # Pipelines simplificado
+      Lambda: "GitLab Flow"
+
+# ---------------------------------------------------------------------------
+# Detección · Performance · cuándo aplica cada detector
+# ---------------------------------------------------------------------------
+
+detection_metadata:
+
+  applies_to_phase:
+    G-NEW-IAM-NAMING-FULL: ["fase_2_configuracion", "fase_3_ejecucion"]
+    G-NEW-REPO-NAMING: ["fase_1_discovery", "fase_2_configuracion"]
+    G-NEW-CMK-NAMING: ["fase_2_configuracion"]
+    G-NEW-SECRET-NAMING: ["fase_2_configuracion", "fase_3_ejecucion"]
+    G-NEW-BRANCH-PROTECT: ["all_phases"]
+
+  default_severity_override:
+    iam_role: "HIGH"      # Mismatch IAM puede causar deploy fail
+    repo: "MEDIUM"        # Mismatch puede crear repo con nombre raro pero funcional
+    cmk: "MEDIUM"         # Mismatch puede usar CMK errónea por accidente
+    secret: "MEDIUM"      # Mismatch puede causar lookup fail en runtime
+    branch: "LOW"         # Branch mal nombrada · solo confunde
+
+  exemption_patterns:
+    - context: "test_fixtures"
+      description: "Naming en fixtures de test puede usar mock-* sin penalizar"
+      patterns:
+        - "test-mock-*"
+        - "fixture-*"
+
+    - context: "legacy_imports"
+      description: "Imports de repos AS-IS legacy mantienen RevAcc_Praxis_ASIS_*"
+      patterns:
+        - "RevAcc_Praxis_ASIS_*"
+
+# ---------------------------------------------------------------------------
+# Knowledge base sources
+# ---------------------------------------------------------------------------
+
+source_documents:
+  - title: "Spec creación repos AMX"
+    date: "2026-04-28"
+    excerpt: "Convención RevAcc_{AppPrefix}{Tipo} · 1 repo por aplicativo por componente"
+
+  - title: "Thread Teams · Creación de Cuentas AWS"
+    author: "Juan Carlos Vázquez Lorenzo"
+    date: "2026-04-27 03:52 PM"
+    excerpt: "Perfil para nosotros tendríamos AMX-R-RFED-DES (se requiere agregar correo por correo)"
+
+  - title: "Sesión Solution Architects AMX"
+    author: "Jose Fernando Pérez Izquierdo + Rigo Ferqui"
+    date: "2026-04-27 03:30 PM"
+    excerpt: "Naming pattern AMX-R-* + 3 perfiles A/DES/SL + branch convention"
+
+  - title: "Imagen 3 perfiles IAM AMX"
+    date: "2026-04-28"
+    excerpt: "Administrador (FullAccess) · Desarrollador (Power User) · Consultor/Soporte (Read Only)"

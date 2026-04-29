@@ -1,0 +1,46 @@
+{# AIOS Governance Template · YubiKey Physical Request · skeleton F1 Día 2 #}
+
+# Solicitud YubiKey Física · {{ requester.name }} · {{ request_date }}
+
+**Para:** carlosreyes@aeromexico.com; miguelrachid@aeromexico.com
+**CC:**  luisertuche@aeromexico.com; eloisa.sanchez@aeromexico.com
+**Asunto:** Solicitud YubiKey física · {{ requester.name }} · Admin Revenue Accounting
+
+---
+
+Estimados Carlos, Miguel,
+
+Como parte del programa **Revenue Accounting Modernization 2026**, fui asignado como **Administrador con perfil FullAccess** para las **{{ total_aws_accounts }} cuentas AWS dedicadas** que albergan los **{{ total_apps }} aplicativos** del programa ({{ tier_distribution }}).
+
+Conforme al estándar oficial AMX (perfil IAM "Administrador FullAccess" requiere YubiKey física para autenticación multifactor), solicito formalmente la **asignación de la llave física a mi nombre**, considerando la corresponsabilidad firmada con Luis Ertuche (PM consultoría eTride).
+
+## Datos del solicitante
+
+- **Nombre:** {{ requester.name }}
+- **Email:** {{ requester.email }}
+- **Rol:** {{ requester.role }}
+- **Cuentas AWS bajo administración:** {{ total_aws_accounts }} ({{ aws_accounts_breakdown }})
+- **Equipo backup técnico:** {{ team_backup | join(' · ') }}
+
+## Justificación
+
+{% for reason in justification_reasons %}- {{ reason }}
+{% endfor %}
+
+## Compromiso de custodia
+
+{% for commitment in custody_commitments %}- {{ commitment }}
+{% endfor %}
+
+Adjunto: caso de uso completo del programa (`{{ attachment_filename }}`).
+
+Quedo atento a la cita para la **entrega presencial y firma del acta correspondiente**, registrando el número de serial de la llave.
+
+Saludos cordiales,
+**{{ requester.name }}**
+{{ requester.role }}
+{{ requester.email }}
+
+---
+
+*Request ID: `{{ request_id }}` · Audit trail: `aios governance audit --app {{ app }}` · v3.8.0*

@@ -90,8 +90,14 @@ class TierClassifier:
     # API pública
     # -----------------------------------------------------------------------
 
-    def list_apps(self) -> list[str]:
-        return sorted(self._rules.tiers.get("assignments", {}).keys())
+    def list_apps(self, include_out_of_scope: bool = False) -> list[str]:
+        """Lista apps del scope vigente · v3.8.2 excluye out_of_scope_* por default.
+
+        include_out_of_scope=True retorna catálogo histórico completo (8 apps).
+        """
+        if include_out_of_scope:
+            return sorted(self._rules.all_apps)
+        return sorted(self._rules.supported_apps)
 
     def classify(
         self,

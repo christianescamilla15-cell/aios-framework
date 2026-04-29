@@ -718,8 +718,13 @@ def get_app_metadata(app: str) -> dict[str, Any]:
 
 
 def list_supported_apps() -> list[str]:
-    """Retorna las 8 keys de aplicativos soportados."""
-    return ["sicofav", "arc", "bsp", "cfdi", "srg", "asr", "robot", "noshow"]
+    """Retorna las keys del scope vigente · v3.8.2 excluye CFDIs (out_of_scope_29abr).
+
+    Catálogo histórico completo: ['sicofav', 'arc', 'bsp', 'cfdis', 'srg', 'asr', 'robot', 'noshow']
+    Scope vigente (7 apps · post-29abr): omite 'cfdis'.
+    """
+    from ..governance.loader import load_rules
+    return load_rules().supported_apps
 
 
 # ---------------------------------------------------------------------------

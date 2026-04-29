@@ -46,12 +46,22 @@ def test_force_reload_returns_fresh_instance():
     assert r1 is not r2
 
 
-def test_supported_apps_has_8_revenue_accounting_apps():
+def test_supported_apps_excludes_out_of_scope_cfdis():
+    """v3.8.2 · CFDIs OUT del scope (decisión LJ 29-abr) · 8→7 apps."""
     rules = load_rules()
     apps = rules.supported_apps
+    assert len(apps) == 7
+    expected_in_scope = {"sicofav", "arc", "bsp", "srg", "asr", "robot", "noshow"}
+    assert set(apps) == expected_in_scope
+    assert "cfdis" not in apps
+
+
+def test_all_apps_includes_out_of_scope_for_history():
+    """all_apps preserva catálogo histórico (incluye CFDIs aunque esté out_of_scope)."""
+    rules = load_rules()
+    apps = rules.all_apps
     assert len(apps) == 8
-    expected = {"sicofav", "arc", "bsp", "cfdis", "srg", "asr", "robot", "noshow"}
-    assert set(apps) == expected
+    assert "cfdis" in apps
 
 
 def test_get_app_metadata_returns_full_record():

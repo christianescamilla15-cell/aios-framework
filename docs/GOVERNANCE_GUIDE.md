@@ -202,12 +202,15 @@ aios tier classify --app all
 
 ---
 
-## 8 · Limitaciones conocidas (v3.8.0)
+## 8 · Cambios recientes
 
-Documentadas en `BACKLOG.md` sección "v3.8.0 Drift items":
+**v3.8.2 (29-abr noche)** · CFDIs marcado `out_of_scope_29abr` (decisión LJ) · scope vigente 7 apps · `supported_apps` filtra automáticamente · `all_apps` preserva catálogo histórico · G-DRIFT-1 cerrado (ADEA naming exceptions) · G-DRIFT-3 cerrado (`_iter_files` con fnmatch).
 
-- **G-DRIFT-1**: el detector `G-NEW-IAM-NAMING-FULL` flaggea nombres ADEA oficiales (ej. `AMX-R-ADEA-WEBAPP-ADMIN`) como FAIL. Workaround: ignorar findings que matcheen `AMX-R-ADEA-*`. Fix v3.8.1.
-- **G-DRIFT-3**: archivos `cdk_stack.py` (con prefijo `cdk*`) NO son escaneados por detectores CMK desde código Python. Workaround: usar `.tf`/`.ts` para CDK alias examples. Fix v3.8.1.
+**v3.8.1 (29-abr tarde)** · brand rename eTride → eTribe (consultora con B).
+
+**v3.8.0 (29-abr)** · release inicial Governance Pack.
+
+Drifts pendientes: ninguno material. Ver `BACKLOG.md` para items futuros.
 
 ---
 

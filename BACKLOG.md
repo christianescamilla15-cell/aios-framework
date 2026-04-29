@@ -555,6 +555,8 @@ Derivado de SICOFAV triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULAT
 
 ## v3.8.0 Governance Pack · Drift items detectados pre-release · 29-abr-2026
 
+**STATUS 29-abr noche**: G-DRIFT-1 + G-DRIFT-3 cerrados en v3.8.2 · CFDIs OUT cementado.
+
 Antes de publicar v3.8.0, audit cruzado contra repos AMX detectó 3 alignment gaps que NO bloquean release pero deben tratarse en v3.8.1.
 
 ### G-DRIFT-1 · ADEA naming exception · MEDIUM · alineación BO-AMX

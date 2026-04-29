@@ -42,40 +42,58 @@ def _iter_files(root: Path, globs: list[str]) -> Iterator[Path]:
 
     A diferencia de Path.glob('**/*.py') · este SÍ poda EXCLUDED_DIRS antes
     de descender · evitando recorrer .venv/cdk.out/node_modules en repos grandes.
-    """
-    # Convertir globs a sufijos para matching rápido
-    suffixes: set[str] = set()
-    has_root_match = False
-    for pattern in globs:
-        if "/" in pattern and "**" not in pattern:
-            # Pattern específico de root level (.git/config · package.json)
-            has_root_match = True
-        elif pattern.startswith("**/*"):
-            ext = pattern[len("**/*"):]
-            suffixes.add(ext)
 
-    # Root-level matches (sin walk)
+    v3.8.2 (G-DRIFT-3): soporta tres formas de patterns:
+      - **/*.ext           → matching por sufijo (rápido)
+      - **/<filename_glob> → fnmatch del filename (ej: cdk*.py · iam*.ts)
+      - dir/file.ext       → root-level glob (.git/config · package.json)
+    """
+    import fnmatch
+
+    # Clasificar patterns en 3 categorías
+    suffixes: set[str] = set()           # **/*.ext
+    fname_patterns: list[str] = []        # **/<glob> (con prefijo o glob)
+    root_patterns: list[str] = []         # dir/file (sin **/)
+
+    for pattern in globs:
+        if pattern.startswith("**/*."):
+            # Caso clásico **/*.py · solo sufijo
+            suffixes.add(pattern[len("**/*"):])
+        elif pattern.startswith("**/"):
+            # Caso prefix glob **/cdk*.py · usar fnmatch sobre filename
+            fname_patterns.append(pattern[len("**/"):])
+        elif "/" in pattern and "**" not in pattern:
+            root_patterns.append(pattern)
+        else:
+            # Fallback · trate como filename glob plano
+            fname_patterns.append(pattern)
+
     seen: set[Path] = set()
     count = 0
-    if has_root_match:
-        for pattern in globs:
-            if "/" in pattern and "**" not in pattern:
-                for path in root.glob(pattern):
-                    if path.is_file() and path not in seen:
-                        seen.add(path)
-                        yield path
-                        count += 1
-                        if count >= MAX_FILES_PER_KIND:
-                            return
 
-    # Walk con poda de directorios
+    # 1 · Root-level matches (sin walk · paths absolutos relativos a root)
+    for pattern in root_patterns:
+        for path in root.glob(pattern):
+            if path.is_file() and path not in seen:
+                seen.add(path)
+                yield path
+                count += 1
+                if count >= MAX_FILES_PER_KIND:
+                    return
+
+    # 2 · Walk recursivo con poda + filtros
     for dirpath, dirnames, filenames in os.walk(root):
-        # Mutar dirnames in-place poda el descenso (clave para velocidad)
         dirnames[:] = [d for d in dirnames if d not in EXCLUDED_DIRS]
 
         for fname in filenames:
+            matched = False
             ext = os.path.splitext(fname)[1]
             if ext in suffixes:
+                matched = True
+            elif fname_patterns and any(fnmatch.fnmatch(fname, p) for p in fname_patterns):
+                matched = True
+
+            if matched:
                 path = Path(dirpath) / fname
                 if path in seen:
                     continue
@@ -115,6 +133,12 @@ class NamingChecker:
         # Match cualquier string que parezca un IAM role name (AMX-* o AMX_*)
         candidate = re.compile(r"\bAMX[-_][A-Z][A-Z0-9_-]{2,40}\b")
 
+        # v3.8.2 · G-DRIFT-1 · prefijos reservados (ADEA roles oficiales AWS)
+        reserved_prefixes = tuple(
+            r["prefix"] for r in rule.get("reserved_prefixes", [])
+            if isinstance(r, dict) and "prefix" in r
+        )
+
         findings: list[GovernanceFinding] = []
         for path in _iter_files(root, FILE_GLOBS["iam_role"]):
             try:
@@ -125,6 +149,9 @@ class NamingChecker:
                 token = match.group(0)
                 # Solo flagueamos si parece intento de IAM role · evitamos prefijos genéricos
                 if not token.startswith("AMX-R-"):
+                    continue
+                # Skip nombres reservados de servicios oficiales AMX (ADEA · v3.8.2)
+                if reserved_prefixes and token.startswith(reserved_prefixes):
                     continue
                 if not pattern.match(token):
                     line = text[: match.start()].count("\n") + 1

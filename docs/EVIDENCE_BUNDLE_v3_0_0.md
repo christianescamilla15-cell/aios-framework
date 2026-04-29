@@ -240,6 +240,6 @@ Lo que SÍ prometer:
 
 ---
 
-**Autor**: Christian Hernández Escamilla · eTride · con Claude Opus 4.7 en loop
+**Autor**: Christian Hernández Escamilla · eTribe · con Claude Opus 4.7 en loop
 **Framework**: aios-framework · github.com/christianescamilla15-cell/aios-framework
 **Licencia**: MIT · privado hasta aprobación AMX

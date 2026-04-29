@@ -146,7 +146,7 @@ class TierClassifier:
                 "name": meta.get("name", app),
                 "description": meta.get("description", ""),
                 "tier_status": meta.get("tier_status", "confirmed"),
-                "owner_etride": meta.get("owner_etride", "?"),
+                "owner_etribe": meta.get("owner_etribe", "?"),
                 "owner_amx": meta.get("owner_amx", "?"),
             },
         )

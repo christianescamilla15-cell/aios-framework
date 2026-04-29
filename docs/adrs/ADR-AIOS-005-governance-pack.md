@@ -2,7 +2,7 @@
 
 **Status:** Accepted (release 2026-04-29)
 **Date:** 2026-04-28 · finalized 2026-04-29
-**Authors:** Christian Hernández Escamilla (eTride · Líder técnico programa)
+**Authors:** Christian Hernández Escamilla (eTribe · Líder técnico programa)
 **Reviewers (pending):** [n/a · ADRs internos AIOS sin firma externa requerida]
 **Supersedes:** N/A (módulo nuevo)
 **Related:** ADR-002 v2 (compute SICOFAV) · ADR-003 (secrets) · ADR-004 (persistence) · Sprint Plan v3.8.0
@@ -11,7 +11,7 @@
 
 ## 1. Context
 
-A lo largo de las primeras 8 sesiones del programa Revenue Accounting Modernization (06-abr a 28-abr 2026), el equipo eTride ha consolidado un knowledge base implícito sobre **governance AMX**: tabla TIER oficial, 5 firmas en cadena, naming patterns IAM/Repo/CMK/Secret, custodia DxC/Miatech/AMX TI, validadores Roberto Carlos + José Ángel León, etc.
+A lo largo de las primeras 8 sesiones del programa Revenue Accounting Modernization (06-abr a 28-abr 2026), el equipo eTribe ha consolidado un knowledge base implícito sobre **governance AMX**: tabla TIER oficial, 5 firmas en cadena, naming patterns IAM/Repo/CMK/Secret, custodia DxC/Miatech/AMX TI, validadores Roberto Carlos + José Ángel León, etc.
 
 Este conocimiento hoy reside en:
 - Documentos PDF aislados (Caso de Uso SICOFAV BD · Speech TIER · Plan Admin Week 1)
@@ -38,7 +38,7 @@ Los 4 archivos `aios/governance/rules/*.yaml` contienen el knowledge base comple
 - `tiers.yaml` · 4 TIERs · 9 criterios · 8 reglas validación · asignación 8 apps · modelo 18 cuentas
 - `approvals.yaml` · 5 firmas · 11 cadenas por recurso · state machine 11 estados
 - `naming.yaml` · 5 detectores nuevos con regex (IAM · Repo · CMK · Secret · Branch)
-- `stakeholders.yaml` · 5 personas eTride + 30 personas AMX · matriz de contacto
+- `stakeholders.yaml` · 5 personas eTribe + 30 personas AMX · matriz de contacto
 
 ### 2.2 Subcomandos CLI nuevos (Días 3-7)
 
@@ -113,7 +113,7 @@ Cada solicitud genera entries inmutables con:
 
 ### Positive
 
-- **Reduce 50%+ del manual labor administrativo del equipo eTride**: las 6 horas/semana en redactar correos + PDFs + tracking firmas pasa a "1 comando + verificación"
+- **Reduce 50%+ del manual labor administrativo del equipo eTribe**: las 6 horas/semana en redactar correos + PDFs + tracking firmas pasa a "1 comando + verificación"
 - **Audit trail SOX-friendly**: las firmas en cadena quedan registradas inmutables · cualquier auditor externo puede pedir el jsonl como evidencia
 - **Escalable a las 8 apps del programa**: cambia el `--app` y el resto se adapta vía templates
 - **Demostrable a Elías + Borde Arq**: en sesión 30 min se muestra "antes vs después" como ROI técnico del programa
@@ -131,7 +131,7 @@ Cada solicitud genera entries inmutables con:
 
 ### Neutral / TBD
 
-- Adopción del equipo eTride: depende de la documentación + onboarding · planeado en Día 11 (`GOVERNANCE_GUIDE.md`)
+- Adopción del equipo eTribe: depende de la documentación + onboarding · planeado en Día 11 (`GOVERNANCE_GUIDE.md`)
 - Aceptación por AMX: si Borde Arq + Elías firman valor en demo (Día 12 · 14-may), se promueve como standard interno
 - Relación con `aios discovery-generate`: actualmente independientes · futuro v3.9.0 puede consolidarse
 
@@ -173,7 +173,7 @@ Detalle completo en `Sprint_Plan_AIOS_v3.8.0_Governance_Pack_28abr.pdf` (4 pági
 
 ### Memories triggers
 
-- project_amx_accesos_tier_28abr.md (junta accesos × TIER · equipo eTride oficial · 18 cuentas AWS plan)
+- project_amx_accesos_tier_28abr.md (junta accesos × TIER · equipo eTribe oficial · 18 cuentas AWS plan)
 - project_aios_v380_sprint_d1_28abr.md (este sprint · F1 Día 1 cerrado)
 - project_sicofav_triangulation6_27abr.md (patrón meta-regresión cementado tras 8 sesiones)
 - project_amx_10apps_clones_consolidados_27abr.md (post scope-change · 8 apps confirmadas)
@@ -186,7 +186,7 @@ Detalle completo en `Sprint_Plan_AIOS_v3.8.0_Governance_Pack_28abr.pdf` (4 pági
 Christian Hernández Escamilla (autor + lead técnico) autoriza arranque del sprint.
 
 Para futuras revisiones · se sugiere comentarios de:
-- Equipo eTride (Oscar · Alonso · Gustavo · Víctor) · validación práctica
+- Equipo eTribe (Oscar · Alonso · Gustavo · Víctor) · validación práctica
 - Borde Arquitectura (Israel Miguel González Sandoval) · si se promueve a estándar AMX
 - Elías Tapia (sponsor único interno AMX) · post-demo Día 12 (14-may-2026)
 

@@ -4,7 +4,7 @@ Registry estructurado de los 95 repos accesibles en BO-AMX (via chernandeze_amx
 SSO) + 20+ productos del Service Catalog (`dyn-devops-service-catalog`) + 6
 templates canónicos CS-* · para que AIOS pueda:
 
-1. Sugerir análogos cuando un aplicativo del scope eTride arranca refactor
+1. Sugerir análogos cuando un aplicativo del scope eTribe arranca refactor
 2. Listar productos Service Catalog para Block 8 infra
 3. Identificar templates que se deben consumir en vez de reinventar
 
@@ -54,7 +54,7 @@ class ScProduct:
 
 @dataclass(frozen=True)
 class AplicativoMapping:
-    """Mapping de un aplicativo del scope eTride a sus análogos BO-AMX."""
+    """Mapping de un aplicativo del scope eTribe a sus análogos BO-AMX."""
     aplicativo: str         # SICOFAV · SRG · etc.
     stack_actual: str
     stack_target: str

@@ -1,16 +1,16 @@
 {# AIOS Governance Template · DL Inclusion Request · skeleton F1 Día 2 #}
 
-# Inclusión equipo eTride en DL `amcssolutionarchitects@aeromexico.com`
+# Inclusión equipo eTribe en DL `amcssolutionarchitects@aeromexico.com`
 
 **Para:** {{ recipient.email }}
 **CC:**  luisertuche@aeromexico.com
-**Asunto:** Inclusión equipo eTride en DL amcssolutionarchitects@aeromexico.com
+**Asunto:** Inclusión equipo eTribe en DL amcssolutionarchitects@aeromexico.com
 
 ---
 
 {{ recipient.short_name | default('Fer') }},
 
-Como te comenté en la sesión del {{ reference_session_date }}, te pido nos agregues a la **DL `amcssolutionarchitects@aeromexico.com`** a los siguientes **{{ team | length }} miembros del equipo eTride**:
+Como te comenté en la sesión del {{ reference_session_date }}, te pido nos agregues a la **DL `amcssolutionarchitects@aeromexico.com`** a los siguientes **{{ team | length }} miembros del equipo eTribe**:
 
 {% for member in team %}  - {{ "%-32s" | format(member.name) }} {{ member.email }}{% if member.role_short %} ({{ member.role_short }}){% endif %}
 {% endfor %}

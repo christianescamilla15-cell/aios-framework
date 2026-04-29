@@ -48,7 +48,7 @@ class ContextBuilder:
         meta = self._rules.get_app_metadata(app)
         tier = meta["tier"].split()[0]
         tier_def = self._rules.get_tier_definition(tier)
-        team = self._rules.stakeholders["etride_team"]
+        team = self._rules.stakeholders["etribe_team"]
         admin = next((m for m in team if m["iam_profile"] == "A"), None)
         sl = next((m for m in team if m["iam_profile"] == "SL"), None)
 
@@ -67,7 +67,7 @@ class ContextBuilder:
             "requester": {
                 "name": requester["name"],
                 "email": requester["email"],
-                "role": requester.get("role_etride", "Líder técnico (eTride)"),
+                "role": requester.get("role_etribe", "Líder técnico (eTribe)"),
             },
             "co_requester": ({
                 "name": sl["name"],
@@ -86,7 +86,7 @@ class ContextBuilder:
             "valid_for_days": 30,
             "context": (
                 f"{meta['name']} es el aplicativo {tier} del programa Revenue Accounting Modernization 2026. "
-                f"Para arranque de Fase 2 + Block 4 Domain, el equipo eTride requiere acceso de lectura "
+                f"Para arranque de Fase 2 + Block 4 Domain, el equipo eTribe requiere acceso de lectura "
                 "a la base de datos legacy con los datos enmascarados conforme a LFPDPPP."
             ),
             "resources": self._default_bd_resources(app),
@@ -121,10 +121,10 @@ class ContextBuilder:
         }
 
     def for_yubikey(self, app: str, requester_email: str) -> dict[str, Any]:
-        team = self._rules.stakeholders["etride_team"]
+        team = self._rules.stakeholders["etribe_team"]
         admin = next((m for m in team if m["iam_profile"] == "A"), None)
         if not admin:
-            raise ValueError("No hay administrador en equipo eTride · ver stakeholders.yaml")
+            raise ValueError("No hay administrador en equipo eTribe · ver stakeholders.yaml")
 
         aws_model = self._rules.tiers["aws_account_model"]
         tier_dist = (
@@ -139,7 +139,7 @@ class ContextBuilder:
             "requester": {
                 "name": admin["name"],
                 "email": admin["email"],
-                "role": admin.get("role_etride", "Líder técnico"),
+                "role": admin.get("role_etribe", "Líder técnico"),
             },
             "total_aws_accounts": aws_model["total_aws_accounts"],
             "total_apps": len(self._rules.supported_apps),
@@ -165,7 +165,7 @@ class ContextBuilder:
         }
 
     def for_dl_inclusion(self, app: str, requester_email: str) -> dict[str, Any]:
-        team = self._rules.stakeholders["etride_team"]
+        team = self._rules.stakeholders["etribe_team"]
         admin = next((m for m in team if m["iam_profile"] == "A"), team[0])
         amx = self._rules.stakeholders["amx_stakeholders"]
         # Find Solution Architect lead
@@ -195,7 +195,7 @@ class ContextBuilder:
             "requester": {
                 "name": admin["name"],
                 "email": admin["email"],
-                "role": admin.get("role_etride", "Líder técnico"),
+                "role": admin.get("role_etribe", "Líder técnico"),
             },
         }
 
@@ -211,7 +211,7 @@ class ContextBuilder:
              "short_name": "Juan Carlos"},
         )
 
-        team = self._rules.stakeholders["etride_team"]
+        team = self._rules.stakeholders["etribe_team"]
         admin = next((m for m in team if m["iam_profile"] == "A"), team[0])
 
         is_shared = tier == "T2"
@@ -231,7 +231,7 @@ class ContextBuilder:
             "account_type": "compartida (T2 hasta 6 apps)" if is_shared else "dedicada",
             "environments_count": 3,
             "environments": [
-                {"name": f"amx-revacc-{app}-des", "description": "Desarrollo · sandbox interno eTride",
+                {"name": f"amx-revacc-{app}-des", "description": "Desarrollo · sandbox interno eTribe",
                  "short": "des"},
                 {"name": f"amx-revacc-{app}-qa", "description": "QA · ambiente de pruebas pre-prod",
                  "short": "qa"},
@@ -249,7 +249,7 @@ class ContextBuilder:
             "requester": {
                 "name": admin["name"],
                 "email": admin["email"],
-                "role": admin.get("role_etride", "Líder técnico"),
+                "role": admin.get("role_etribe", "Líder técnico"),
             },
         }
 
@@ -262,7 +262,7 @@ class ContextBuilder:
             (s for s in amx if "GateOne" in str(s.get("role", ""))),
             {"name": "Antonio Hernández Oropeza", "email": "[pending confirmar]"},
         )
-        team = self._rules.stakeholders["etride_team"]
+        team = self._rules.stakeholders["etribe_team"]
         admin = next((m for m in team if m["iam_profile"] == "A"), team[0])
         cmk_count_per_env = tier_def.get("cmk_count", 5)
         env_count = 3
@@ -305,7 +305,7 @@ class ContextBuilder:
             "requester": {
                 "name": admin["name"],
                 "email": admin["email"],
-                "role": admin.get("role_etride", "Líder técnico"),
+                "role": admin.get("role_etribe", "Líder técnico"),
             },
         }
 
@@ -328,7 +328,7 @@ class ContextBuilder:
             ]
         return [
             {"name": f"BD legacy {app.upper()} · MySQL 5.7",
-             "access_type": "Read-only · usuario etride_refactor_ro",
+             "access_type": "Read-only · usuario etribe_refactor_ro",
              "justification": "Dump LFPDPPP-masked · tests + parallel run + golden file"},
             {"name": "Schema completo · CREATE TABLE · índices · triggers",
              "access_type": "Read-only · script SQL exportado",

@@ -82,7 +82,7 @@ class EscalationEngine:
         "victor": {
             "name": "Víctor Araiza",
             "email": "varaiza@aeromexico.com",
-            "role": "Sponsor IT · eTride",
+            "role": "Sponsor IT · eTribe",
             "key": "victor",
         },
     }
@@ -257,25 +257,25 @@ class EscalationEngine:
         return worst
 
     def _resolve_requester(self, email: str) -> dict[str, str]:
-        team = self._rules.stakeholders.get("etride_team", [])
+        team = self._rules.stakeholders.get("etribe_team", [])
         for m in team:
             if m.get("email", "").lower() == email.lower():
                 return {
                     "name": m["name"],
                     "email": m["email"],
-                    "role": m.get("role_etride", "Líder técnico (eTride)"),
+                    "role": m.get("role_etribe", "Líder técnico (eTribe)"),
                 }
         # Fallback admin
         admin = next(
             (m for m in team if m.get("iam_profile") == "A"),
             {"name": "Christian Hernández Escamilla",
              "email": "chernandeze@aeromexico.com",
-             "role_etride": "Líder técnico · Admin programa"},
+             "role_etribe": "Líder técnico · Admin programa"},
         )
         return {
             "name": admin["name"],
             "email": admin["email"],
-            "role": admin.get("role_etride", "Líder técnico (eTride)"),
+            "role": admin.get("role_etribe", "Líder técnico (eTribe)"),
         }
 
     def _build_context(
@@ -305,8 +305,8 @@ class EscalationEngine:
             "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M %Z").strip(),
             "requester": requester,
             "cc_recipients": [
-                "Víctor Araiza (Sponsor IT eTride)",
-                "Christian Hernández (Admin eTride)",
+                "Víctor Araiza (Sponsor IT eTribe)",
+                "Christian Hernández (Admin eTribe)",
                 "Audit trail SHA256 chain",
             ],
             "commitments": [

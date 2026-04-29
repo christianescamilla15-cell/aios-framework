@@ -2,7 +2,7 @@
 
 > Auto-generación de los 9 documentos estándar Fase 1 Discovery del plan v5 Revenue Accounting Aeroméxico.
 >
-> Destinatarios: consultores del equipo eTride con acceso al repo privado
+> Destinatarios: consultores del equipo eTribe con acceso al repo privado
 > `chernandeze_amx/aios-framework`.
 
 ---

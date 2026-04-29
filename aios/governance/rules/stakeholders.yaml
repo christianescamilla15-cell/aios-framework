@@ -6,16 +6,16 @@ schema_version: 1
 last_updated: "2026-04-28"
 
 # ---------------------------------------------------------------------------
-# Equipo eTride · 5 personas oficiales (confirmado 28-abr)
+# Equipo eTribe · 5 personas oficiales (confirmado 28-abr)
 # ---------------------------------------------------------------------------
 
-etride_team:
+etribe_team:
 
   - name: "Christian Hernández Escamilla"
     email: "chernandeze@aeromexico.com"
     github_amx: "chernandeze_amx"
     github_personal: "christianescamilla15-cell"
-    role_etride: "Líder técnico · Admin programa"
+    role_etribe: "Líder técnico · Admin programa"
     role_aws: "Administrador (FullAccess)"
     iam_profile: "A"
     yubikey_required: true
@@ -29,7 +29,7 @@ etride_team:
   - name: "Oscar Alejandro Pulido Campos"
     email: "opulidoc@aeromexico.com"
     github_amx: "opulidoc_amx"
-    role_etride: "Desarrollador · único con Kiro confirmado"
+    role_etribe: "Desarrollador · único con Kiro confirmado"
     role_aws: "Desarrollador (Power User)"
     iam_profile: "DES"
     yubikey_required: false
@@ -42,7 +42,7 @@ etride_team:
   - name: "Alonso Montiel Villar"
     email: "amontielv@aeromexico.com"
     github_amx: "amontielv_amx"
-    role_etride: "Desarrollador · lead NoShow"
+    role_etribe: "Desarrollador · lead NoShow"
     role_aws: "Desarrollador (Power User)"
     iam_profile: "DES"
     yubikey_required: false
@@ -55,7 +55,7 @@ etride_team:
   - name: "Gustavo Magallanes Guijón"
     email: "gmagallanes@aeromexico.com"
     github_amx: "gmagallanes_amx"
-    role_etride: "Desarrollador · skill COBOL SPOF"
+    role_etribe: "Desarrollador · skill COBOL SPOF"
     role_aws: "Desarrollador (Power User)"
     iam_profile: "DES"
     yubikey_required: false
@@ -68,7 +68,7 @@ etride_team:
   - name: "Víctor Hugo Araiza"
     email: "varaiza@aeromexico.com"
     github_amx: "varaiza_amx"
-    role_etride: "Sponsor IT · Consultor/Soporte"
+    role_etribe: "Sponsor IT · Consultor/Soporte"
     role_aws: "Consultor/Soporte (Read Only)"
     iam_profile: "SL"
     yubikey_required: false
@@ -290,13 +290,13 @@ amx_stakeholders:
       - "Escalación cuando 2+ firmas atoradas"
       - "Decisión scope (inclusión/exclusión apps)"
       - "Comunicación a dirección"
-    notes: "Único stakeholder INTERNO AMX en eTride · resto es consultoría"
+    notes: "Único stakeholder INTERNO AMX en eTribe · resto es consultoría"
 
   - name: "Luis Ertuche"
     aliases: ["Luis Sertuche"]
     email: "luisertuche@aeromexico.com"
     role: "Program Manager · Revenue Accounting"
-    team: "Consultoría · PM eTride"
+    team: "Consultoría · PM eTribe"
     domain_expertise:
       - "Cronograma Plan v6"
       - "Project Codes Optimo"

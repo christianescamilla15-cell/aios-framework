@@ -227,7 +227,7 @@ def build_doc_04_stakeholders(app) -> str:
     md.append("## Owners directos\n\n"
               f"| Rol | Nombre | Organización |\n|---|---|---|\n"
               f"| Owner funcional | {app.owner_funcional} | AMX |\n"
-              f"| Owner técnico | {app.owner_tecnico} | Miatech/eTride |\n\n"
+              f"| Owner técnico | {app.owner_tecnico} | Miatech/eTribe |\n\n"
               "## Governance transversal AMX\n\n"
               "| Rol | Nombre | Área |\n|---|---|---|\n"
               "| Arquitecto principal | Antonio Hernández Oropeza | AMX Arquitectura |\n"

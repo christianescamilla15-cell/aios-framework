@@ -1,0 +1,393 @@
+# AIOS Governance · Cadena de aprobaciones oficial · Aeroméxico
+# Fuente: sesión Fernando 27-abr 03:30 PM + Caso de Uso SICOFAV BD 28-abr
+# Patrón: 5 firmas en cadena · si una se atora · todo se atora
+# Versión: 1.0 · catálogo base v3.8.0
+
+schema_version: 1
+last_updated: "2026-04-28"
+
+# ---------------------------------------------------------------------------
+# Cadena de firmas estándar · 5 firmas
+# ---------------------------------------------------------------------------
+# Aplica a cualquier solicitud de acceso · cuenta AWS · KMS · YubiKey · etc.
+# Cada firma desbloquea la siguiente · NO se puede saltar el orden.
+
+approval_chain_default:
+  name: "AMX Revenue Accounting · 5-firmas standard"
+  description: "Cadena de aprobación oficial para solicitudes de accesos/recursos del programa Revenue Accounting"
+
+  steps:
+
+    - step: 1
+      role: "PM Revenue Accounting"
+      name: "Luis Ertuche"
+      email: "luisertuche@aeromexico.com"
+      validates: "Pertinencia al plan · alineación cronograma · presupuesto"
+      typical_sla_days: 1
+      escalation_to: "Elías Tapia (sponsor único interno AMX)"
+      blocking_if_missing: false  # Puede saltarse si urgencia · escalación a Elías
+
+    - step: 2
+      role: "Custodio técnico del recurso"
+      name_template: "DBA Miatech / Custodio AMX TI / Custodio DxC (depende del recurso)"
+      email_template: "varía por recurso"
+      validates: "Disponibilidad técnica · provisión del usuario o creds · entrega segura"
+      typical_sla_days: 5
+      escalation_to: "Cynthia (Miatech) · Eloisa (cumplimiento) · Eban Valdo (AMX TI)"
+      examples:
+        - resource: "BD legacy SICOFAV"
+          custodian: "Carlos Ramírez (DBA Miatech · pending confirmar)"
+        - resource: "BD legacy NoShow"
+          custodian: "DxC team (NoShow · pending nombre exacto)"
+        - resource: "FEBOL CFDIs SAT"
+          custodian: "Eban Valdo Flores + Corato Ledo (AMX TI)"
+        - resource: "Robot composite código"
+          custodian: "Cynthia Soriano (Miatech composite)"
+
+    - step: 3
+      role: "Ciberseguridad / Cumplimiento"
+      name: "Carlos Reyes / Eloisa Sánchez"
+      email: "carlosreyes@aeromexico.com"
+      email_alt: "eloisa.sanchez@aeromexico.com"
+      validates: "Cumplimiento LFPDPPP · SOX · PCI-DSS (cuando aplica) · revocación post-vigencia"
+      typical_sla_days: 3
+      escalation_to: "Miguel Rachid (Gerente Ciberseguridad AMX)"
+      blocking_if_missing: true  # NO se puede saltar · regulatorio
+
+    - step: 4
+      role: "Validador TIER + agrupación T2 (cuando aplica)"
+      name: "Roberto Carlos Osorio"
+      co_validator: "José Ángel León"
+      email: "[pending confirmar - sesión Fernando 27-abr]"
+      validates: "Asignación TIER · agrupación cuentas T2 · regla PII mixta"
+      typical_sla_days: 5
+      typical_blocker_reason: "Estaba en DND · NO interrumpir · respetar tiempo"
+      escalation_to: "Luis Ertuche (intermediación)"
+      blocking_if_missing: true  # Para T2 obligatorio · si compartida cuenta
+      applies_when:
+        - "Cuenta AWS T2 compartida"
+        - "Re-clasificación TIER (ej. T3 → T2)"
+        - "Servicio nuevo no contemplado"
+
+    - step: 5
+      role: "Borde Arquitectura"
+      name: "Israel Miguel González Sandoval"
+      email: "israelmiguel@aeromexico.com"
+      validates: "Cumplimiento estándar arquitectónico AMX · firma ADRs · LeanIX upload"
+      typical_sla_days: 3
+      typical_blocker_reason: "Calendario ocupado · pedir agenda con anticipación"
+      escalation_to: "Antonio Hernández Oropeza (arquitecto par)"
+      blocking_if_missing: false  # Informativo en algunos casos · no bloqueante para BD/AWS-account
+      applies_when:
+        - "Firma ADRs"
+        - "Aprobación LeanIX C4 niveles 2-3"
+        - "Re-clasificación TIER (junto con RC Osorio)"
+
+# ---------------------------------------------------------------------------
+# Cadenas de aprobación específicas por tipo de recurso
+# ---------------------------------------------------------------------------
+
+approval_chains_by_resource:
+
+  bd_legacy_access:
+    name: "Acceso a base de datos legacy"
+    description: "Lectura · dump · schema · SPs source"
+    required_steps: [1, 2, 3, 4]  # PM · DBA · CYBER · RC (si T0/T1 entra a cuenta dedicada)
+    documented_example: "/mnt/c/.../Caso_Uso_SICOFAV_Acceso_BD_28abr.pdf"
+    typical_total_sla_days: 14  # Suma de SLAs paralelizables
+
+  aws_account_creation_tier_dedicated:
+    name: "Creación cuenta AWS dedicada (T0/T1)"
+    description: "T0 · T1 · NO comparte"
+    required_steps: [1, 5]  # PM · Borde Arq (informativo) · NO requiere RC
+    operator: "Juan Carlos Vázquez Lorenzo"
+    typical_total_sla_days: 7  # 1 semana post visto-bueno
+
+  aws_account_creation_tier_shared:
+    name: "Creación cuenta AWS compartida (T2 hasta 6 apps)"
+    description: "T2 consolidable"
+    required_steps: [1, 4, 5]  # PM · RC validador T2 · Borde Arq
+    operator: "Juan Carlos Vázquez Lorenzo"
+    typical_total_sla_days: 14  # RC sesión + provisión
+
+  cmk_request:
+    name: "Solicitud CMK customer-managed"
+    description: "5 CMKs por cuenta dedicada · ticket umbrella o individual"
+    required_steps: [1, 3]  # PM · CYBER (regulatorio)
+    operator: "Antonio Oropeza (GateOne)"
+    typical_total_sla_days: 3  # Por CMK · 10-15 días por aplicativo total
+
+  yubikey_request:
+    name: "Solicitud YubiKey física Admin"
+    description: "1 por persona · trámite con CYBER"
+    required_steps: [1, 3]  # PM (corresponsabilidad) · CYBER
+    operator: "Carlos Reyes / Miguel Rachid (CYBER)"
+    typical_total_sla_days: 14  # 2-4 semanas SLA típico
+
+  iam_role_creation:
+    name: "Creación IAM role (AMX-R-{App}-{tipo})"
+    description: "A · DES · SL roles por cuenta"
+    required_steps: [1, 3]
+    operator: "GateOne · Antonio Oropeza"
+    typical_total_sla_days: 3
+
+  vpc_cidr_assignment:
+    name: "Asignación CIDR + creación VPC"
+    description: "Rango IP + VPC + Network Firewall + rutas + Direct Connect"
+    required_steps: [1, 5]  # PM · Borde Arq · Diego Zarate Coordina
+    operator: "Diego Zarate (NetSec) · Platform Team"
+    typical_total_sla_days: 10  # 3-5 sub-tareas Plan v6 R134-145
+
+  adr_signature:
+    name: "Firma de ADR (Architecture Decision Record)"
+    description: "ADR-001..N · arquitectura aplicativo"
+    required_steps: [5]  # Solo Borde Arq
+    operator: "Israel Miguel González Sandoval"
+    typical_total_sla_days: 5
+
+  tier_reclassification:
+    name: "Re-clasificación TIER (ej. T3 → T2)"
+    description: "Cambio de TIER · justificación PII · regulatorio"
+    required_steps: [1, 4, 5]  # PM · RC + José Ángel · Borde
+    typical_total_sla_days: 7
+    documented_example: "SRG · T3 → T2 · pending firma Borde 28-abr"
+
+  custodia_external_request:
+    name: "Solicitud a custodio externo (DxC · Miatech · ATOS Lima)"
+    description: "Código fuente · binarios · creds · dump BD"
+    required_steps: [1, 2, 3]  # PM · custodio · CYBER (cifrado en tránsito)
+    typical_total_sla_days: 10  # Sin contrato vigente puede tardar más
+    documented_example: "NoShow · DLLs JsonPost+LambdaInvoke · Sabre creds · dump BD"
+
+  scope_change:
+    name: "Cambio de scope del programa"
+    description: "Inclusión · exclusión · suspensión de aplicativos"
+    required_steps: [1, 5]  # PM · Borde Arq · plus sponsors
+    typical_total_sla_days: 14
+    documented_example: "27-abr · Comisiones D+I OUT del scope"
+    sponsors_required:
+      - "Víctor Araiza (sponsor IT)"
+      - "Eloisa Sánchez"
+      - "J.T. (sponsor business)"
+
+# ---------------------------------------------------------------------------
+# Patrones de slippage detection
+# ---------------------------------------------------------------------------
+# Usado por aios governance escalate
+
+slippage_thresholds:
+
+  warn_after_days: 3
+  escalate_after_days: 5
+  emergency_after_days: 10
+
+  escalation_targets:
+
+    default_escalation:
+      to: "Elías Tapia"
+      email: "etapia@aeromexico.com"
+      role: "Sponsor único interno AMX Revenue Accounting"
+      use_for:
+        - "Bloqueador transversal del programa"
+        - "Cuando 2+ firmas atoradas simultáneamente"
+
+    sponsor_escalation:
+      to: "Víctor Araiza · Eloisa Sánchez · J.T."
+      use_for:
+        - "Decisión de scope (inclusión/exclusión apps)"
+        - "Presupuesto / Optimo"
+
+    cyber_escalation:
+      to: "Miguel Rachid (Gerente Ciberseguridad AMX)"
+      use_for:
+        - "Bloqueador en Step 3 CYBER"
+        - "Pen-test scoping"
+        - "Pre-walkthrough"
+
+# ---------------------------------------------------------------------------
+# Estados del audit trail · state machine
+# ---------------------------------------------------------------------------
+# Usado por aios governance audit
+
+audit_states:
+
+  - state: "draft"
+    description: "Solicitud redactándose · no enviada"
+    next_states: ["requested", "cancelled"]
+
+  - state: "requested"
+    description: "Solicitud enviada · esperando primera firma"
+    next_states: ["in-review", "rejected", "cancelled"]
+
+  - state: "in-review"
+    description: "Una o más firmas en proceso · audit trail rastreando"
+    next_states: ["partially-approved", "approved", "rejected", "expired"]
+
+  - state: "partially-approved"
+    description: "Algunas firmas obtenidas · faltan otras"
+    next_states: ["approved", "expired", "rejected"]
+
+  - state: "approved"
+    description: "Todas las firmas obtenidas · recurso provisionable"
+    next_states: ["provisioned", "expired"]
+
+  - state: "provisioned"
+    description: "Recurso entregado/activo · vigencia comenzando"
+    next_states: ["renewed", "expired", "revoked"]
+
+  - state: "renewed"
+    description: "Vigencia extendida"
+    next_states: ["provisioned", "expired", "revoked"]
+
+  - state: "expired"
+    description: "Vigencia vencida · acceso revocado automáticamente"
+    next_states: ["renewed"]
+
+  - state: "rejected"
+    description: "Una firma rechazó · proceso terminado"
+    next_states: []  # final state
+
+  - state: "cancelled"
+    description: "Solicitante canceló antes de aprobación"
+    next_states: []  # final state
+
+  - state: "revoked"
+    description: "Acceso revocado anticipadamente · seguridad o cambio de scope"
+    next_states: []  # final state
+
+# ---------------------------------------------------------------------------
+# Templates de comunicación por step
+# ---------------------------------------------------------------------------
+
+communication_templates:
+
+  step_1_pm_request:
+    subject_pattern: "Solicitud {{type}} · {{app}} · valida pertinencia plan"
+    cc_required:
+      - "Equipo eTride (rol según solicitud)"
+
+  step_3_cyber_review:
+    subject_pattern: "CYBER review · {{type}} · {{app}} · cumplimiento LFPDPPP/SOX"
+    cc_required:
+      - "Carlos Reyes (CYBER)"
+      - "Eloisa Sánchez (Cumplimiento)"
+    auto_attach:
+      - "Caso de Uso del recurso solicitado"
+      - "Compromiso de uso seguro"
+
+  step_4_rc_validation:
+    subject_pattern: "Validación TIER · {{app}} · agrupación T2 (si aplica)"
+    cc_required:
+      - "Roberto Carlos Osorio"
+      - "José Ángel León"
+      - "Luis Ertuche (intermediación si en DND)"
+    auto_attach:
+      - "Tabla TIER oficial AMX"
+      - "Propuesta de agrupación con justificación PII"
+
+  step_5_borde_signature:
+    subject_pattern: "Firma ADR · {{adr_id}} · {{app}}"
+    cc_required:
+      - "Israel Miguel González Sandoval"
+      - "Antonio Hernández Oropeza (par)"
+      - "Pedro Emmanuel Abaonza (par)"
+    auto_attach:
+      - "ADR completo en formato AMX"
+      - "C4 niveles 1-3 (si Container/Component)"
+
+# ---------------------------------------------------------------------------
+# Matriz de aprobaciones · ejemplos de SICOFAV (28-abr · in-flight)
+# ---------------------------------------------------------------------------
+
+current_approval_status_examples:
+
+  sicofav_bd_legacy_access:
+    chain: "bd_legacy_access"
+    requested_by: "Christian Hernández Escamilla"
+    requested_date: "2026-04-28"
+    state: "requested"
+    progress:
+      - step: 1
+        signer: "Luis Ertuche"
+        status: "pending"
+        days_in_state: 0
+      - step: 2
+        signer: "Carlos Ramírez (DBA Miatech · pending confirmar)"
+        status: "blocked_on_step_1"
+      - step: 3
+        signer: "Carlos Reyes / Eloisa"
+        status: "blocked_on_step_2"
+      - step: 4
+        signer: "Roberto Carlos Osorio"
+        status: "n/a · sólo aplica T2 compartida"
+
+  sicofav_yubikey_admin:
+    chain: "yubikey_request"
+    requested_by: "Christian Hernández Escamilla"
+    requested_date: "2026-04-28"
+    state: "requested"
+    progress:
+      - step: 1
+        signer: "Luis Ertuche"
+        status: "pending"
+      - step: 3
+        signer: "Carlos Reyes / Miguel Rachid"
+        status: "pending"
+
+  srg_tier_reclassification:
+    chain: "tier_reclassification"
+    requested_by: "Christian Hernández Escamilla"
+    requested_date: "2026-04-28"
+    state: "requested"
+    progress:
+      - step: 1
+        signer: "Luis Ertuche"
+        status: "pending"
+      - step: 4
+        signer: "Roberto Carlos Osorio · José Ángel León"
+        status: "pending"
+      - step: 5
+        signer: "Israel Miguel González Sandoval"
+        status: "pending"
+
+  noshow_dxc_custody_request:
+    chain: "custodia_external_request"
+    requested_by: "Alonso Montiel Villar"
+    requested_date: "2026-04-28"
+    state: "requested"
+    progress:
+      - step: 1
+        signer: "Luis Ertuche"
+        status: "pending"
+      - step: 2
+        signer: "DxC team (NoShow custodian)"
+        status: "blocked_on_step_1"
+      - step: 3
+        signer: "Carlos Reyes / Eloisa"
+        status: "blocked_on_step_2"
+
+# ---------------------------------------------------------------------------
+# Notas operativas
+# ---------------------------------------------------------------------------
+
+operational_notes:
+
+  paralelization: |
+    Los Steps 1, 3 NO requieren ser secuenciales en algunos chains · se pueden
+    pedir en paralelo si la solicitud es estándar (BD-access · YubiKey).
+    Step 2 (custodio) sí requiere step 1 firmado típicamente.
+    Step 4 (RC + JAL) y Step 5 (Borde) son típicamente bloqueantes paralelos.
+
+  yubikey_sla_warning: |
+    YubiKey física es la pieza más larga del camino crítico · 2-4 semanas SLA típico.
+    Iniciar trámite ANTES de pedir cuentas AWS (paralelo · no secuencial).
+
+  cyber_pre_walkthrough: |
+    Antes de pedir Step 3 (CYBER) en producción · ejecutar `aios cyber pre-walkthrough`
+    para tener reportes consolidados Veracode + WIZ + Tenable + Prisma · acelera review.
+    (Disponible v3.9.0 · planeado post-v3.8.0)
+
+  rc_dnd_protocol: |
+    Roberto Carlos Osorio + José Ángel León · respetar Do-Not-Disturb status.
+    NO interrumpir vía Teams si están en DND. Vía Luis Ertuche como intermediario.
+    Última observación: 27-abr 03:30 PM · estaba en DND · sesión re-agendada vía Luis.

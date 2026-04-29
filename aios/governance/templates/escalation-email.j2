@@ -1,0 +1,83 @@
+{# AIOS Governance Template · Escalation Email · F2 Día 6 #}
+{# Variables esperadas: severity, severity_label, escalation_to, slippages[], thresholds, app_filter, generated_at, requester #}
+
+# Escalación · {{ severity_label }} · Bloqueador{{ "es" if slippages | length > 1 else "" }} de firma{{ "s" if slippages | length > 1 else "" }} en cadena AMX
+
+**Programa:** Revenue Accounting Modernization 2026{% if app_filter %} · {{ app_filter | upper }}{% endif %}
+
+**Severidad:** `{{ severity }}` · {{ severity_label }} · {{ slippages | length }} solicitud{{ "es" if slippages | length > 1 else "" }} atorada{{ "s" if slippages | length > 1 else "" }}
+
+---
+
+## Metadata
+
+- **De:** {{ requester.name }} · {{ requester.role }} · {{ requester.email }}
+- **Para:** {{ escalation_to.name }} · {{ escalation_to.role }} · {{ escalation_to.email }}
+- **CC:** {{ cc_recipients | join(' · ') }}
+- **Fecha:** {{ generated_at }}
+- **Umbrales aplicados:** warn ≥{{ thresholds.warn }}d · escalate ≥{{ thresholds.escalate }}d · emergency ≥{{ thresholds.emergency }}d
+- **Mecanismo de detección:** `aios governance escalate` · audit trail SHA256 chain
+
+---
+
+## 1 · Resumen ejecutivo
+
+{% if severity == "emergency" %}Tenemos **{{ slippages | length }} solicitud{{ "es" if slippages | length > 1 else "" }} con más de {{ thresholds.emergency }} días sin avance** en la cadena de firmas oficial AMX. Esto cruzó el umbral de **emergencia** definido en `approvals.yaml` y bloquea de manera material el cronograma del programa Revenue Accounting (cierre 15-oct-2026).
+{% elif severity == "escalate" %}Tenemos **{{ slippages | length }} solicitud{{ "es" if slippages | length > 1 else "" }} sin avance entre {{ thresholds.escalate }} y {{ thresholds.emergency }} días** en la cadena de firmas oficial AMX. Cruzó el umbral de **escalación** y necesita intervención del PM intermediación o sponsor según corresponda.
+{% else %}Tenemos **{{ slippages | length }} solicitud{{ "es" if slippages | length > 1 else "" }} sin avance entre {{ thresholds.warn }} y {{ thresholds.escalate }} días** · todavía dentro de margen pero requiere visibilidad temprana para evitar escalación posterior.
+{% endif %}
+## 2 · Solicitudes con slippage
+
+| # | Request ID | App | Tipo | Estado actual | Días detenida | Severidad |
+|---|---|---|---|---|---|---|
+{% for s in slippages %}| {{ loop.index }} | `{{ s.request_id }}` | {{ s.app | upper }} | {{ s.resource_type }} | {{ s.state }} | **{{ s.days_in_current_state }}d** | {{ s.severity }} |
+{% endfor %}
+
+## 3 · Detalle por solicitud
+
+{% for s in slippages %}### 3.{{ loop.index }} · `{{ s.request_id }}` · {{ s.app | upper }}
+
+- **Tipo recurso:** `{{ s.resource_type }}`
+- **Estado actual:** `{{ s.state }}`
+- **Última actualización:** {{ s.last_entry_timestamp }}
+- **Días en estado actual:** **{{ s.days_in_current_state }}** (umbral {{ s.severity }} ≥ {{ thresholds[s.severity] }}d)
+- **Escalación sugerida automática:** {{ s.suggested_escalation }}
+- **Impacto cronograma:** {% if s.app == "sicofav" %}Block 4 Parte 2 (CQRS · 67 SPs migration) · golive 11-sep-2026{% elif s.app == "noshow" %}Sprint 0a forensics DxC · 4 sub-repos legacy{% else %}Fase 2 · arranque refactor diferido{% endif %}
+
+{% endfor %}
+
+## 4 · Acción solicitada
+
+{% if severity == "emergency" %}1. **Convocar reunión inmediata** (siguiente día hábil) entre los firmantes pendientes
+2. **Confirmar bloqueador puntual** · ¿es decisión, capacidad, o información faltante?
+3. **Compromiso de fecha** · si no se desbloquea en 48h, escalar a sponsor business (Víctor Araiza · Eloisa Sánchez · J.T.)
+4. **Comunicar al programa** · ajuste de timeline si aplica · cierre 15-oct-2026 en riesgo
+{% elif severity == "escalate" %}1. **Contacto directo con firmantes pendientes** vía Teams + correo (este mismo)
+2. **Definir fecha límite** ≤ 48h para respuesta · si no responde, pasa a `emergency`
+3. **Documentar bloqueador** en thread Teams del programa · visibilidad sponsors
+{% else %}1. **Recordatorio cordial** a firmantes pendientes · misma cadena de aprobación
+2. **Verificar** que tengan toda la información necesaria para firmar
+3. **Monitoreo** · si en 48h no avanza, sube a `escalate`
+{% endif %}
+## 5 · Cadena de firmas oficial AMX (referencia)
+
+Cada solicitud sigue la cadena de aprobación definida en `approvals.yaml`:
+
+1. **PM intermediación** · Luis Ertuche · validar contexto y prioridad
+2. **DBA Custodio** · según app (Miatech / DxC / AMX TI) · validar acceso técnico
+3. **CYBER** · Carlos Reyes / Miguel Rachid · validar postura seguridad
+4. **Borde Arq** · Israel Miguel González Sandoval · validar arquitectura
+5. **Sponsor único** · Elías Tapia · firma final
+
+## 6 · Compromiso eTride
+
+{% for commitment in commitments %}- {{ commitment }}
+{% endfor %}
+
+---
+
+**Bloqueador crítico cronograma:** este correo es **automatizado** vía `aios governance escalate {% if app_filter %}--app {{ app_filter }}{% else %}--all{% endif %}` · cualquier acción tomada quedará registrada en el audit-trail SHA256 chain del programa para trazabilidad SOX.
+
+---
+
+*eTride · {{ requester.name }} · {{ generated_at }} · v3.8.0 Governance Pack*

@@ -1,0 +1,466 @@
+# AIOS Governance · Reglas oficiales TIER · Aeroméxico
+# Fuente autoritativa: Tiers 2.xlsx · sheet Tier_definicion · equipo Domini
+# Validador final: Roberto Carlos Osorio + José Ángel León (Cumplimiento AMX)
+# Última actualización: 2026-04-28 · sesión Fernando Pérez Izquierdo + Rigo Ferqui (27-abr 03:30 PM)
+# Versión: 1.0 · catálogo base v3.8.0
+
+schema_version: 1
+last_updated: "2026-04-28"
+source_document: "Tiers 2.xlsx · sheet Tier_definicion"
+authoritative_validators:
+  - name: "Roberto Carlos Osorio"
+    role: "Equipo arquitectura/cumplimiento AMX · DECISOR final TIER + agrupación T2"
+  - name: "José Ángel León"
+    role: "Equipo cumplimiento AMX · Co-evaluador con Roberto Carlos"
+  - name: "Domini"
+    role: "Dueño catálogo y formatos de evaluación TIER"
+
+# ---------------------------------------------------------------------------
+# 4 TIERs oficiales · 9 criterios por TIER
+# ---------------------------------------------------------------------------
+
+tiers:
+
+  T0:
+    description_es: "Soporta, alimenta o recibe información de procesos más críticos requeridos para la continuidad de las operaciones."
+    description_en: "Supports, feeds, or receives information from the most critical processes required for the continuity of operations."
+
+    # Criterios de selección
+    impact:
+      revenue: "alto"
+      service: "alto"
+      operation: "alto"
+    pci_pii: true
+    vigencia: "permanente"
+
+    # Resiliencia
+    continuity_ha: "Activo-Activo (multiregión)"
+    redundancia:
+      - "Multiregión"
+      - "Multizona (hasta dos zonas)"
+    disponibilidad: 0.9998
+    downtime_per_year:
+      minutes: 105.12
+      hours: 1.752
+      days: 0.073
+    incidents_max: 10
+
+    # Backup
+    tipo_respaldo: "Continuous backup · Point-In-Time Recovery (PITR)"
+    frecuencia_respaldo:
+      full: "mínimo cada mes"
+      incremental_tx_log: "cada 15 min (RDS · Aurora · DynamoDB)"
+    retencion: "Acorde a necesidades de negocio o cumplimiento regulatorio (PCI · SOX · ISO). Retención online y offline."
+
+    # Recuperación
+    rto_minutes: 10  # 0 a 10 min
+    rpo_minutes: 60  # 60 min
+
+    # AWS account model
+    cuenta_aws_compartida: false
+    cuenta_aws_compartida_max_apps: 1  # Cada app dedicada · NO comparte
+
+    # Gestión
+    tipo_gestion: "Por torre de TI"
+    estrategia_migracion: "Refactoring"
+    nivel_riesgo_aceptado: "No críticas, no altas. Cumplimiento SLAs."
+
+    # AMX-specific (derivado sesión Fernando)
+    multiregion_required: true
+    multiregion_pattern: "Activo-Activo Virginia (us-east-1) + Oregon (us-west-2)"
+    yubikey_required: true  # Admin role
+    cmk_count: 5  # secrets · aurora · s3-cfdis · logs · ebs
+
+  T1:
+    description_es: "Soporta, alimenta o recibe información de procesos estratégicos con funciones comerciales requeridas para las operaciones aéreas en curso."
+    description_en: "Supports, feeds, or receives information from strategic processes with business functions required for ongoing air operations."
+
+    impact:
+      revenue: "medio"
+      service: "medio"
+      operation: "medio"
+    pci_pii: true
+    vigencia: "permanente"
+
+    continuity_ha: "Activo-Pasivo (multiregión)"
+    redundancia:
+      - "Multiregión"
+      - "Multizona (hasta dos zonas)"
+    disponibilidad: 0.9994
+    downtime_per_year:
+      minutes: 315.36
+      hours: 5.256
+      days: 0.219
+    incidents_max: 10
+
+    tipo_respaldo: "Continuous backup · Point-In-Time Recovery (PITR)"
+    frecuencia_respaldo:
+      full: "mínimo cada mes"
+      incremental_tx_log: "cada 30 min (RDS · Aurora · DynamoDB)"
+    retencion: "Acorde a necesidades de negocio o cumplimiento regulatorio."
+
+    rto_minutes: 30  # hasta 30 min
+    rpo_minutes_min: 120
+    rpo_minutes_max: 240
+
+    cuenta_aws_compartida: false
+    cuenta_aws_compartida_max_apps: 1
+
+    tipo_gestion: "Por torre de TI"
+    estrategia_migracion: "Refactoring"
+    nivel_riesgo_aceptado: "No críticas, no altas. Cumplimiento SLAs."
+
+    multiregion_required: true
+    multiregion_pattern: "Activo-Pasivo (failover sí, no Activo-Activo)"
+    yubikey_required: true
+    cmk_count: 5
+
+  T2:
+    description_es: "Soporta, alimenta o recibe información de procesos tácticos con funciones comerciales requeridas para las operaciones aéreas en curso."
+    description_en: "Supports, feeds, or receives information from tactical processes with business functions required for ongoing air operations."
+
+    impact:
+      revenue: "bajo"
+      service: "bajo"
+      operation: "bajo"
+    pci_pii: true
+    vigencia: "permanente"
+
+    continuity_ha: "Activo-Activo (multizona)"
+    redundancia:
+      - "Una región"
+      - "Multizona"
+    disponibilidad: 0.99
+    downtime_per_year:
+      minutes: 5256.0
+      hours: 87.6
+      days: 3.65
+    incidents_max: 14
+
+    tipo_respaldo: "Plan de backup (AWS Backup)"
+    frecuencia_respaldo:
+      full: "cada semana"
+      incremental: "cada día"
+    retencion: "Acorde a necesidades de negocio."
+
+    rto_hours: 6  # hasta 6 horas
+    rpo_days: 1   # hasta 1 día
+
+    # KEY · diferencia clave T2 vs T0/T1
+    cuenta_aws_compartida: true
+    cuenta_aws_compartida_max_apps: 6
+    cuenta_aws_compartida_validators_required:
+      - "Roberto Carlos Osorio"
+      - "José Ángel León"
+    cuenta_aws_compartida_excepcion: "sólo se permite por excepción bajo análisis"
+
+    tipo_gestion: "Gestión principal por torre de TI. Apoyo parcial por tercero (parches, respaldos, incidentes)."
+    tipo_gestion_retos: "Permisos de admin"
+    estrategia_migracion: "Refactoring (replatform · relocate sólo se permite por excepción bajo análisis)"
+    nivel_riesgo_aceptado: "No críticas, no altas. Cumplimiento SLAs."
+
+    multiregion_required: false
+    multiregion_pattern: null  # Una región multizona
+    yubikey_required: true  # Para admin · pero comparte cuenta
+    cmk_count_per_account: 5  # 5 por cuenta T2 (compartida entre hasta 6 apps)
+
+  T3:
+    description_es: "Soporta, alimenta o recibe información de procesos de apoyo con funciones comerciales requeridas para las operaciones aéreas en curso."
+    description_en: "Supports, feeds, or receives information from support processes with business functions required for ongoing air operations."
+
+    impact:
+      revenue: "muy_bajo"
+      service: "muy_bajo"
+      operation: "muy_bajo"
+    pci_pii: false  # KEY · esto descalifica a SRG si maneja PII
+    vigencia: "decomiso 18 meses"
+
+    continuity_ha: "N/A"
+    redundancia:
+      - "Una región"
+      - "Única zona"
+    disponibilidad: 0.95
+    downtime_per_year:
+      minutes: 26280.0
+      hours: 438.0
+      days: 18.25
+    incidents_max: 18
+
+    tipo_respaldo: "Plan de backup (AWS Backup)"
+    frecuencia_respaldo:
+      full: "cada semana"
+      incremental: "3 por semana"
+    retencion: null
+
+    rto_days: 1   # hasta 1 día
+    rpo_days: 3   # hasta 3 días
+
+    cuenta_aws_compartida: true
+    cuenta_aws_compartida_max_apps: 6
+
+    tipo_gestion: "Gestión centralizada por tercero (full management)."
+    estrategia_migracion: "Replatform · Relocate. Decomiso aplicativo dentro de 18 meses."
+    nivel_riesgo_aceptado: "No críticas. Cumplimiento SLAs."
+
+    multiregion_required: false
+    yubikey_required: true
+    cmk_count_per_account: 5
+
+# ---------------------------------------------------------------------------
+# Reglas de validación cruzada · usadas por aios tier classify
+# ---------------------------------------------------------------------------
+
+validation_rules:
+
+  - id: "TIER_T3_FORBIDS_PII"
+    description: "T3 prohíbe PCI/PII por definición · si se detecta PII en código declared como T3, FAIL."
+    severity: "HIGH"
+    detector_id: "G-NEW-TIER-PII-MISMATCH"
+    affected_apps_known:
+      - "SRG (#05) · maneja RFCs agencias = PII Sí"
+
+  - id: "TIER_T0_T1_NO_SHARED_ACCOUNT"
+    description: "T0 y T1 NO pueden compartir cuenta AWS con otras apps."
+    severity: "HIGH"
+    detector_id: "G-NEW-TIER-DEDICATED-ACCOUNT"
+
+  - id: "TIER_T2_MAX_6_APPS_PER_ACCOUNT"
+    description: "T2 puede compartir cuenta hasta 6 apps · validador: Roberto Carlos Osorio + José Ángel León."
+    severity: "MEDIUM"
+    detector_id: "G-NEW-TIER-T2-LIMIT"
+
+  - id: "TIER_T0_REQUIRES_MULTIREGION"
+    description: "T0 requiere Activo-Activo multiregión · si CDK no tiene Aurora Global o EKS multi-región, FAIL."
+    severity: "HIGH"
+    detector_id: "G-NEW-TIER-MULTIREGION-MISSING"
+
+  - id: "TIER_T0_T1_REQUIRES_PITR"
+    description: "T0 y T1 exigen Continuous backup + PITR · si solo tiene snapshots manuales, FAIL."
+    severity: "HIGH"
+    detector_id: "G-NEW-TIER-PITR-MISSING"
+
+  - id: "TIER_T0_RTO_15MIN_BIA"
+    description: "T0 BIA exige RTO ≤ 10 min y RPO ≤ 60 min · si BIA declarado mayor, FAIL."
+    severity: "HIGH"
+    detector_id: "G-NEW-TIER-BIA-MISMATCH"
+
+  - id: "TIER_AWS_REGION_PATTERN_T0"
+    description: "T0 usa us-east-1 (primary) + us-west-2 (DR) · ADR-002 v2 oficial."
+    severity: "MEDIUM"
+    detector_id: "G-NEW-TIER-REGION-PATTERN"
+
+  - id: "TIER_T3_DECOMISO_18MONTHS"
+    description: "T3 implica decomiso del aplicativo en 18 meses · si vigencia declarada > 18m, mismatch."
+    severity: "LOW"
+    detector_id: "G-NEW-TIER-DECOMISO-MISMATCH"
+
+# ---------------------------------------------------------------------------
+# Asignación TIER · 8 aplicativos Revenue Accounting (post scope-change 27-abr)
+# ---------------------------------------------------------------------------
+
+assignments:
+
+  sicofav:
+    app_id: "01"
+    name: "SICOFAV"
+    description: "Sistema de Conciliación Factura BSP"
+    tier: "T0"
+    tier_status: "confirmed"
+    rationale:
+      - "Alto impacto ingresos: revenue accounting · cierre mensual · facturación CFDIs SAT"
+      - "SOX critical: audit trail TIMESTAMP(6) · auditoría externa"
+      - "PII/PCI Sí: CFDIs con RFC + datos pasajeros"
+      - "BIA exige RTO 15m / RPO 5m (alineado T0 0-10min)"
+      - "Multi-región Virginia+Oregon Activo-Activo (ADR-002 v2)"
+    owner_etride: "Christian Hernández Escamilla (lead)"
+    owner_amx: "Luis Ertuche (PM)"
+
+  arc:
+    app_id: "02"
+    name: "ARC"
+    description: "Reembolsos USA · Airlines Reporting Corp"
+    tier: "T1"
+    tier_status: "confirmed"
+    rationale:
+      - "Medio impacto ingresos: canal regional USA (subset BSP)"
+      - "PII Sí: datos agencias USA"
+      - "Estratégico pero menor scope que BSP global"
+      - "Skeleton hoy · pending Miatech"
+    owner_etride: "Christian Hernández (extra)"
+    owner_amx: "Luis Ertuche · Eloisa"
+
+  bsp:
+    app_id: "03"
+    name: "BSP"
+    description: "Reembolsos BSP IATA Global"
+    tier: "T1"
+    tier_status: "confirmed"
+    rationale:
+      - "Medio-alto impacto ingresos: canal global IATA agencias"
+      - "PII Sí: datos agencias + RFC"
+      - "Downstream Robot · feed SICOFAV"
+      - "Activo-Pasivo multi-región · failover sí, no Activo-Activo"
+      - "Skeleton hoy · pending Miatech (Juanito coord)"
+    owner_etride: "Gustavo Magallanes (post-liberación Comisiones)"
+    owner_amx: "Luis Ertuche · Cynthia"
+
+  cfdis:
+    app_id: "04"
+    name: "CFDIs"
+    description: "FEBOL_MX_DescargaMasivaSAT"
+    tier: "T1"
+    tier_status: "review_T0"  # podría escalar a T0 si SAT exige RTO≤10min
+    rationale:
+      - "Alto impacto operación: cumplimiento fiscal SAT · LFPDPPP regulatorio"
+      - "PII Sí: RFCs + datos emisor/receptor"
+      - "Retención 7 años SAT + Object Lock COMPLIANCE"
+      - "Custodia AMX TI: Eban Valdo Flores + Corato Ledo (NO DxC · NO Miatech)"
+      - "Argumento T0: si SAT exige RTO≤10min · regulatorio"
+    owner_etride: "Alonso Montiel (apoya · custodia AMX TI)"
+    owner_amx: "Eban Valdo Flores · Corato Ledo"
+
+  srg:
+    app_id: "05"
+    name: "SRG"
+    description: "Sistema Registro Garantías"
+    tier: "T2"  # propuesto · era T3
+    tier_status: "promoted_from_T3"
+    tier_pre_promotion: "T3"
+    promotion_reason: "T3 prohíbe PCI/PII por definición · SRG maneja RFCs (PII Sí) · descalificación automática"
+    promotion_signed_by: "Israel Miguel González Sandoval (Borde Arq) · pendiente firma 28-abr"
+    rationale:
+      - "NO califica T3 por definición: tabla AMX dice T3 = PCI/PII No · SRG maneja RFCs (PII Sí)"
+      - "Riesgo técnico EOL: .NET 7 EOL 2024-05 + Angular 15 EOL 2024-05"
+      - "31 HIGH AIOS findings: CWE-522 plaintext · CWE-521 RequiredLength=1 · CWE-295 TrustServerCertificate"
+      - "Medio impacto: garantías agencias · respaldo de ventas"
+    owner_etride: "Oscar Pulido (único con Kiro confirmado)"
+    owner_amx: "Borde Arq pending firma"
+
+  asr:
+    app_id: "06"
+    name: "ASR"
+    description: "Reembolsos Especiales"
+    tier: "T2"
+    tier_status: "confirmed"
+    rationale:
+      - "Bajo-medio impacto: proceso manual escalado · bajo volumen"
+      - "PII Sí: datos pasajeros (volumen menor que BSP/ARC)"
+      - "Una región multi-zona · 6h RTO aceptable"
+      - "Skeleton hoy · pending Miatech"
+      - "Refactoring (replatform excepción permitida T2)"
+    owner_etride: "Oscar Pulido (extra)"
+    owner_amx: "Luis Ertuche"
+
+  robot:
+    app_id: "07"
+    name: "Robot Composite"
+    description: "Cálculo Reembolsos VCP · 4 sub-repos legacy unificados"
+    tier: "T0"
+    tier_status: "confirmed"
+    rationale:
+      - "Alto impacto ingresos: orquestador cálculo reembolsos VCP · upstream del programa"
+      - "PCI Sí: CyberSource creds (riesgoTC/test, PagosCC/PagosTester@01) en +11/+13 DBCnx.vb · entra a PCI-DSS"
+      - "PII Sí: PNRs · datos pasajeros"
+      - "Sin él no fluye reembolsos: alimenta BSP+ARC+SRG vía Praxis+Sabre SOAP"
+      - "Refactoring: VB.NET 4.6.1/4.7/4.8 heterogéneo → C# 12 unificado"
+    owner_etride: "Gustavo Magallanes (lead post-asignación 27-abr)"
+    owner_amx: "Luis Ertuche · Carlos Reyes (PCI scope)"
+    pci_dss_scope: true  # KEY · regulatorio bancario adicional
+    legacy_loc: 238798  # 4 sub-repos · 251 .vb
+
+  noshow:
+    app_id: "10"
+    name: "NoShow"
+    description: "Cálculo No-Shows · pilot AIOS v3.3.2 cerrado"
+    tier: "T2"  # cuestionable · promotable a T1
+    tier_status: "review_T1"
+    rationale:
+      - "Medio impacto ingresos: revenue post-vuelo (no real-time)"
+      - "PII Sí: PNRs en logs prod (3,697 detectados · ~2.3M extrapolados)"
+      - "Bugs revenue net-new: DR-25 (.Hours vs .TotalHours) + DR-18 (substring matching pasajeros)"
+      - "Custodia DxC: NO en BO-AMX · código en Arquitectura_Aeromexico/apps_code/10_noshow"
+      - "Promoción T1 justificable si revenue impact cuantificado por Elías + Javi Toledo"
+    owner_etride: "Alonso Montiel (lead)"
+    owner_amx: "Elías Tapia · Javi Toledo · Braulio"
+    custody: "DxC"
+    custody_blockers:
+      - "JsonPost.dll (binario sin código fuente)"
+      - "LambdaInvoke.dll (binario sin código fuente)"
+      - "Sabre Sandbox creds (Agent ID + Password + IPCC)"
+      - "Dump BD legacy (LFPDPPP-masked)"
+      - "Documentación funcional (Word/PDF si existe)"
+
+# ---------------------------------------------------------------------------
+# Modelo de cuentas AWS · derivado del TIER assignment
+# ---------------------------------------------------------------------------
+
+aws_account_model:
+
+  total_dedicated_accounts: 6
+  total_shared_accounts: 1
+  environments_per_account: 3  # DES + QA + PROD
+  total_aws_accounts: 18  # 6 dedicated × 3 env + 1 shared × 3 env
+
+  dedicated:
+    - app: "sicofav"
+      tier: "T0"
+      naming: "amx-revacc-sicofav-{des/qa/prod}"
+    - app: "robot"
+      tier: "T0"
+      naming: "amx-revacc-robot-{des/qa/prod}"
+    - app: "bsp"
+      tier: "T1"
+      naming: "amx-revacc-bsp-{des/qa/prod}"
+    - app: "arc"
+      tier: "T1"
+      naming: "amx-revacc-arc-{des/qa/prod}"
+    - app: "cfdis"
+      tier: "T1"
+      naming: "amx-revacc-cfdis-{des/qa/prod}"
+
+  shared:
+    - account_naming: "amx-revacc-t2-{des/qa/prod}"
+      tier: "T2"
+      apps_consolidated:
+        - "srg"
+        - "asr"
+        - "noshow"
+      validation_required:
+        - "Roberto Carlos Osorio"
+        - "José Ángel León"
+
+  cmk_per_account: 5
+  cmk_total_program: 30  # 5 × 6 dedicated accounts (T2 shared cuenta separada)
+  cmk_naming_pattern: "amx-kms-{app}-{secrets|aurora|s3-cfdis|logs|ebs}"
+
+  yubikey_total: 1  # 1 por persona admin (Christian) · cubre las 18 cuentas
+  yubikey_owner: "Christian Hernández Escamilla"
+
+# ---------------------------------------------------------------------------
+# Notas de cementación · cementado tras 8 sesiones SICOFAV (T1-T8)
+# ---------------------------------------------------------------------------
+
+cementation_notes:
+
+  pattern_meta_regression: |
+    El patrón de "wire-up gap detectado una capa más profunda" se cementó tras 4 sesiones
+    consecutivas (T1→T4). Aplica a cualquier refactor con composition root complejo.
+
+    Regla operativa:
+    "Validación en aislamiento NO detecta composition gaps · solo
+    WebApplicationFactory<Program> SIN overrides + diagnostic queries que asierten
+    efecto observable es gate real."
+
+  source_sesion_fernando: |
+    Sesión Solution Architects AMX · 27-abr-2026 03:30 PM
+    Participantes: Jose Fernando Pérez Izquierdo + Rigo Ferqui + Luis Ertuche +
+                   Christian Hernández + Juan Carlos Vázquez Lorenzo + Gerardo Téllez Pacheco
+    Duración: 25 min
+    Output: reglas T2 max 6 apps · 3 perfiles IAM · YubiKey 1/persona ·
+            DL amcssolutionarchitects@aeromexico.com · Service Catalog AMX
+
+  imagen_3_perfiles_iam: |
+    Imagen oficial AMX 28-abr 2026 confirma 3 perfiles IAM:
+    - Administrador (FullAccess) · YubiKey física obligatoria
+    - Desarrollador (Power User) · sin YubiKey · NO modifica IAM/VPC/Organizations
+    - Consultor/Soporte (Read Only) · monitoreo · escalación

@@ -2,7 +2,7 @@
 
 Spec-driven development framework with agent orchestration, modeled after Kiro-style workflows.
 
-**Versión actual: v3.7.5** (2026-04-27 · derivada de SICOFAV T6-T8 triangulaciones)
+**Versión actual: v3.8.0** (2026-04-29 · Governance Pack · 5 subcomandos `aios governance` + `aios tier classify`)
 
 ## Install (primera vez)
 
@@ -12,7 +12,7 @@ cd aios-framework
 python3 -m venv .venv
 source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -e .
-aios version                  # debe imprimir v3.7.5
+aios version                  # debe imprimir v3.8.0
 ```
 
 ## Update a la última versión (desde clone existente)
@@ -24,13 +24,13 @@ git checkout main
 git pull origin main          # trae merges + tags hasta v3.7.5
 source .venv/bin/activate
 pip install -e . --upgrade    # re-instala paquete editable con dependencias actualizadas
-aios version                  # confirma versión actualizada (>= v3.7.5)
+aios version                  # confirma versión actualizada (>= v3.8.0)
 ```
 
 Si quieres pinear a un tag específico:
 
 ```bash
-git checkout v3.7.5           # detached HEAD en tag · safe para CI/CD pinning
+git checkout v3.8.0           # detached HEAD en tag · safe para CI/CD pinning
 pip install -e .
 ```
 
@@ -58,6 +58,29 @@ aios release
 # End session
 aios refresh --summary "Built dashboard" --next-step "Add tests"
 ```
+
+## Governance Pack (v3.8.0+)
+
+5 subcomandos para automatizar el flujo de gobernanza AMX (Revenue Accounting):
+
+```bash
+# Validar reglas (TIER · naming · approvals · stakeholders) sobre un app
+aios governance check --app sicofav --root .
+
+# Generar PDF formal de solicitud (5 templates: bd-access · aws-account · cmk · yubikey · dl-inclusion)
+aios governance request --type bd-access --app sicofav --output ./requests/
+
+# Audit trail SHA256 chain · 11 estados · tampering-evident
+aios governance audit --app sicofav --update --signer "Luis Ertuche" --status in-review
+
+# Escalación slippage automática (auto-routing severity → destinatario)
+aios governance escalate --app sicofav --auto
+
+# Clasificación TIER por 9 criterios oficiales AMX
+aios tier classify --app srg --explain
+```
+
+Ver guía completa en [docs/GOVERNANCE_GUIDE.md](docs/GOVERNANCE_GUIDE.md).
 
 ## Generación de documentación · Discovery + Compliance + Phase1
 

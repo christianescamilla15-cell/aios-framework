@@ -39,7 +39,19 @@ class GovernanceRules:
 
     @property
     def supported_apps(self) -> list[str]:
-        """Las 8 apps Revenue Accounting."""
+        """Apps Revenue Accounting in scope · excluye out_of_scope_*.
+
+        v3.8.2: CFDIs marcado out_of_scope_29abr · programa pasa de 8 a 7 apps.
+        Para acceder al catálogo completo (incluye históricos) usar `all_apps`.
+        """
+        return [
+            app for app, meta in self.tiers.get("assignments", {}).items()
+            if not str(meta.get("tier_status", "")).startswith("out_of_scope")
+        ]
+
+    @property
+    def all_apps(self) -> list[str]:
+        """Todas las apps del catálogo (incluye out_of_scope · referencia histórica)."""
         return list(self.tiers.get("assignments", {}).keys())
 
     def get_app_metadata(self, app: str) -> dict[str, Any]:

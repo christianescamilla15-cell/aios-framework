@@ -309,14 +309,17 @@ assignments:
     name: "CFDIs"
     description: "FEBOL_MX_DescargaMasivaSAT"
     tier: "T1"
-    tier_status: "review_T0"  # podría escalar a T0 si SAT exige RTO≤10min
+    tier_status: "out_of_scope_29abr"  # decisión LJ 29-abr · custodia AMX TI as-is
+    out_of_scope_reason: "29-abr-2026 decisión LJ · CFDIs sin refactor · custodia AMX TI Eban Valdo + Corato Ledo opera as-is · programa pasa de 8 a 7 apps · agrupación AWS pasa de 5 a 4 cuentas (sin amx-revacc-cfdis)"
+    out_of_scope_decision_date: "2026-04-29"
+    out_of_scope_decision_by: "LJ"
     rationale:
       - "Alto impacto operación: cumplimiento fiscal SAT · LFPDPPP regulatorio"
       - "PII Sí: RFCs + datos emisor/receptor"
       - "Retención 7 años SAT + Object Lock COMPLIANCE"
       - "Custodia AMX TI: Eban Valdo Flores + Corato Ledo (NO DxC · NO Miatech)"
-      - "Argumento T0: si SAT exige RTO≤10min · regulatorio"
-    owner_etribe: "Alonso Montiel (apoya · custodia AMX TI)"
+      - "OUT del refactor 29-abr · pre-existing system continues as-is"
+    owner_etribe: "Alonso Montiel (apoya · custodia AMX TI · ahora liberado del scope)"
     owner_amx: "Eban Valdo Flores · Corato Ledo"
 
   srg:

@@ -38,12 +38,21 @@ def isolated_rules():
 # ── API básica ───────────────────────────────────────────────────────
 
 
-def test_list_apps_returns_8_revenue_accounting(classifier):
+def test_list_apps_returns_7_in_scope_apps(classifier):
+    """v3.8.2 · scope vigente 7 apps (CFDIs OUT 29-abr) · default excluye out_of_scope."""
     apps = classifier.list_apps()
-    assert len(apps) == 8
+    assert len(apps) == 7
     assert "sicofav" in apps
     assert "srg" in apps
     assert "robot" in apps
+    assert "cfdis" not in apps
+
+
+def test_list_apps_with_include_out_of_scope_returns_8(classifier):
+    """include_out_of_scope=True retorna catálogo histórico completo."""
+    apps = classifier.list_apps(include_out_of_scope=True)
+    assert len(apps) == 8
+    assert "cfdis" in apps
 
 
 def test_classify_unknown_app_returns_error_result(classifier):

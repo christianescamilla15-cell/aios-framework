@@ -33,6 +33,21 @@ iam_role_naming:
   pattern_regex: "^AMX-R-([A-Z][A-Z0-9_]{1,30})-(A|DES|SL)$"
   description: "Nombre IAM role debe seguir AMX-R-{APP}-{PROFILE} donde PROFILE = A · DES · SL"
 
+  # v3.8.2 · G-DRIFT-1 · prefijos reservados para roles de servicios oficiales AMX
+  # que NO siguen el pattern del programa Revenue Accounting · alineado con
+  # BO-AMX/CS_Scripts@v0.12.0 compliance/check_f06_compliance.py (Fer Pérez 29-abr).
+  reserved_prefixes:
+    - prefix: "AMX-R-ADEA-"
+      reason: "ADEA roles (AI DevOps Agent + Agent Spaces) · canonical names dictated by Amazon Q service · check_f06_compliance.py exact_names list"
+      examples:
+        - "AMX-R-ADEA-WEBAPP-ADMIN"
+        - "AMX-R-ADEA-RESOURCE-ACCESS"
+    - prefix: "AMX-R-ADEA-"
+      reason_legacy: "Legacy ADEA naming with account_id suffix (transitional)"
+      examples_legacy:
+        - "AMX-R-ADEA-WebappAdmin-{account_id}"
+        - "AMX-R-ADEA-ResourceAccess-{account_id}"
+
   examples_valid:
     - "AMX-R-SICOFAV-A"     # Admin de SICOFAV
     - "AMX-R-SICOFAV-DES"   # Developer de SICOFAV
@@ -40,6 +55,8 @@ iam_role_naming:
     - "AMX-R-RFED-DES"      # Revenue Federation Developer (cross-program)
     - "AMX-R-NOSHOW-A"
     - "AMX-R-ROBOT-DES"
+    - "AMX-R-ADEA-WEBAPP-ADMIN"      # v3.8.2 · reserved prefix ADEA · skip detector
+    - "AMX-R-ADEA-RESOURCE-ACCESS"   # idem
 
   examples_invalid:
     - "amx-r-sicofav-A"            # lowercase prefix no permitido

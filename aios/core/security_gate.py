@@ -1752,7 +1752,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         frozenset({".py", ".ts", ".js"}),
     ),
     # ═════════════════════════════════════════════════════════════════
-    # v3.6.0 · P0 gaps para scope eTride (24-abr-2026)
+    # v3.6.0 · P0 gaps para scope eTribe (24-abr-2026)
     # G-11 · master password hardcoded used for decryption
     # G-NEW-1 · api-standars.md OpenAPI 3.0 + camelCase
     # (G-06 coverage gate se implementa como subcomando CLI separado)
@@ -1924,7 +1924,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
 
     # ═════════════════════════════════════════════════════════════════
     # v3.6.3 · Sprint 3 · 5 detectores P2 · cierre alineación AMX
-    # (24-abr-2026 · scope eTride ~92% → ~98%)
+    # (24-abr-2026 · scope eTribe ~92% → ~98%)
     # Evidencia concreta:
     #   G-08    · SRG Program.cs:42 `Password.RequiredLength = 1`
     #   G-NEW-TSC · SRG appsettings.json:4-5 `TrustServerCertificate=True`
@@ -2033,7 +2033,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     ),
 
     # ═════════════════════════════════════════════════════════════════
-    # v3.6.4 · Sprint 4 · 4 detectores gaps menores · scope eTride ~98% → ~99%
+    # v3.6.4 · Sprint 4 · 4 detectores gaps menores · scope eTribe ~98% → ~99%
     # (24-abr-2026 · G-14 SQL Encrypt · G-15 Angular widened inline ·
     #  G-16a Lambda log retention · G-16b SG open ingress ·
     #  G-16c RDS storage encryption)

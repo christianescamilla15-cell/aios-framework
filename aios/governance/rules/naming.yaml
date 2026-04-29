@@ -243,7 +243,7 @@ secret_naming:
 branch_naming:
   detector_id: "G-NEW-BRANCH-PROTECT"
   severity: "MEDIUM"
-  description: "Convención branch eTride · feature/etriber como working master · NO push directo a develop/main"
+  description: "Convención branch eTribe · feature/etriber como working master · NO push directo a develop/main"
 
   protected_branches:
     - branch: "main"
@@ -261,12 +261,12 @@ branch_naming:
 
     - branch: "feature/etriber"
       protection: "etride-team-only"
-      description: "Working master del equipo eTride · acumula commits del equipo"
+      description: "Working master del equipo eTribe · acumula commits del equipo"
       max_pr_size_lines: 5000  # PRs grandes son OK aquí
 
   allowed_pattern_regex: "^(feature|fix|chore|docs|test|refactor)/[a-z][a-z0-9-]+$"
   examples_valid:
-    - "feature/etriber"            # Working master eTride
+    - "feature/etriber"            # Working master eTribe
     - "feature/sicofav-block4-p2"
     - "fix/audit-interceptor-shadow"
     - "chore/update-deps"
@@ -283,7 +283,7 @@ branch_naming:
 
   workflow:
     description: |
-      Workflow oficial eTride:
+      Workflow oficial eTribe:
       1. Cada dev crea feature/{app}-{módulo} desde feature/etriber
       2. PR a feature/etriber · 1 approver del equipo
       3. Cuando feature/etriber está listo · PR de feature/etriber a develop

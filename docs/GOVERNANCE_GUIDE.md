@@ -1,7 +1,7 @@
-# AIOS Governance Pack · Guía operativa eTride
+# AIOS Governance Pack · Guía operativa eTribe
 
 **Versión:** v3.8.0 · 2026-04-29
-**Audiencia:** equipo eTride (Christian · Oscar · Alonso · Gustavo · Víctor) y Borde Arq
+**Audiencia:** equipo eTribe (Christian · Oscar · Alonso · Gustavo · Víctor) y Borde Arq
 **Alcance:** programa Revenue Accounting Modernization 2026 · 8 aplicativos AMX
 
 ---
@@ -162,7 +162,7 @@ Los 4 archivos canónicos en `aios/governance/rules/`:
 | `tiers.yaml` | 466 | 4 TIERs con 9 criterios + 8 reglas validación + 8 assignments |
 | `approvals.yaml` | 393 | Cadena 5 firmas + 11 chains by resource type + state machine + slippage thresholds |
 | `naming.yaml` | 353 | 5 naming patterns con regex + 8 AppPrefixes |
-| `stakeholders.yaml` | 494 | 5 eTride + 30 AMX stakeholders + matriz contactos |
+| `stakeholders.yaml` | 494 | 5 eTribe + 30 AMX stakeholders + matriz contactos |
 
 Editar estos YAMLs y re-correr `aios governance check`/`aios tier classify` para validar.
 
@@ -213,6 +213,6 @@ Documentadas en `BACKLOG.md` sección "v3.8.0 Drift items":
 
 ## 9 · Soporte
 
-- Slack canal eTride (TBD)
+- Slack canal eTribe (TBD)
 - Issues en `chernandeze_amx/aios-framework` (privado)
 - Owner: Christian Hernández Escamilla · `chernandeze@aeromexico.com`

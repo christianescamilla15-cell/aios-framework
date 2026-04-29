@@ -169,8 +169,8 @@ def cmd_request(args: argparse.Namespace) -> int:
 
     requester_email = getattr(args, "requester", None)
     if not requester_email:
-        # Default · admin del equipo eTride
-        team = rules.stakeholders["etride_team"]
+        # Default · admin del equipo eTribe
+        team = rules.stakeholders["etribe_team"]
         admin = next((m for m in team if m["iam_profile"] == "A"), team[0])
         requester_email = admin["email"]
 
@@ -626,7 +626,7 @@ def add_governance_subcommand(subparsers: argparse._SubParsersAction) -> None:
     p_req.add_argument("--app", required=True, help="App key")
     p_req.add_argument("--output", default="./governance-requests/", help="Directorio output")
     p_req.add_argument("--format", choices=["pdf", "md", "both"], default="both")
-    p_req.add_argument("--requester", help="Email del solicitante · default: admin del equipo eTride")
+    p_req.add_argument("--requester", help="Email del solicitante · default: admin del equipo eTribe")
     p_req.add_argument("--audit-root", default=".", help="Root para .aios/governance/audit-trail.jsonl")
     p_req.set_defaults(func=cmd_request)
 

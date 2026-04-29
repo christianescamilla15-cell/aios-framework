@@ -264,7 +264,7 @@ communication_templates:
   step_1_pm_request:
     subject_pattern: "Solicitud {{type}} · {{app}} · valida pertinencia plan"
     cc_required:
-      - "Equipo eTride (rol según solicitud)"
+      - "Equipo eTribe (rol según solicitud)"
 
   step_3_cyber_review:
     subject_pattern: "CYBER review · {{type}} · {{app}} · cumplimiento LFPDPPP/SOX"

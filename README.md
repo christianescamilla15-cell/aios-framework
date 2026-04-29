@@ -2,7 +2,7 @@
 
 Spec-driven development framework with agent orchestration, modeled after Kiro-style workflows.
 
-**Versión actual: v3.8.0** (2026-04-29 · Governance Pack · 5 subcomandos `aios governance` + `aios tier classify`)
+**Versión actual: v3.8.1** (2026-04-29 · Governance Pack · 5 subcomandos `aios governance` + `aios tier classify`)
 
 ## Install (primera vez)
 
@@ -12,7 +12,7 @@ cd aios-framework
 python3 -m venv .venv
 source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -e .
-aios version                  # debe imprimir v3.8.0
+aios version                  # debe imprimir v3.8.1
 ```
 
 ## Update a la última versión (desde clone existente)
@@ -24,13 +24,13 @@ git checkout main
 git pull origin main          # trae merges + tags hasta v3.7.5
 source .venv/bin/activate
 pip install -e . --upgrade    # re-instala paquete editable con dependencias actualizadas
-aios version                  # confirma versión actualizada (>= v3.8.0)
+aios version                  # confirma versión actualizada (>= v3.8.1)
 ```
 
 Si quieres pinear a un tag específico:
 
 ```bash
-git checkout v3.8.0           # detached HEAD en tag · safe para CI/CD pinning
+git checkout v3.8.1           # detached HEAD en tag · safe para CI/CD pinning
 pip install -e .
 ```
 

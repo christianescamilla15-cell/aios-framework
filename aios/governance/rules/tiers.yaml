@@ -272,7 +272,7 @@ assignments:
       - "PII/PCI Sí: CFDIs con RFC + datos pasajeros"
       - "BIA exige RTO 15m / RPO 5m (alineado T0 0-10min)"
       - "Multi-región Virginia+Oregon Activo-Activo (ADR-002 v2)"
-    owner_etride: "Christian Hernández Escamilla (lead)"
+    owner_etribe: "Christian Hernández Escamilla (lead)"
     owner_amx: "Luis Ertuche (PM)"
 
   arc:
@@ -286,7 +286,7 @@ assignments:
       - "PII Sí: datos agencias USA"
       - "Estratégico pero menor scope que BSP global"
       - "Skeleton hoy · pending Miatech"
-    owner_etride: "Christian Hernández (extra)"
+    owner_etribe: "Christian Hernández (extra)"
     owner_amx: "Luis Ertuche · Eloisa"
 
   bsp:
@@ -301,7 +301,7 @@ assignments:
       - "Downstream Robot · feed SICOFAV"
       - "Activo-Pasivo multi-región · failover sí, no Activo-Activo"
       - "Skeleton hoy · pending Miatech (Juanito coord)"
-    owner_etride: "Gustavo Magallanes (post-liberación Comisiones)"
+    owner_etribe: "Gustavo Magallanes (post-liberación Comisiones)"
     owner_amx: "Luis Ertuche · Cynthia"
 
   cfdis:
@@ -316,7 +316,7 @@ assignments:
       - "Retención 7 años SAT + Object Lock COMPLIANCE"
       - "Custodia AMX TI: Eban Valdo Flores + Corato Ledo (NO DxC · NO Miatech)"
       - "Argumento T0: si SAT exige RTO≤10min · regulatorio"
-    owner_etride: "Alonso Montiel (apoya · custodia AMX TI)"
+    owner_etribe: "Alonso Montiel (apoya · custodia AMX TI)"
     owner_amx: "Eban Valdo Flores · Corato Ledo"
 
   srg:
@@ -333,7 +333,7 @@ assignments:
       - "Riesgo técnico EOL: .NET 7 EOL 2024-05 + Angular 15 EOL 2024-05"
       - "31 HIGH AIOS findings: CWE-522 plaintext · CWE-521 RequiredLength=1 · CWE-295 TrustServerCertificate"
       - "Medio impacto: garantías agencias · respaldo de ventas"
-    owner_etride: "Oscar Pulido (único con Kiro confirmado)"
+    owner_etribe: "Oscar Pulido (único con Kiro confirmado)"
     owner_amx: "Borde Arq pending firma"
 
   asr:
@@ -348,7 +348,7 @@ assignments:
       - "Una región multi-zona · 6h RTO aceptable"
       - "Skeleton hoy · pending Miatech"
       - "Refactoring (replatform excepción permitida T2)"
-    owner_etride: "Oscar Pulido (extra)"
+    owner_etribe: "Oscar Pulido (extra)"
     owner_amx: "Luis Ertuche"
 
   robot:
@@ -363,7 +363,7 @@ assignments:
       - "PII Sí: PNRs · datos pasajeros"
       - "Sin él no fluye reembolsos: alimenta BSP+ARC+SRG vía Praxis+Sabre SOAP"
       - "Refactoring: VB.NET 4.6.1/4.7/4.8 heterogéneo → C# 12 unificado"
-    owner_etride: "Gustavo Magallanes (lead post-asignación 27-abr)"
+    owner_etribe: "Gustavo Magallanes (lead post-asignación 27-abr)"
     owner_amx: "Luis Ertuche · Carlos Reyes (PCI scope)"
     pci_dss_scope: true  # KEY · regulatorio bancario adicional
     legacy_loc: 238798  # 4 sub-repos · 251 .vb
@@ -380,7 +380,7 @@ assignments:
       - "Bugs revenue net-new: DR-25 (.Hours vs .TotalHours) + DR-18 (substring matching pasajeros)"
       - "Custodia DxC: NO en BO-AMX · código en Arquitectura_Aeromexico/apps_code/10_noshow"
       - "Promoción T1 justificable si revenue impact cuantificado por Elías + Javi Toledo"
-    owner_etride: "Alonso Montiel (lead)"
+    owner_etribe: "Alonso Montiel (lead)"
     owner_amx: "Elías Tapia · Javi Toledo · Braulio"
     custody: "DxC"
     custody_blockers:

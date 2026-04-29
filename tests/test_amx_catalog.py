@@ -21,7 +21,7 @@ def test_catalog_has_key_templates():
 
 
 def test_catalog_has_10_aplicativos_mapped():
-    """10 aplicativos eTride tienen mapping."""
+    """10 aplicativos eTribe tienen mapping."""
     names = {m.aplicativo for m in APLICATIVO_ANALOGS}
     expected = {"SICOFAV", "SRG", "Robot", "NoShow", "CFDIs", "ARC",
                 "BSP", "ASR", "Com-Directas", "Com-Indirectas"}

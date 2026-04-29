@@ -58,7 +58,7 @@ def test_for_bd_access_context_includes_team_and_resources(builder):
     assert ctx["app_display"] == "SICOFAV"
     assert ctx["tier"] == "T0"
     assert ctx["requester"]["email"] == "chernandeze@aeromexico.com"
-    assert len(ctx["team"]) >= 5  # 5 eTride miembros
+    assert len(ctx["team"]) >= 5  # 5 eTribe miembros
     assert len(ctx["resources"]) >= 3
     assert ctx["multiregion_required"] is True  # T0
 

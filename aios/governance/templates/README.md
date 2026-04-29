@@ -23,7 +23,7 @@ Templates para `aios governance request` · generan PDF + Markdown formal de sol
     "requester": {
         "name": "Christian Hernández Escamilla",
         "email": "chernandeze@aeromexico.com",
-        "role": "Líder técnico SICOFAV (eTride)",
+        "role": "Líder técnico SICOFAV (eTribe)",
     },
     "co_requester": {                        # Para BD-access · Read Only
         "name": "Víctor Hugo Araiza",

@@ -2,7 +2,7 @@
 
 **Target:** `apps/10-noshow/` o `apps_code/atos-noshow/` (el proyecto real · no el frankenstein sintético)
 **Modo:** LEGACY_MODERNIZATION
-**Precondición:** Power `amx-aios-unified` v1.7.4+ activo · `aios-mcp` en PATH · aios-framework 1.7.4 instalado
+**Precondición:** Power `acme-aios-unified` v1.7.4+ activo · `aios-mcp` en PATH · aios-framework 1.7.4 instalado
 **Start:** `aios checkpoint --phase-completed '' --phase-in-progress 'FASE 0 · boot'` (establece anchor inicial)
 
 ---
@@ -10,20 +10,20 @@
 ## Prompt a copiar al chat de Kiro (auto mode)
 
 ```
-LEGACY_MODERNIZATION · ATOS-NOSHOW · modernización .NET 4.7.2 → .NET 8 LTS · end-to-end hasta pre-deploy · AMX post-retro 20-abr compliant
+LEGACY_MODERNIZATION · ATOS-NOSHOW · modernización .NET 4.7.2 → .NET 8 LTS · end-to-end hasta pre-deploy · ACME post-retro 20-abr compliant
 
 ═══════════════════════════════════════════════════════════════
 CONTEXTO DEL PROYECTO (real · no sintético)
 ═══════════════════════════════════════════════════════════════
-ATOS NoShow es una aplicación legacy C# .NET 4.7.2 que procesa reservas no-show para Aeroméxico. Está en scope del audit hallazgos revenue-accounting con FRKs documentados:
+ATOS NoShow es una aplicación legacy C# .NET 4.7.2 que procesa reservas no-show para AcmeAir. Está en scope del audit hallazgos finance_operations con FRKs documentados:
 - FRK-037 · vuelo 829 hardcoded en NoShowService.cs · CRITICAL
 - FRK-038 · ATOS5246 legacy service account · HIGH
 - (+ otros FRKs específicos del proyecto real)
 
-El spec-driven ya fue probado en Test 3 (ver specs/atos-noshow-modernization-validation/ en aios-framework) que produjo 1,507 líneas · 109 tasks · 10 BLOCKERS gates AMX. Usar ese material como input base · no regenerar desde cero.
+El spec-driven ya fue probado en Test 3 (ver specs/atos-noshow-modernization-validation/ en aios-framework) que produjo 1,507 líneas · 109 tasks · 10 BLOCKERS gates ACME. Usar ese material como input base · no regenerar desde cero.
 
 ═══════════════════════════════════════════════════════════════
-RESTRICCIONES AMX POST-RETRO 20-ABR (NO NEGOCIABLES)
+RESTRICCIONES ACME POST-RETRO 20-ABR (NO NEGOCIABLES)
 ═══════════════════════════════════════════════════════════════
 - Secrets: AWS Secrets Manager (NO env vars · NO inline)
 - Crypto: KMS + rotación 90d
@@ -31,7 +31,7 @@ RESTRICCIONES AMX POST-RETRO 20-ABR (NO NEGOCIABLES)
 - Compute: EKS o Lambda (NO ECS)
 - Mensajería: EventBridge + SQS (NO SES/SNS)
 - Observabilidad: correlation-id obligatorio
-- Naming IAM: amx-r-noshow-<env>
+- Naming IAM: acme-r-noshow-<env>
 - Networking: Route53 Private Zones (NO IPs hardcoded)
 
 ═══════════════════════════════════════════════════════════════
@@ -41,7 +41,7 @@ FLUJO (8 fases · auto mode autónomo)
 FASE 0 · Boot
   - aios checkpoint --phase-in-progress "FASE 0 · boot"
   - Lee ai-memory/ existente O bootstrap con 6 archivos canónicos
-  - Carga aios-config.json con forbidden_literals AMX
+  - Carga aios-config.json con forbidden_literals ACME
   - Confirma aios-mcp conectado
 
 FASE 1 · Discovery
@@ -68,7 +68,7 @@ FASE 4 · Observability + Security hardening
 
 FASE 5 · Deployment artifacts
   - Dockerfile · docker-compose · k8s/base/ + overlays/{dev,staging,prod} kustomize
-  - helm/atos-noshow/ · terraform/atos-noshow/ (ECR + IAM amx-r-noshow-* + Secrets + KMS + CloudWatch)
+  - helm/atos-noshow/ · terraform/atos-noshow/ (ECR + IAM acme-r-noshow-* + Secrets + KMS + CloudWatch)
 
 FASE 6 · Performance & Resilience
   - perf/k6/atos-noshow.js (smoke + load + stress)
@@ -80,7 +80,7 @@ FASE 7 · Docs
 
 FASE 8 · Final validation + Release Gate
   - security_scan POST · delta vs baseline (target: 0 CRITICAL)
-  - release_gate_check · 7 AMX checks · objetivo READY
+  - release_gate_check · 7 ACME checks · objetivo READY
   - aggregate_report POST · snapshot final
   - aios checkpoint --phase-completed "FASE 8" --phase-in-progress "" --next-action "handoff pre-deploy"
 
@@ -90,7 +90,7 @@ REPORTE FINAL: genera docs/FINAL_REPORT_NOSHOW_PILOT.md con:
   3. Commits creados (git log --oneline)
   4. Pre-deploy checklist 20+ items (✓/✗)
   5. Timing: wall-clock + elapsed activo por fase
-  6. Gates AMX externos pendientes (WIZ · Veracode · Prisma · Tenable · Miguel Rachid approval)
+  6. Gates ACME externos pendientes (WIZ · Veracode · Prisma · Tenable · Miguel Rachid approval)
   7. Comparativa vs frankenstein-70k sintético (validar que el framework escala del sintético al real)
 
 ═══════════════════════════════════════════════════════════════
@@ -116,10 +116,10 @@ ARRANCA FASE 0 AHORA.
    pip show aios-kiro | Select-String Version  # debe ser 1.7.4
    ```
 2. **Abre Kiro en `apps/10-noshow/`** (o el path real del proyecto ATOS-NOSHOW)
-3. **Activa el Power** `amx-aios-unified` (debe estar instalado · ver POWERS sidebar)
+3. **Activa el Power** `acme-aios-unified` (debe estar instalado · ver POWERS sidebar)
 4. **Inicia sesión kcb** para trazabilidad:
    ```powershell
-   wsl -d Ubuntu-24.04 --cd /mnt/c/Users/eTriber/Desktop/amx-hallazgos-audit `
+   wsl -d Ubuntu-24.04 --cd /mnt/c/Users/eTriber/Desktop/acme-hallazgos-audit `
      ./.venv-mythos/bin/kcb start `
      --id "ses-pilot-noshow-$(Get-Date -Format yyyyMMddTHHmmssZ)" `
      --actor kiro `
@@ -138,10 +138,10 @@ ARRANCA FASE 0 AHORA.
 
 | Aspecto | frankenstein-70k (sintético) | pilot NoShow (real) |
 |---|---|---|
-| Código | generado programáticamente | producción legacy AMX |
+| Código | generado programáticamente | producción legacy ACME |
 | FRKs | 79 sembrados con gold standard | reales del audit |
 | Validación | precision/recall vs seed | validación funcional del negocio |
-| Evidencia para Ibrahim | "escala técnica" | **"caso real AMX"** ← mucho más fuerte |
+| Evidencia para Ibrahim | "escala técnica" | **"caso real ACME"** ← mucho más fuerte |
 | Stakeholders | solo técnico | Diego Zarate · Miguel Rachid · tu equipo |
 
-Este piloto es la evidencia DEFINITIVA para la contribución a OYN-AMX · cierra el loop framework técnico → valor operativo real.
+Este piloto es la evidencia DEFINITIVA para la contribución a OYN-ACME · cierra el loop framework técnico → valor operativo real.

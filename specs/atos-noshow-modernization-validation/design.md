@@ -3,7 +3,7 @@
 
 ## Overview
 
-ATOS-NOSHOW-ROBOT es un servicio batch de mision critica (Tier T1) que procesa ~1,350 no-shows diarios para Revenue Accounting de Aeromexico. El sistema actual corre sobre .NET 4.7.2 como Windows Service con Quartz.NET, alcanzando EOL en enero 2026.
+ATOS-NOSHOW-ROBOT es un servicio batch de mision critica (Tier T1) que procesa ~1,350 no-shows diarios para Finance Operations de AcmeAir. El sistema actual corre sobre .NET 4.7.2 como Windows Service con Quartz.NET, alcanzando EOL en enero 2026.
 
 Este documento describe la arquitectura target: un Worker Service en .NET 8 LTS desplegado como Kubernetes CronJob en Amazon EKS, con gestion de secretos via AWS Secrets Manager + CMK custom, logging estructurado con Serilog, retry policies con Polly, y migracion de WinSCP a SSH.NET para SFTP cross-platform.
 
@@ -12,13 +12,13 @@ Este documento describe la arquitectura target: un Worker Service en .NET 8 LTS 
 | Hallazgo | Severidad | Decision de diseno |
 |---|---|---|
 | Vuelo 829 hardcoded (MainServices.cs:57) | CRITICO | Eliminar; usar datos reales de AIDX_DB |
-| 6 credenciales plaintext | CRITICO | AWS Secrets Manager + CMK amx-noshow-cmk |
+| 6 credenciales plaintext | CRITICO | AWS Secrets Manager + CMK acme-noshow-cmk |
 | Remove en iteracion (MainServices.cs:87) | HIGH | Reescribir con ToList() snapshot antes de iterar |
 | SABRE sin retry (162 calls, 0 retry) | HIGH | Polly: 3 intentos, backoff 2/5/10s |
 | IDisposable sin using (3 casos) | MEDIUM | using statements en SqlConnection, FileStream, SmtpClient |
 | Console.WriteLine (18 ocurrencias) | MEDIUM | Serilog JSON sink |
-| ECS prohibido (AMX constraint) | BLOQUEADOR | EKS CronJob obligatorio |
-| SES/SNS prohibido (AMX constraint) | BLOQUEADOR | MailKit hacia AMX_Relay 172.18.60.227:25 |
+| ECS prohibido (ACME constraint) | BLOQUEADOR | EKS CronJob obligatorio |
+| SES/SNS prohibido (ACME constraint) | BLOQUEADOR | MailKit hacia AMX_Relay 172.18.60.227:25 |
 
 
 ## Architecture
@@ -29,9 +29,9 @@ Este documento describe la arquitectura target: un Worker Service en .NET 8 LTS 
 C4Container
     title ATOS-NOSHOW-ROBOT - Arquitectura Target (.NET 8 / EKS)
 
-    Person(revenue, "Revenue Accounting", "Equipo AMX que consume el reporte diario")
+    Person(revenue, "Finance Operations", "Equipo ACME que consume el reporte diario")
 
-    System_Boundary(eks, "Amazon EKS - Cluster AMX") {
+    System_Boundary(eks, "Amazon EKS - Cluster ACME") {
         Container(cronjob, "noshow-cronjob", "Kubernetes CronJob", "Dispara ejecucion diaria 06:50 UTC (schedule: 50 6 * * *)")
         Container(worker, "NoShow.Worker", ".NET 8 Worker Service", "Orquesta el ciclo completo: DB -> SABRE -> File -> SFTP -> Email")
         Container(secretscache, "SecretsCache", "In-memory, TTL 15min", "Cache de credenciales desde Secrets Manager")
@@ -40,8 +40,8 @@ C4Container
     System_Ext(aidx, "AIDX_DB", "SQL Server 172.24.34.77 - Tabla flights con vuelos operados")
     System_Ext(sabre, "SABRE_API", "GDS externo - SOAP: SessionCreate, GetPassengerList, GetReservation, TicketingDocument")
     System_Ext(sftp, "SFTP_CADUCOS", "10.19.17.33:22 - Directorio /CADUCOS (prod) o /CADUCOS/VALIDATION (dual-run)")
-    System_Ext(relay, "AMX_Relay", "172.18.60.227:25 - SMTP interno AMX (SES/SNS prohibidos)")
-    System_Ext(secrets, "AWS Secrets Manager", "Secretos bajo prefijo noshow/ cifrados con CMK amx-noshow-cmk")
+    System_Ext(relay, "AMX_Relay", "172.18.60.227:25 - SMTP interno ACME (SES/SNS prohibidos)")
+    System_Ext(secrets, "AWS Secrets Manager", "Secretos bajo prefijo noshow/ cifrados con CMK acme-noshow-cmk")
 
     Rel(cronjob, worker, "Lanza pod", "Kubernetes")
     Rel(worker, secretscache, "Lee credenciales", "In-process")
@@ -73,11 +73,11 @@ Razon: El Generic Host provee DI, logging, configuracion y ciclo de vida estanda
 
 ### ADR-002: Gestion de secretos - Secrets Manager vs Parameter Store
 
-**Contexto:** 6 credenciales en texto plano deben migrarse. AMX requiere CMK custom por servicio.
+**Contexto:** 6 credenciales en texto plano deben migrarse. ACME requiere CMK custom por servicio.
 
-**Opcion A: AWS Secrets Manager + CMK custom amx-noshow-cmk**
+**Opcion A: AWS Secrets Manager + CMK custom acme-noshow-cmk**
 - Pro: Soporte nativo para rotacion automatica; SDK con cache integrado (AWSSDK.SecretsManager.Caching); cifrado con CMK custom; auditoria via CloudTrail
-- Pro: Cumple constraint AMX: una CMK por servicio
+- Pro: Cumple constraint ACME: una CMK por servicio
 - Contra: Costo marginal por llamada (mitigado con cache 15min)
 
 **Opcion B: AWS Systems Manager Parameter Store (SecureString)**
@@ -85,7 +85,7 @@ Razon: El Generic Host provee DI, logging, configuracion y ciclo de vida estanda
 - Contra: Sin rotacion automatica nativa para credenciales de terceros; limite de 4KB por parametro (insuficiente para config compleja); CMK compartida por defecto
 
 **Decision: Opcion A - Secrets Manager**
-Razon: Rotacion automatica, cache SDK, y alineacion directa con el constraint AMX de CMK por servicio. El costo adicional es despreciable para un batch diario.
+Razon: Rotacion automatica, cache SDK, y alineacion directa con el constraint ACME de CMK por servicio. El costo adicional es despreciable para un batch diario.
 
 ---
 
@@ -121,7 +121,7 @@ Razon: Ya es la libreria en uso en el codigo legacy. WinSCP es incompatible con 
 - Contra: Obsoleto en .NET 8; sin soporte async real; Microsoft recomienda migrar a MailKit
 
 **Decision: Opcion A - MailKit**
-Razon: SmtpClient esta obsoleto. MailKit es el reemplazo oficial recomendado por Microsoft y soporta el relay interno AMX sin autenticacion.
+Razon: SmtpClient esta obsoleto. MailKit es el reemplazo oficial recomendado por Microsoft y soporta el relay interno ACME sin autenticacion.
 
 
 ## Components and Interfaces
@@ -443,9 +443,9 @@ ORDER BY flight_date_local;
 | `noshow/sabre-credentials` | `{"username":"...","password":"...","ipcc":"AM","subjectArea":"FULL"}` | SabreClient |
 | `noshow/sftp-credentials` | `{"host":"10.19.17.33","port":22,"username":"AMUSER","passphrase":"..."}` | SftpUploader |
 | `noshow/db-connection` | `{"server":"172.24.34.77","database":"AIDX","uid":"...","password":"..."}` | FlightRepository |
-| `noshow/email-config` | `{"toAddress":[...],"ccAddress":[...],"fromAddress":"amnoshow@aeromexico.com"}` | MailKitEmailSender |
+| `noshow/email-config` | `{"toAddress":[...],"ccAddress":[...],"fromAddress":"amnoshow@acmeair.com"}` | MailKitEmailSender |
 
-**CMK:** `amx-noshow-cmk` - exclusiva de este servicio, no compartida (constraint AMX).
+**CMK:** `acme-noshow-cmk` - exclusiva de este servicio, no compartida (constraint ACME).
 
 ### Implementacion de cache (15 minutos)
 
@@ -482,11 +482,11 @@ public sealed class SecretsManagerProvider : ISecretsProvider
 }
 ```
 
-### IAM Role (prefijo amx-r-* obligatorio)
+### IAM Role (prefijo acme-r-* obligatorio)
 
 ```json
 {
-  "RoleName": "amx-r-noshow-execution",
+  "RoleName": "acme-r-noshow-execution",
   "AssumeRolePolicyDocument": {
     "Statement": [{
       "Effect": "Allow",
@@ -495,7 +495,7 @@ public sealed class SecretsManagerProvider : ISecretsProvider
     }]
   },
   "Policies": [{
-    "PolicyName": "amx-p-noshow-secrets",
+    "PolicyName": "acme-p-noshow-secrets",
     "Statement": [
       {
         "Effect": "Allow",
@@ -505,7 +505,7 @@ public sealed class SecretsManagerProvider : ISecretsProvider
       {
         "Effect": "Allow",
         "Action": ["kms:Decrypt"],
-        "Resource": "arn:aws:kms:us-east-1:*:key/amx-noshow-cmk-*"
+        "Resource": "arn:aws:kms:us-east-1:*:key/acme-noshow-cmk-*"
       }
     ]
   }]
@@ -753,7 +753,7 @@ COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "NoShow.Worker.dll"]
 ```
 
-**Imagen pushed a ECR AMX** — no a GitHub Packages ni Docker Hub.
+**Imagen pushed a ECR ACME** — no a GitHub Packages ni Docker Hub.
 
 ### Kubernetes CronJob Manifest
 
@@ -767,7 +767,7 @@ metadata:
   labels:
     app: noshow-robot
     tier: t1
-    team: revenue-accounting
+    team: finance_operations
 spec:
   schedule: "50 6 * * *"           # 06:50 UTC diario (Req 1.1)
   concurrencyPolicy: Forbid         # No ejecutar si el anterior aún corre
@@ -780,13 +780,13 @@ spec:
       template:
         metadata:
           annotations:
-            eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/amx-r-noshow-execution
+            eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/acme-r-noshow-execution
         spec:
           restartPolicy: OnFailure
-          serviceAccountName: noshow-sa  # IRSA apunta a amx-r-noshow-execution
+          serviceAccountName: noshow-sa  # IRSA apunta a acme-r-noshow-execution
           containers:
             - name: noshow-worker
-              image: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/amx/noshow-robot:latest
+              image: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/acme/noshow-robot:latest
               imagePullPolicy: Always
               env:
                 - name: NOSHOW_MODE
@@ -818,10 +818,10 @@ metadata:
   name: noshow-sa
   namespace: revenue
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/amx-r-noshow-execution
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/acme-r-noshow-execution
 ```
 
-El rol `amx-r-noshow-execution` tiene permisos mínimos: `secretsmanager:GetSecretValue` y `kms:Decrypt` sobre `noshow/*` (ver sección Secrets Strategy).
+El rol `acme-r-noshow-execution` tiene permisos mínimos: `secretsmanager:GetSecretValue` y `kms:Decrypt` sobre `noshow/*` (ver sección Secrets Strategy).
 
 ### Helm Chart
 
@@ -840,7 +840,7 @@ Parámetros parametrizables en `values.yaml`:
 
 ```yaml
 image:
-  repository: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/amx/noshow-robot
+  repository: ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/acme/noshow-robot
   tag: "latest"           # Overrideado por CI/CD con SHA del commit
 
 schedule: "50 6 * * *"
@@ -876,7 +876,7 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 ```
 
-**Sink:** JSON a stdout → recolectado por **FluentBit** (DaemonSet en EKS) → **CloudWatch Logs** grupo `/amx/noshow`.
+**Sink:** JSON a stdout → recolectado por **FluentBit** (DaemonSet en EKS) → **CloudWatch Logs** grupo `/acme/noshow`.
 
 **Enrichers por ciclo** (inyectados vía `LogContext.PushProperty`):
 - `CorrelationId` — UUID v4 único por ejecución (Req 12.5)
@@ -887,17 +887,17 @@ Log.Logger = new LoggerConfiguration()
 
 | Métrica | Namespace | Descripción |
 |---|---|---|
-| `NoShowRecordsProcessed` | `AMX/NoShow` | Total registros D generados por ciclo |
-| `SabreCallsTotal` | `AMX/NoShow` | Total llamadas SOAP a SABRE por ciclo |
-| `SabreCallsFailed` | `AMX/NoShow` | Llamadas SABRE fallidas (tras retries) |
-| `SftpUploadDurationMs` | `AMX/NoShow` | Duración de la transferencia SFTP en ms |
-| `CycleDurationMs` | `AMX/NoShow` | Duración total del ciclo en ms |
+| `NoShowRecordsProcessed` | `ACME/NoShow` | Total registros D generados por ciclo |
+| `SabreCallsTotal` | `ACME/NoShow` | Total llamadas SOAP a SABRE por ciclo |
+| `SabreCallsFailed` | `ACME/NoShow` | Llamadas SABRE fallidas (tras retries) |
+| `SftpUploadDurationMs` | `ACME/NoShow` | Duración de la transferencia SFTP en ms |
+| `CycleDurationMs` | `ACME/NoShow` | Duración total del ciclo en ms |
 
 ```csharp
 // NoShow.Infrastructure/Observability/CloudWatchMetricsPublisher.cs
 await _cloudWatch.PutMetricDataAsync(new PutMetricDataRequest
 {
-    Namespace = "AMX/NoShow",
+    Namespace = "ACME/NoShow",
     MetricData = new List<MetricDatum>
     {
         new() { MetricName = "NoShowRecordsProcessed", Value = totalRecords, Unit = StandardUnit.Count },
@@ -914,11 +914,11 @@ await _cloudWatch.PutMetricDataAsync(new PutMetricDataRequest
 | `noshow-records-low` | `NoShowRecordsProcessed < 500` en cualquier ciclo | SNS → equipo Revenue (umbral mínimo operativo) |
 | `noshow-cycle-timeout` | `CycleDurationMs > 5400000` (90 min) | SNS → equipo técnico |
 
-> Nota: Las alarmas usan SNS para **eventos no-correo** (notificación a sistemas). Los correos operacionales siguen usando AMX_Relay (constraint AMX).
+> Nota: Las alarmas usan SNS para **eventos no-correo** (notificación a sistemas). Los correos operacionales siguen usando AMX_Relay (constraint ACME).
 
 ### Dashboard CloudWatch
 
-Dashboard `AMX-NoShow-Operations` con widgets:
+Dashboard `ACME-NoShow-Operations` con widgets:
 - Latencia del ciclo (últimos 7 días)
 - Throughput: registros procesados por día
 - Error rate: SabreCallsFailed / SabreCallsTotal
@@ -946,7 +946,7 @@ Semana 3: Validación automática de paridad
 ┌─────────────────────────────────────────────────────────────┐
 │  Diff automático entre /CADUCOS y /CADUCOS/VALIDATION       │
 │  Si diff > 2% en 3 ejecuciones consecutivas:               │
-│    → Alerta a Revenue Accounting vía AMX_Relay              │
+│    → Alerta a Finance Operations vía AMX_Relay              │
 │    → Pausa automática del cutover (flag CUTOVER_BLOCKED)    │
 └─────────────────────────────────────────────────────────────┘
 
@@ -969,7 +969,7 @@ Semana 4: CUTOVER (si exit criteria cumplidos)
 
 - Diff automático entre archivos de ambos paths al finalizar cada ciclo
 - Si la diferencia de registros D supera el **2% en 3 ejecuciones consecutivas**:
-  - Alerta automática a Revenue Accounting vía AMX_Relay
+  - Alerta automática a Finance Operations vía AMX_Relay
   - Flag `CUTOVER_BLOCKED=true` previene el cutover automático
   - El equipo técnico investiga la discrepancia antes de continuar
 
@@ -993,7 +993,7 @@ En cualquier momento antes o después del cutover:
 | Criterio | Responsable |
 |---|---|
 | 10 ejecuciones consecutivas con diff < 0.5% | Equipo técnico (medición automática) |
-| Sign-off de Jacobo (Revenue Accounting) | Jacobo — Revenue Accounting |
-| Sign-off de Víctor (líder AMX) | Víctor — Líder técnico AMX |
-| Escaneos CYBER completados (WIZ → Veracode → Prisma → Tenable) | Equipo CYBER AMX |
-| Gate Miguel Rachid aprobado | Miguel Rachid — Gerente Ciberseguridad AMX |
+| Sign-off de Jacobo (Finance Operations) | Jacobo — Finance Operations |
+| Sign-off de Víctor (líder ACME) | Víctor — Líder técnico ACME |
+| Escaneos CYBER completados (WIZ → Veracode → Prisma → Tenable) | Equipo CYBER ACME |
+| Gate Miguel Rachid aprobado | Miguel Rachid — Gerente Ciberseguridad ACME |

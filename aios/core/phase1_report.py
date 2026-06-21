@@ -6,8 +6,8 @@ con metadata del plan v5 (Tier · go-live · bloqueantes cross-app · patrones
 obligatorios) · produce un markdown maestro y opcional PDF.
 
 Uso:
-    aios phase1-report --app sicofav --root <app_root>
-    aios phase1-report --app sicofav --root <app_root> --pdf
+    aios phase1-report --app fleet_ops_app --root <app_root>
+    aios phase1-report --app fleet_ops_app --root <app_root> --pdf
 """
 from __future__ import annotations
 
@@ -166,8 +166,8 @@ def build_discovery_package(app_key: str, root: Path) -> str:
     md.append("  obligatorios al cierre Fase 4 con firma Miguel Rachid")
     md.append("")
 
-    # Gates AMX aplicables (plan v5 §3.5)
-    md.append("## ✅ Gates AMX aplicables al cierre Fase 1")
+    # Gates ACME aplicables (plan v5 §3.5)
+    md.append("## ✅ Gates ACME aplicables al cierre Fase 1")
     md.append("")
     md.append("Según plan v5 §3.5:")
     md.append("")

@@ -21,9 +21,9 @@ When a project is opened with AIOS (via `aios init` or AM-KIRO install) · the f
 
 AIOS loads stack-specific modules from `aios/stacks/<stack>/` and applies policy-appropriate detectors.
 
-## AMX-specific stack behavior
+## ACME-specific stack behavior
 
-For stacks `dotnet` · `java` · `php` · `cobol`: AIOS applies extra policies when AMX Revenue Accounting is the active policy:
+For stacks `dotnet` · `java` · `php` · `cobol`: AIOS applies extra policies when ACME Finance Operations is the active policy:
 - Credenciales hardcoded → detector CWE-798 obligatorio (Sprint 5.2)
 - SQL injection → detector CWE-89 obligatorio (Sprint 5.x)
 - SSL validation bypass → detector CWE-295 obligatorio

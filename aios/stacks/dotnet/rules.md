@@ -40,7 +40,7 @@
 
 ## CI/CD
 - GitHub Actions or Azure DevOps
-- 4 mandatory pre-prod scans (AMX policy): Tenable · Veracode · WIZ · Prisma
+- 4 mandatory pre-prod scans (ACME policy): Tenable · Veracode · WIZ · Prisma
 - Blue-green deployment via AWS CodeDeploy
 - Branch protection on main
 

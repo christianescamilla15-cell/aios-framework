@@ -74,7 +74,7 @@ class ContextBuilder:
                 "email": sl["email"],
             } if sl else None),
             "for_recipients": [
-                "DBA Custodio (Miatech / DxC / AMX TI según app)",
+                "DBA Custodio (Miatech / DxC / ACME TI según app)",
                 "Luis Ertuche (PM)",
                 "Eloisa Sánchez (Cumplimiento)",
             ],
@@ -85,7 +85,7 @@ class ContextBuilder:
             "request_date": datetime.now().strftime("%Y-%m-%d"),
             "valid_for_days": 30,
             "context": (
-                f"{meta['name']} es el aplicativo {tier} del programa Revenue Accounting Modernization 2026. "
+                f"{meta['name']} es el aplicativo {tier} del programa Finance Operations Modernization 2026. "
                 f"Para arranque de Fase 2 + Block 4 Domain, el equipo eTribe requiere acceso de lectura "
                 "a la base de datos legacy con los datos enmascarados conforme a LFPDPPP."
             ),
@@ -94,7 +94,7 @@ class ContextBuilder:
                 "name": m["name"],
                 "email": m["email"],
                 "aws_role": m["role_aws"],
-                "iam_profile": f"AMX-R-{app.upper()}-{m['iam_profile']}",
+                "iam_profile": f"ACME-R-{app.upper()}-{m['iam_profile']}",
             } for m in team],
             "compliance_commitments": [
                 "NO se descargarán datos PII sin enmascaramiento (RFCs · nombres · cards)",
@@ -150,7 +150,7 @@ class ContextBuilder:
             ),
             "team_backup": [m["name"] for m in team if m["iam_profile"] == "DES"],
             "justification_reasons": [
-                "Programa Revenue Accounting modernización 2026 · target go-live 11-sep",
+                "Programa Finance Operations modernización 2026 · target go-live 11-sep",
                 f"Admin único de las {aws_model['total_aws_accounts']} cuentas AWS del programa",
                 "Corresponsabilidad firmada con Luis Ertuche (PM consultoría)",
             ],
@@ -167,11 +167,11 @@ class ContextBuilder:
     def for_dl_inclusion(self, app: str, requester_email: str) -> dict[str, Any]:
         team = self._rules.stakeholders["etribe_team"]
         admin = next((m for m in team if m["iam_profile"] == "A"), team[0])
-        amx = self._rules.stakeholders["amx_stakeholders"]
+        acme = self._rules.stakeholders["amx_stakeholders"]
         # Find Solution Architect lead
         sa_lead = next(
-            (s for s in amx if "Solution Architect lead" in str(s.get("role", ""))),
-            {"name": "Jose Fernando Pérez Izquierdo", "email": "jlperezi@aeromexico.com", "aliases": ["Fer"]},
+            (s for s in acme if "Solution Architect lead" in str(s.get("role", ""))),
+            {"name": "Jose Fernando Pérez Izquierdo", "email": "jlperezi@acmeair.com", "aliases": ["Fer"]},
         )
 
         return {
@@ -204,10 +204,10 @@ class ContextBuilder:
         tier = meta["tier"].split()[0]
         tier_def = self._rules.get_tier_definition(tier)
 
-        amx = self._rules.stakeholders["amx_stakeholders"]
+        acme = self._rules.stakeholders["amx_stakeholders"]
         operator = next(
-            (s for s in amx if "Admin entrega cuentas" in str(s.get("role", ""))),
-            {"name": "Juan Carlos Vázquez Lorenzo", "email": "juancarlosvazquez@aeromexico.com",
+            (s for s in acme if "Admin entrega cuentas" in str(s.get("role", ""))),
+            {"name": "Juan Carlos Vázquez Lorenzo", "email": "juancarlosvazquez@acmeair.com",
              "short_name": "Juan Carlos"},
         )
 
@@ -231,11 +231,11 @@ class ContextBuilder:
             "account_type": "compartida (T2 hasta 6 apps)" if is_shared else "dedicada",
             "environments_count": 3,
             "environments": [
-                {"name": f"amx-revacc-{app}-des", "description": "Desarrollo · sandbox interno eTribe",
+                {"name": f"acme-revacc-{app}-des", "description": "Desarrollo · sandbox interno eTribe",
                  "short": "des"},
-                {"name": f"amx-revacc-{app}-qa", "description": "QA · ambiente de pruebas pre-prod",
+                {"name": f"acme-revacc-{app}-qa", "description": "QA · ambiente de pruebas pre-prod",
                  "short": "qa"},
-                {"name": f"amx-revacc-{app}-prod", "description": "Producción · go-live target",
+                {"name": f"acme-revacc-{app}-prod", "description": "Producción · go-live target",
                  "short": "prod"},
             ],
             "project_code": None,  # pending Luis Ertuche
@@ -257,9 +257,9 @@ class ContextBuilder:
         meta = self._rules.get_app_metadata(app)
         tier = meta["tier"].split()[0]
         tier_def = self._rules.get_tier_definition(tier)
-        amx = self._rules.stakeholders["amx_stakeholders"]
+        acme = self._rules.stakeholders["amx_stakeholders"]
         operator = next(
-            (s for s in amx if "GateOne" in str(s.get("role", ""))),
+            (s for s in acme if "GateOne" in str(s.get("role", ""))),
             {"name": "Antonio Hernández Oropeza", "email": "[pending confirmar]"},
         )
         team = self._rules.stakeholders["etribe_team"]
@@ -284,19 +284,19 @@ class ContextBuilder:
                 {"name": "prod", "short": "prod"},
             ],
             "cmk_list": [
-                {"alias_pattern": f"amx-kms-{app}-{{env}}-secrets", "purpose": "Secrets Manager",
+                {"alias_pattern": f"acme-kms-{app}-{{env}}-secrets", "purpose": "Secrets Manager",
                  "consumers": ["Secrets Manager", "Lambda execution roles"],
                  "rotation": "anual", "tag_deny": True},
-                {"alias_pattern": f"amx-kms-{app}-{{env}}-aurora", "purpose": "Aurora MySQL 8 at-rest",
+                {"alias_pattern": f"acme-kms-{app}-{{env}}-aurora", "purpose": "Aurora MySQL 8 at-rest",
                  "consumers": ["Aurora cluster", "Backups", "Snapshots"],
                  "rotation": "anual", "tag_deny": True},
-                {"alias_pattern": f"amx-kms-{app}-{{env}}-s3-cfdis", "purpose": "S3 CFDIs · COMPLIANCE 7y",
+                {"alias_pattern": f"acme-kms-{app}-{{env}}-s3-cfdis", "purpose": "S3 CFDIs · COMPLIANCE 7y",
                  "consumers": ["S3 bucket CFDIs", "Object Lock"],
                  "rotation": "anual", "tag_deny": True},
-                {"alias_pattern": f"amx-kms-{app}-{{env}}-logs", "purpose": "CloudWatch Logs",
+                {"alias_pattern": f"acme-kms-{app}-{{env}}-logs", "purpose": "CloudWatch Logs",
                  "consumers": ["CloudWatch Logs", "Lambda log groups"],
                  "rotation": "anual", "tag_deny": True},
-                {"alias_pattern": f"amx-kms-{app}-{{env}}-ebs", "purpose": "EBS volumes · Fargate",
+                {"alias_pattern": f"acme-kms-{app}-{{env}}-ebs", "purpose": "EBS volumes · Fargate",
                  "consumers": ["EBS at-rest", "Fargate task storage"],
                  "rotation": "anual", "tag_deny": True},
             ],

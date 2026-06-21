@@ -41,8 +41,8 @@
 ## CI/CD
 - GitHub Actions / Jenkins / GitLab CI
 - Maven/Gradle build
-- 4 mandatory pre-prod scans (AMX policy): Tenable · Veracode · WIZ · Prisma
-- Container Docker (NO ECS · constraint AMX)
+- 4 mandatory pre-prod scans (ACME policy): Tenable · Veracode · WIZ · Prisma
+- Container Docker (NO ECS · constraint ACME)
 - Spring Actuator for health/metrics
 
 ## Spring Boot best practices

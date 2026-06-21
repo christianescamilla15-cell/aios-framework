@@ -1,4 +1,4 @@
-"""Tests · v3.6.6 · AMX Knowledge Base (amx_catalog)."""
+"""Tests · v3.6.6 · ACME Knowledge Base (amx_catalog)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -23,7 +23,7 @@ def test_catalog_has_key_templates():
 def test_catalog_has_10_aplicativos_mapped():
     """10 aplicativos eTribe tienen mapping."""
     names = {m.aplicativo for m in APLICATIVO_ANALOGS}
-    expected = {"SICOFAV", "SRG", "Robot", "NoShow", "CFDIs", "ARC",
+    expected = {"FLEET_OPS_APP", "SRG", "Robot", "NoShow", "CFDIs", "ARC",
                 "BSP", "ASR", "Com-Directas", "Com-Indirectas"}
     assert expected.issubset(names)
 
@@ -41,9 +41,9 @@ def test_list_repos_filter_by_language():
 
 
 def test_list_repos_filter_by_aplicativo():
-    sicofav = list_repos(aplicativo="SICOFAV")
-    # Debe incluir los que tienen SICOFAV en applies_to + los con "*"
-    names = {r.name for r in sicofav}
+    fleet_ops_app = list_repos(aplicativo="FLEET_OPS_APP")
+    # Debe incluir los que tienen FLEET_OPS_APP en applies_to + los con "*"
+    names = {r.name for r in fleet_ops_app}
     assert "RevAcc_Praxis_ASIS_SICOFAV" in names
     assert "CS-App-Template" in names  # aplica "*"
 
@@ -55,7 +55,7 @@ def test_search_repos_matches_description():
 
 def test_search_repos_matches_name():
     matches = search_repos("eks")
-    assert len(matches) >= 1  # Miaeromexico_EKS_CICD
+    assert len(matches) >= 1  # Miacmeair_EKS_CICD
 
 
 def test_get_repo_by_exact_name():
@@ -81,7 +81,7 @@ def test_sc_products_has_eks_and_pipeline_categories():
 
 
 def test_get_aplicativo_mapping_sicofav():
-    m = get_aplicativo_mapping("SICOFAV")
+    m = get_aplicativo_mapping("FLEET_OPS_APP")
     assert m is not None
     assert ".NET 8" in m.stack_target
     assert "dyn-devops-service-catalog" in m.best_analogs
@@ -89,9 +89,9 @@ def test_get_aplicativo_mapping_sicofav():
 
 
 def test_get_aplicativo_mapping_case_insensitive():
-    m = get_aplicativo_mapping("sicofav")
+    m = get_aplicativo_mapping("fleet_ops_app")
     assert m is not None
-    m2 = get_aplicativo_mapping("SICOFAV")
+    m2 = get_aplicativo_mapping("FLEET_OPS_APP")
     assert m.aplicativo == m2.aplicativo
 
 

@@ -39,7 +39,7 @@ class GovernanceRules:
 
     @property
     def supported_apps(self) -> list[str]:
-        """Apps Revenue Accounting in scope · excluye out_of_scope_*.
+        """Apps Finance Operations in scope · excluye out_of_scope_*.
 
         v3.8.2: CFDIs marcado out_of_scope_29abr · programa pasa de 8 a 7 apps.
         Para acceder al catálogo completo (incluye históricos) usar `all_apps`.

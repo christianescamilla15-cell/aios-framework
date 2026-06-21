@@ -179,7 +179,7 @@ _FALCO_RULE_TEMPLATES = {
     "CWE-78": FalcoRule(
         name="Shell Command Execution by Service",
         condition="spawned_process and proc.name in (sh, bash, cmd, powershell) "
-                  "and proc.pname in (noshow, sicofav, arc, bsp)",
+                  "and proc.pname in (noshow, fleet_ops_app, arc, bsp)",
         output="Service process spawning shell · possible command injection "
                "(parent=%proc.pname child=%proc.name cmd=%proc.cmdline)",
         priority="CRITICAL",

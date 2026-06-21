@@ -1,7 +1,7 @@
 """Engagement scaffold · wrapper para invocar el generador de Nemesis
 engagements (`nemesis-engagements/_catalog/scaffold.py`) desde AIOS.
 
-El scaffold.py vive en el repo amx-hallazgos-audit · AIOS no lo
+El scaffold.py vive en el repo acme-hallazgos-audit · AIOS no lo
 duplica · lo localiza via config o path por defecto y lo invoca via
 subprocess.
 
@@ -13,7 +13,7 @@ Config via aios-config.json (seccion `engagement`):
 
 Si no esta configurado, busca en locations comunes:
 - ./nemesis/nemesis-engagements/_catalog/scaffold.py
-- /mnt/c/Users/eTriber/Desktop/amx-hallazgos-audit/nemesis/...
+- /mnt/c/Users/eTriber/Desktop/acme-hallazgos-audit/nemesis/...
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ from typing import Optional
 
 COMMON_LOCATIONS = [
     "nemesis/nemesis-engagements/_catalog/scaffold.py",
-    "../amx-hallazgos-audit/nemesis/nemesis-engagements/_catalog/scaffold.py",
-    "/mnt/c/Users/eTriber/Desktop/amx-hallazgos-audit/nemesis/nemesis-engagements/_catalog/scaffold.py",
+    "../acme-hallazgos-audit/nemesis/nemesis-engagements/_catalog/scaffold.py",
+    "/mnt/c/Users/eTriber/Desktop/acme-hallazgos-audit/nemesis/nemesis-engagements/_catalog/scaffold.py",
 ]
 
 

@@ -119,7 +119,7 @@ def _find_arena_sarifs(root: Path, limit: int = 5) -> list[Path]:
     candidates: list[Path] = []
     # Ubicaciones comunes
     for rel in ["arena/arena-memory/runs", "arena-memory/runs",
-                "../amx-hallazgos-audit/arena/arena-memory/runs"]:
+                "../acme-hallazgos-audit/arena/arena-memory/runs"]:
         p = (root / rel).resolve() if not rel.startswith("/") else Path(rel)
         if p.exists():
             candidates.extend(sorted(p.glob("*/findings.sarif"),
@@ -164,8 +164,8 @@ def _section_engagements(root: Path) -> ReportSection:
     """Lista engagements existentes en nemesis-engagements/ si hay."""
     candidates = [
         root / "nemesis" / "nemesis-engagements",
-        root / "../amx-hallazgos-audit/nemesis/nemesis-engagements",
-        Path("/mnt/c/Users/eTriber/Desktop/amx-hallazgos-audit/nemesis/nemesis-engagements"),
+        root / "../acme-hallazgos-audit/nemesis/nemesis-engagements",
+        Path("/mnt/c/Users/eTriber/Desktop/acme-hallazgos-audit/nemesis/nemesis-engagements"),
     ]
     base = next((p for p in candidates if p.exists()), None)
     if base is None:

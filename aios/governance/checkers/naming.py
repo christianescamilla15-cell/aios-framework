@@ -1,4 +1,4 @@
-"""NamingChecker · valida 5 patterns AMX (IAM · Repo · CMK · Secret · Branch).
+"""NamingChecker · valida 5 patterns ACME (IAM · Repo · CMK · Secret · Branch).
 
 Recorre archivos del proyecto buscando ocurrencias y verifica regex pattern.
 """
@@ -109,7 +109,7 @@ def _iter_files(root: Path, globs: list[str]) -> Iterator[Path]:
 # ---------------------------------------------------------------------------
 
 class NamingChecker:
-    """Valida los 5 detectores de naming AMX (G-NEW-IAM-NAMING-FULL · etc.)."""
+    """Valida los 5 detectores de naming ACME (G-NEW-IAM-NAMING-FULL · etc.)."""
 
     def __init__(self, rules: GovernanceRules):
         self._rules = rules
@@ -130,7 +130,7 @@ class NamingChecker:
     def _check_iam_naming(self, root: Path, app: str) -> list[GovernanceFinding]:
         rule = self._rules.get_naming_pattern("iam_role_naming")
         pattern = re.compile(rule["pattern_regex"])
-        # Match cualquier string que parezca un IAM role name (AMX-* o AMX_*)
+        # Match cualquier string que parezca un IAM role name (ACME-* o AMX_*)
         candidate = re.compile(r"\bAMX[-_][A-Z][A-Z0-9_-]{2,40}\b")
 
         # v3.8.2 · G-DRIFT-1 · prefijos reservados (ADEA roles oficiales AWS)
@@ -148,9 +148,9 @@ class NamingChecker:
             for match in candidate.finditer(text):
                 token = match.group(0)
                 # Solo flagueamos si parece intento de IAM role · evitamos prefijos genéricos
-                if not token.startswith("AMX-R-"):
+                if not token.startswith("ACME-R-"):
                     continue
-                # Skip nombres reservados de servicios oficiales AMX (ADEA · v3.8.2)
+                # Skip nombres reservados de servicios oficiales ACME (ADEA · v3.8.2)
                 if reserved_prefixes and token.startswith(reserved_prefixes):
                     continue
                 if not pattern.match(token):
@@ -161,10 +161,10 @@ class NamingChecker:
                         category="naming",
                         message=(
                             f"IAM role '{token}' NO sigue convención "
-                            f"AMX-R-{{App}}-{{A|DES|SL}}"
+                            f"ACME-R-{{App}}-{{A|DES|SL}}"
                         ),
                         location=f"{path.relative_to(root)}:{line}",
-                        suggestion=f"Renombrar a AMX-R-{app.upper()}-DES (o -A · -SL según corresponda)",
+                        suggestion=f"Renombrar a ACME-R-{app.upper()}-DES (o -A · -SL según corresponda)",
                     ))
         return findings
 
@@ -184,10 +184,10 @@ class NamingChecker:
             except Exception:
                 continue
             for match in candidate.finditer(text):
-                full_alias = match.group(1)  # ej. "alias/amx-kms-sicofav-secrets"
+                full_alias = match.group(1)  # ej. "alias/acme-kms-fleet_ops_app-secrets"
                 short = full_alias.removeprefix("alias/")
-                # Solo aliases que parezcan custom AMX
-                if not short.startswith("amx-kms-"):
+                # Solo aliases que parezcan custom ACME
+                if not short.startswith("acme-kms-"):
                     continue
                 if not pattern.match(short):
                     line = text[: match.start()].count("\n") + 1
@@ -195,9 +195,9 @@ class NamingChecker:
                         rule_id="G-NEW-CMK-NAMING",
                         severity=CheckSeverity.WARN,
                         category="naming",
-                        message=f"CMK alias '{full_alias}' NO sigue convención amx-kms-{{app}}-{{scope}}",
+                        message=f"CMK alias '{full_alias}' NO sigue convención acme-kms-{{app}}-{{scope}}",
                         location=f"{path.relative_to(root)}:{line}",
-                        suggestion=f"Usar amx-kms-{app}-secrets (o -aurora · -s3-cfdis · -logs · -ebs)",
+                        suggestion=f"Usar acme-kms-{app}-secrets (o -aurora · -s3-cfdis · -logs · -ebs)",
                     ))
         return findings
 
@@ -208,7 +208,7 @@ class NamingChecker:
     def _check_secret_naming(self, root: Path, app: str) -> list[GovernanceFinding]:
         rule = self._rules.get_naming_pattern("secret_naming")
         pattern = re.compile(rule["pattern_regex"])
-        candidate = re.compile(r"['\"](amx/[a-zA-Z0-9_/-]+)['\"]")
+        candidate = re.compile(r"['\"](acme/[a-zA-Z0-9_/-]+)['\"]")
 
         findings: list[GovernanceFinding] = []
         for path in _iter_files(root, FILE_GLOBS["secret"]):
@@ -224,9 +224,9 @@ class NamingChecker:
                         rule_id="G-NEW-SECRET-NAMING",
                         severity=CheckSeverity.WARN,
                         category="naming",
-                        message=f"Secret name '{secret_name}' NO sigue amx/{{##-app}}/{{type}}",
+                        message=f"Secret name '{secret_name}' NO sigue acme/{{##-app}}/{{type}}",
                         location=f"{path.relative_to(root)}:{line}",
-                        suggestion="Ej: amx/01-sicofav/db · amx/10-noshow/sabre-sandbox",
+                        suggestion="Ej: acme/01-fleet_ops_app/db · acme/10-noshow/sabre-sandbox",
                     ))
         return findings
 
@@ -250,9 +250,9 @@ class NamingChecker:
                     category="naming",
                     message=(
                         f"AWS-managed key prohibida: {match.group(0)} · "
-                        "regla AMX kms-aws-managed-keys-prohibition"
+                        "regla ACME kms-aws-managed-keys-prohibition"
                     ),
                     location=f"{path.relative_to(root)}:{line}",
-                    suggestion="Usar CMK customer-managed (alias/amx-kms-{app}-{scope})",
+                    suggestion="Usar CMK customer-managed (alias/acme-kms-{app}-{scope})",
                 ))
         return findings

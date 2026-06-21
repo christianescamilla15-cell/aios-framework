@@ -1,7 +1,7 @@
 # AIOS · EVIDENCE BUNDLE v3.0.0 · Narrativa consolidada
 
 **Release**: v2.4.0 → v2.8.0 (2026-04-23)
-**Destinatario**: Alberto Ibrahim · AM-KIRO tech lead AMX
+**Destinatario**: Alberto Ibrahim · AM-KIRO tech lead ACME
 **Origen**: pilot NoShow 22-abr-2026 · recalibración con audit experto 25 findings
 
 ---
@@ -31,7 +31,7 @@ Esas requieren humano experto y/o análisis dinámico + runtime instrumentation.
 
 Capa	Módulo	CWEs / Función	Valor distintivo
 **Static detectors**	`security_gate.py` · 77 reglas	22+ CWEs · 9 lenguajes	baseline · rápido
-**Domain ontology**	`ontology.py` · 21 patterns AMX	bug / business_rule / migration_candidate / unclear	filtra FPs por dominio
+**Domain ontology**	`ontology.py` · 21 patterns ACME	bug / business_rule / migration_candidate / unclear	filtra FPs por dominio
 **LLM classifier (RFC-003 Nivel 2)**	`llm_classifier.py` · Anthropic/OpenAI/Ollama	RAG + CoT + few-shot	classify con contexto git/cross-file/characterization
 **Characterization tests**	`characterization.py`	API contract fingerprint	detecta breaking changes pre-refactor
 **Stakeholder-in-the-loop**	`review.py`	audit trail `.aios/review-log.jsonl`	decisiones humanas persisten
@@ -68,7 +68,7 @@ SITL queue       : 21 pending review
 
 Detector	Findings	Notas
 **drift_detector** (RFC-004a/b)	1 CRITICAL	PASSPHRASE byte-idéntica cross-env (prod+test) ✅ coincide con V-HI-01
-**exfil_detector** (RFC-004c)	21 MEDIUM	Sabre URLs + aeromexico.com FPs (whitelist missing `.com` variant · gap v2.5.0)
+**exfil_detector** (RFC-004c)	21 MEDIUM	Sabre URLs + acmeair.com FPs (whitelist missing `.com` variant · gap v2.5.0)
 **runtime_data** (RFC-004d)	3,755 MEDIUM	**3,697 PNRs en `noShow.log`** + 58 daily manifests ✅ PII masivo confirmado
 
 ### NoShow · Ensemble OSS (v2.6.0)
@@ -214,7 +214,7 @@ Con AIOS v2.8.0 activo en el refactor NoShow:
 2. **Drift detector** · compara cada versión (source · build · prod) antes del merge · captura el tipo de desfase que antes solo Néstor/Richard veían decompilando binarios.
 3. **Exfil heuristic** · detecta nuevas dist lists o endpoints de vendors (si más adelante se suman partners · se marca solo).
 4. **Runtime-data scanner** · enforce LFPDPPP sobre build outputs antes de deploy · no se sube un .log con 3,697 PNRs otra vez.
-5. **Ensemble OSS** · integra Semgrep/Gitleaks/Bandit contra el mismo código para cobertura orthogonal en las 4 AMX gates (Veracode · Tenable · WIZ · Prisma) pre-scan.
+5. **Ensemble OSS** · integra Semgrep/Gitleaks/Bandit contra el mismo código para cobertura orthogonal en las 4 ACME gates (Veracode · Tenable · WIZ · Prisma) pre-scan.
 6. **Dynamic hooks** · emite xUnit stubs + reglas Falco para que CI/CD pinche en runtime lo que estático no ve (race conditions · retry)).
 7. **LLM classify** · con CoT + ontology + characterization · separa bug de business_rule (ej. vuelo 829 → business_rule correctamente vs bug).
 
@@ -236,10 +236,10 @@ Lo que SÍ prometer:
 - Refresh pilot NoShow con v2.8.0 activo · cuantificar el delta de recall vs v2.4.0
 - Correr sobre Frankenstein-70k baseline virgen · medir vs 79 SEED findings para número sintético comparable
 - Presentar pitch a Ibrahim · agenda sesión 23-abr sugerida
-- Integrar en pipeline CI/CD GitHub Actions AMX (post-aprobación)
+- Integrar en pipeline CI/CD GitHub Actions ACME (post-aprobación)
 
 ---
 
 **Autor**: Christian Hernández Escamilla · eTribe · con Claude Opus 4.7 en loop
 **Framework**: aios-framework · github.com/christianescamilla15-cell/aios-framework
-**Licencia**: MIT · privado hasta aprobación AMX
+**Licencia**: MIT · privado hasta aprobación ACME

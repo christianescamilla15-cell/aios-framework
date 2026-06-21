@@ -1,5 +1,5 @@
 """Compliance mapping · tag findings (Mythos/Nemesis/embedded scanner)
-a marcos regulatorios relevantes para AMX.
+a marcos regulatorios relevantes para ACME.
 
 Marcos cubiertos:
 - LFPDPPP  · Ley Federal de Proteccion de Datos Personales (Mexico)
@@ -8,7 +8,7 @@ Marcos cubiertos:
 - SOX      · Sarbanes-Oxley (relevante por listaje NYSE/BMV)
 - CFF-30   · Codigo Fiscal de la Federacion art. 30 (facturacion electronica)
 - OWASP    · Top 10 2021 (referencia general · no regulatorio pero
-             pedido por Miatech en politica amx-revenue-accounting)
+             pedido por Miatech en politica acme-finance_operations)
 
 Cada CWE tiene una lista de ComplianceTag. El agregador cuenta findings
 por marco y genera reporte markdown.
@@ -184,7 +184,7 @@ def render_compliance_report_html(
     parts.append("</tbody></table>")
     parts.append(
         '<div class="footer">'
-        'Generado por AIOS compliance module · marcos AMX · LFPDPPP · '
+        'Generado por AIOS compliance module · marcos ACME · LFPDPPP · '
         'LGPDP · PCI-DSS v4.0 · SOX · CFF art. 30 · OWASP Top 10 2021. '
         'Requirements son referencias orientativas · validar con compliance '
         'officer antes de auditoria.</div></body></html>'

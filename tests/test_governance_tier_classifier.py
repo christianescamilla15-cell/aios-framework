@@ -42,7 +42,7 @@ def test_list_apps_returns_7_in_scope_apps(classifier):
     """v3.8.2 · scope vigente 7 apps (CFDIs OUT 29-abr) · default excluye out_of_scope."""
     apps = classifier.list_apps()
     assert len(apps) == 7
-    assert "sicofav" in apps
+    assert "fleet_ops_app" in apps
     assert "srg" in apps
     assert "robot" in apps
     assert "cfdis" not in apps
@@ -66,7 +66,7 @@ def test_classify_unknown_app_returns_error_result(classifier):
 
 
 def test_sicofav_classifies_t0_correctly(classifier):
-    r = classifier.classify("sicofav")
+    r = classifier.classify("fleet_ops_app")
     assert r.declared_tier == Tier.T0
     assert r.computed_tier == Tier.T0
     assert r.matches is True
@@ -150,8 +150,8 @@ def test_estrategia_decomiso_inferred_from_rationale(isolated_rules):
 
 
 def test_rto_extracted_from_rationale_text(classifier):
-    """SICOFAV rationale dice 'RTO 15m / RPO 5m' · debe extraer correctamente."""
-    r = classifier.classify("sicofav")
+    """FLEET_OPS_APP rationale dice 'RTO 15m / RPO 5m' · debe extraer correctamente."""
+    r = classifier.classify("fleet_ops_app")
     assert r.criteria_evaluated.rto_minutes == 15
     assert r.criteria_evaluated.rpo_minutes == 5
 
@@ -160,14 +160,14 @@ def test_rto_extracted_from_rationale_text(classifier):
 
 
 def test_t0_t1_no_shared_account_detected_when_in_shared(isolated_rules):
-    """Forzar SICOFAV a estar en cuenta compartida T2 · debe FAIL."""
+    """Forzar FLEET_OPS_APP a estar en cuenta compartida T2 · debe FAIL."""
     aws_model = isolated_rules.tiers.setdefault("aws_account_model", {})
     aws_model.setdefault("shared", []).append({
         "name": "test-shared",
-        "apps_consolidated": ["SICOFAV"],
+        "apps_consolidated": ["FLEET_OPS_APP"],
     })
     classifier = TierClassifier(rules=isolated_rules)
-    r = classifier.classify("sicofav")
+    r = classifier.classify("fleet_ops_app")
     rule_ids = {m.rule_id for m in r.mismatches}
     assert "TIER_T0_T1_NO_SHARED_ACCOUNT" in rule_ids
 
@@ -182,19 +182,19 @@ def test_t0_rto_15min_bia_detector_triggers_for_robot(classifier):
 
 
 def test_confidence_higher_for_apps_with_more_metadata(classifier):
-    """SICOFAV (rationale + multi-región + RTO) > NoShow (info parcial)."""
-    sicofav = classifier.classify("sicofav")
+    """FLEET_OPS_APP (rationale + multi-región + RTO) > NoShow (info parcial)."""
+    fleet_ops_app = classifier.classify("fleet_ops_app")
     noshow = classifier.classify("noshow")
-    assert sicofav.confidence >= noshow.confidence
+    assert fleet_ops_app.confidence >= noshow.confidence
 
 
 def test_quick_classify_returns_tier_directly():
-    assert quick_classify("sicofav") == Tier.T0
+    assert quick_classify("fleet_ops_app") == Tier.T0
     assert quick_classify("srg") == Tier.T2
 
 
 def test_explanation_lists_9_criteria(classifier):
-    r = classifier.classify("sicofav")
+    r = classifier.classify("fleet_ops_app")
     text = "\n".join(r.explanation)
     for criterion in (
         "Impacto ingresos",
@@ -219,6 +219,6 @@ def test_override_criteria_bypasses_yaml_inference(classifier):
         rpo_minutes=60,
         estrategia_migracion="decomiso",
     )
-    r = classifier.classify("sicofav", override_criteria=custom)
+    r = classifier.classify("fleet_ops_app", override_criteria=custom)
     assert r.criteria_evaluated.pci_pii is False
     assert r.criteria_evaluated.estrategia_migracion == "decomiso"

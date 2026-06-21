@@ -27,9 +27,9 @@ def run_checks(root: Path) -> List[Dict]:
     results.append({"check": "No AWS credentials", "status": "fail" if suspicious else "pass",
                      "detail": f"Found: {suspicious[:3]}" if suspicious else "Clean"})
 
-    # v3.5.0 · AMX-CDK-WRAPPER-MISSING · regla CS03 amazon-q-rules
+    # v3.5.0 · ACME-CDK-WRAPPER-MISSING · regla CS03 amazon-q-rules
     # Si hay cdk.json, debe existir el wrapper cdk-admin.py / cdk-wrapper.py
-    # (AMX obliga usar el wrapper, NO invocar `cdk` directo).
+    # (ACME obliga usar el wrapper, NO invocar `cdk` directo).
     cdk_json = root / "cdk.json"
     if cdk_json.exists():
         wrapper_names = ("cdk-admin.py", "cdk-wrapper.py",
@@ -40,7 +40,7 @@ def run_checks(root: Path) -> List[Dict]:
             for name in wrapper_names
         )
         results.append({
-            "check": "AMX-CDK-WRAPPER-MISSING (CS03)",
+            "check": "ACME-CDK-WRAPPER-MISSING (CS03)",
             "status": "pass" if wrapper_found else "fail",
             "detail": (
                 "[OK] Wrapper cdk-admin.py / cdk-wrapper.py presente"

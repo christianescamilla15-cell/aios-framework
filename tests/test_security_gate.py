@@ -232,7 +232,7 @@ def test_release_gate_blocks_on_csharp_critical(tmp_path):
     assert result["findings_summary"].get("CRITICAL", 0) >= 1
 
 
-# ── PHP detectors · cierra 10/10 scope AMX ────────────────────────────
+# ── PHP detectors · cierra 10/10 scope ACME ────────────────────────────
 
 def test_detects_php_sql_mysqli(tmp_path):
     (tmp_path / "x.php").write_text(
@@ -1014,7 +1014,7 @@ def test_insecure_bind_node_localhost_no_fire(tmp_path):
 
 def test_detects_hardcoded_internal_hostname_corp(tmp_path):
     (tmp_path / "config.py").write_text(
-        'SABRE_HOST = "sabre-gateway.corp.aeromexico.com"\n'
+        'SABRE_HOST = "sabre-gateway.corp.acmeair.com"\n'
     )
     findings = scan_directory(tmp_path)
     assert any(
@@ -1526,12 +1526,12 @@ def test_sql_fstring_still_fires_with_keyword(tmp_path):
 
 
 # ═══════════════════════════════════════════════════════════════════
-# v3.6.0 · AMX-alignment P0 gaps · tests
+# v3.6.0 · ACME-alignment P0 gaps · tests
 # ═══════════════════════════════════════════════════════════════════
 
 
 def test_amx_dotnet_hardcoded_decrypt_key_sicofav_pattern(tmp_path):
-    """G-11 · evidencia real SIC-NEW-01 · SICOFAV Decrypt/cDecrypt.cs:14
+    """G-11 · evidencia real SIC-NEW-01 · FLEET_OPS_APP Decrypt/cDecrypt.cs:14
     no detectado por v3.5.1 ('Hardcoded credentials (0)' falso negativo).
     """
     (tmp_path / "cDecrypt.cs").write_text(
@@ -1546,7 +1546,7 @@ def test_amx_dotnet_hardcoded_decrypt_key_sicofav_pattern(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-HARDCODED-DECRYPT-KEY" for f in findings
+        f.rule_id == "ACME-DOTNET-HARDCODED-DECRYPT-KEY" for f in findings
     )
 
 
@@ -1558,8 +1558,8 @@ def test_amx_dotnet_hardcoded_decrypt_key_variants(tmp_path):
         'static readonly string apiKey = "sk-live-XXXXXXXX";\n'
     )
     findings = scan_directory(tmp_path)
-    amx = [f for f in findings if f.rule_id == "AMX-DOTNET-HARDCODED-DECRYPT-KEY"]
-    assert len(amx) >= 3
+    acme = [f for f in findings if f.rule_id == "ACME-DOTNET-HARDCODED-DECRYPT-KEY"]
+    assert len(acme) >= 3
 
 
 def test_amx_dotnet_hardcoded_decrypt_key_no_fp_empty_string(tmp_path):
@@ -1570,7 +1570,7 @@ def test_amx_dotnet_hardcoded_decrypt_key_no_fp_empty_string(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-DOTNET-HARDCODED-DECRYPT-KEY" for f in findings
+        f.rule_id == "ACME-DOTNET-HARDCODED-DECRYPT-KEY" for f in findings
     )
 
 
@@ -1584,7 +1584,7 @@ def test_amx_dotnet_predictable_salt_linear(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-PREDICTABLE-SALT" for f in findings
+        f.rule_id == "ACME-DOTNET-PREDICTABLE-SALT" for f in findings
     )
 
 
@@ -1595,7 +1595,7 @@ def test_amx_dotnet_predictable_salt_zeros(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-PREDICTABLE-SALT" for f in findings
+        f.rule_id == "ACME-DOTNET-PREDICTABLE-SALT" for f in findings
     )
 
 
@@ -1608,7 +1608,7 @@ def test_amx_dotnet_predictable_salt_no_fp_random_context(tmp_path):
     findings = scan_directory(tmp_path)
     # Solo dispara con nombre de variable salt/saltBytes/saltArray
     assert not any(
-        f.rule_id == "AMX-DOTNET-PREDICTABLE-SALT" for f in findings
+        f.rule_id == "ACME-DOTNET-PREDICTABLE-SALT" for f in findings
     )
 
 
@@ -1624,7 +1624,7 @@ def test_amx_cdk_bootstrap_default_forbidden_hits_plain_cdk(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN" for f in findings
+        f.rule_id == "ACME-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN" for f in findings
     )
 
 
@@ -1637,7 +1637,7 @@ def test_amx_cdk_bootstrap_default_no_fp_with_template(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN" for f in findings
+        f.rule_id == "ACME-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN" for f in findings
     )
 
 
@@ -1651,31 +1651,31 @@ def test_amx_cdk_admin_access_policy_managed_name(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-ADMIN-ACCESS-POLICY" for f in findings
+        f.rule_id == "ACME-CDK-ADMIN-ACCESS-POLICY" for f in findings
     )
 
 
 def test_amx_cdk_admin_access_policy_no_fp_scoped_policy(tmp_path):
-    """G-NEW-2b · Policy scoped `AMX-P-DVPS-*` NO dispara."""
+    """G-NEW-2b · Policy scoped `ACME-P-DVPS-*` NO dispara."""
     (tmp_path / "stack.py").write_text(
         'role.add_managed_policy(\n'
         '    iam.ManagedPolicy.from_aws_managed_policy_name'
-        '("AMX-P-DVPS-CDK-TOOLKIT"))\n'
+        '("ACME-P-DVPS-CDK-TOOLKIT"))\n'
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-ADMIN-ACCESS-POLICY" for f in findings
+        f.rule_id == "ACME-CDK-ADMIN-ACCESS-POLICY" for f in findings
     )
 
 
 def test_amx_cdk_fstring_with_token_fires(tmp_path):
     """G-NEW-5 · f-string con CfnParameter.value_as_string dispara."""
     (tmp_path / "stack.py").write_text(
-        'bucket_name = f"amx-bucket-{env_param.value_as_string}"\n'
+        'bucket_name = f"acme-bucket-{env_param.value_as_string}"\n'
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-FSTRING-WITH-TOKEN" for f in findings
+        f.rule_id == "ACME-CDK-FSTRING-WITH-TOKEN" for f in findings
     )
 
 
@@ -1686,7 +1686,7 @@ def test_amx_cdk_fstring_no_fp_static_string(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-FSTRING-WITH-TOKEN" for f in findings
+        f.rule_id == "ACME-CDK-FSTRING-WITH-TOKEN" for f in findings
     )
 
 
@@ -1697,7 +1697,7 @@ def test_amx_cdk_str_concat_token_plus(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-STR-CONCAT-TOKEN" for f in findings
+        f.rule_id == "ACME-CDK-STR-CONCAT-TOKEN" for f in findings
     )
 
 
@@ -1708,7 +1708,7 @@ def test_amx_cdk_str_concat_token_str_call(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-STR-CONCAT-TOKEN" for f in findings
+        f.rule_id == "ACME-CDK-STR-CONCAT-TOKEN" for f in findings
     )
 
 
@@ -1719,18 +1719,18 @@ def test_amx_cdk_str_concat_token_lower_method(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-STR-CONCAT-TOKEN" for f in findings
+        f.rule_id == "ACME-CDK-STR-CONCAT-TOKEN" for f in findings
     )
 
 
 def test_amx_cdk_str_concat_no_fp_fn_join(tmp_path):
     """G-NEW-5b · Fn.join permitido · NO dispara STR-CONCAT."""
     (tmp_path / "stack.py").write_text(
-        'name = Fn.join("-", ["amx", env.value_as_string])\n'
+        'name = Fn.join("-", ["acme", env.value_as_string])\n'
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-STR-CONCAT-TOKEN" for f in findings
+        f.rule_id == "ACME-CDK-STR-CONCAT-TOKEN" for f in findings
     )
 
 
@@ -1744,7 +1744,7 @@ def test_amx_sc_productstack_missing_validate_false(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE"
+        f.rule_id == "ACME-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE"
         for f in findings
     )
 
@@ -1760,7 +1760,7 @@ def test_amx_sc_productstack_with_validate_false_no_fp(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE"
+        f.rule_id == "ACME-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE"
         for f in findings
     )
 
@@ -1776,13 +1776,13 @@ def test_amx_sc_construct_with_cfn_parameter_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-SC-CONSTRUCT-WITH-CFN-PARAMETER"
+        f.rule_id == "ACME-SC-CONSTRUCT-WITH-CFN-PARAMETER"
         for f in findings
     )
 
 
 # ═════════════════════════════════════════════════════════════════════
-# v3.6.3 · Sprint 3 · 5 detectores P2 · cierre alineación AMX ~98%
+# v3.6.3 · Sprint 3 · 5 detectores P2 · cierre alineación ACME ~98%
 # ═════════════════════════════════════════════════════════════════════
 
 def test_amx_aspnet_identity_weak_password_srg_pattern(tmp_path):
@@ -1796,10 +1796,10 @@ def test_amx_aspnet_identity_weak_password_srg_pattern(tmp_path):
         '});\n'
     )
     findings = scan_directory(tmp_path)
-    amx = [f for f in findings
-           if f.rule_id == "AMX-ASPNET-IDENTITY-WEAK-PASSWORD"]
+    acme = [f for f in findings
+           if f.rule_id == "ACME-ASPNET-IDENTITY-WEAK-PASSWORD"]
     # 4 líneas débiles (RequiredLength=1 + 3 Require*=false)
-    assert len(amx) >= 3
+    assert len(acme) >= 3
 
 
 def test_amx_aspnet_identity_weak_password_no_fp_strong(tmp_path):
@@ -1813,7 +1813,7 @@ def test_amx_aspnet_identity_weak_password_no_fp_strong(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-ASPNET-IDENTITY-WEAK-PASSWORD" for f in findings
+        f.rule_id == "ACME-ASPNET-IDENTITY-WEAK-PASSWORD" for f in findings
     )
 
 
@@ -1829,7 +1829,7 @@ def test_amx_dotnet_trust_server_certificate_appsettings(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
+        f.rule_id == "ACME-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
     )
 
 
@@ -1843,7 +1843,7 @@ def test_amx_dotnet_trust_server_certificate_webconfig(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
+        f.rule_id == "ACME-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
     )
 
 
@@ -1857,7 +1857,7 @@ def test_amx_dotnet_trust_server_certificate_no_fp_false(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
+        f.rule_id == "ACME-DOTNET-TRUST-SERVER-CERTIFICATE" for f in findings
     )
 
 
@@ -1874,7 +1874,7 @@ def test_amx_dotnet_dpapi_config_provider_robot_pattern(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-DPAPI-CONFIG-PROVIDER" for f in findings
+        f.rule_id == "ACME-DOTNET-DPAPI-CONFIG-PROVIDER" for f in findings
     )
 
 
@@ -1887,7 +1887,7 @@ def test_amx_dotnet_dpapi_config_provider_data_protection_variant(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-DPAPI-CONFIG-PROVIDER" for f in findings
+        f.rule_id == "ACME-DOTNET-DPAPI-CONFIG-PROVIDER" for f in findings
     )
 
 
@@ -1902,8 +1902,8 @@ def test_amx_frontend_angular_eol_fires_on_v15(tmp_path):
         '}\n'
     )
     findings = scan_directory(tmp_path)
-    amx = [f for f in findings if f.rule_id == "AMX-FRONTEND-ANGULAR-EOL"]
-    assert len(amx) >= 2
+    acme = [f for f in findings if f.rule_id == "ACME-FRONTEND-ANGULAR-EOL"]
+    assert len(acme) >= 2
 
 
 def test_amx_frontend_angular_eol_no_fp_on_v17(tmp_path):
@@ -1918,7 +1918,7 @@ def test_amx_frontend_angular_eol_no_fp_on_v17(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-FRONTEND-ANGULAR-EOL" for f in findings
+        f.rule_id == "ACME-FRONTEND-ANGULAR-EOL" for f in findings
     )
 
 
@@ -1936,7 +1936,7 @@ def test_amx_aspnet_controller_missing_apicontroller_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
+        f.rule_id == "ACME-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
         for f in findings
     )
 
@@ -1956,7 +1956,7 @@ def test_amx_aspnet_controller_missing_apicontroller_no_fp(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
+        f.rule_id == "ACME-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
         for f in findings
     )
 
@@ -1976,7 +1976,7 @@ def test_amx_aspnet_controller_missing_apicontroller_no_fp_mvc_controller(
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
+        f.rule_id == "ACME-ASPNET-CONTROLLER-MISSING-APICONTROLLER"
         for f in findings
     )
 
@@ -1997,7 +1997,7 @@ def test_amx_sql_encrypt_disabled_false(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
+        f.rule_id == "ACME-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
     )
 
 
@@ -2011,7 +2011,7 @@ def test_amx_sql_encrypt_disabled_optional_sql2022(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
+        f.rule_id == "ACME-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
     )
 
 
@@ -2025,7 +2025,7 @@ def test_amx_sql_encrypt_disabled_no_fp_true(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
+        f.rule_id == "ACME-DOTNET-SQL-ENCRYPT-DISABLED" for f in findings
     )
 
 
@@ -2040,8 +2040,8 @@ def test_amx_frontend_angular_eol_widened_to_v16(tmp_path):
         '}\n'
     )
     findings = scan_directory(tmp_path)
-    amx = [f for f in findings if f.rule_id == "AMX-FRONTEND-ANGULAR-EOL"]
-    assert len(amx) >= 2
+    acme = [f for f in findings if f.rule_id == "ACME-FRONTEND-ANGULAR-EOL"]
+    assert len(acme) >= 2
 
 
 def test_amx_frontend_angular_still_no_fp_on_v17(tmp_path):
@@ -2056,7 +2056,7 @@ def test_amx_frontend_angular_still_no_fp_on_v17(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-FRONTEND-ANGULAR-EOL" for f in findings
+        f.rule_id == "ACME-FRONTEND-ANGULAR-EOL" for f in findings
     )
 
 
@@ -2075,7 +2075,7 @@ def test_amx_cdk_lambda_no_log_retention_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-LAMBDA-NO-LOG-RETENTION" for f in findings
+        f.rule_id == "ACME-CDK-LAMBDA-NO-LOG-RETENTION" for f in findings
     )
 
 
@@ -2096,7 +2096,7 @@ def test_amx_cdk_lambda_no_log_retention_no_fp(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-LAMBDA-NO-LOG-RETENTION" for f in findings
+        f.rule_id == "ACME-CDK-LAMBDA-NO-LOG-RETENTION" for f in findings
     )
 
 
@@ -2111,7 +2111,7 @@ def test_amx_cdk_sg_open_ingress_any_ipv4(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-SG-OPEN-INGRESS" for f in findings
+        f.rule_id == "ACME-CDK-SG-OPEN-INGRESS" for f in findings
     )
 
 
@@ -2128,7 +2128,7 @@ def test_amx_cdk_sg_open_ingress_cidr_literal(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-SG-OPEN-INGRESS" for f in findings
+        f.rule_id == "ACME-CDK-SG-OPEN-INGRESS" for f in findings
     )
 
 
@@ -2143,7 +2143,7 @@ def test_amx_cdk_sg_open_ingress_no_fp_private_cidr(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-SG-OPEN-INGRESS" for f in findings
+        f.rule_id == "ACME-CDK-SG-OPEN-INGRESS" for f in findings
     )
 
 
@@ -2162,7 +2162,7 @@ def test_amx_cdk_rds_no_storage_encryption_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION" for f in findings
+        f.rule_id == "ACME-CDK-RDS-NO-STORAGE-ENCRYPTION" for f in findings
     )
 
 
@@ -2180,7 +2180,7 @@ def test_amx_cdk_rds_no_storage_encryption_no_fp(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION" for f in findings
+        f.rule_id == "ACME-CDK-RDS-NO-STORAGE-ENCRYPTION" for f in findings
     )
 
 
@@ -2199,7 +2199,7 @@ def test_amx_cdk_alb_without_waf_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-ALB-WITHOUT-WAF" for f in findings
+        f.rule_id == "ACME-CDK-ALB-WITHOUT-WAF" for f in findings
     )
 
 
@@ -2219,7 +2219,7 @@ def test_amx_cdk_alb_with_waf_no_fp(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-ALB-WITHOUT-WAF" for f in findings
+        f.rule_id == "ACME-CDK-ALB-WITHOUT-WAF" for f in findings
     )
 
 
@@ -2231,7 +2231,7 @@ def test_amx_cdk_cloudfront_no_oac_fires_on_oai(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-CLOUDFRONT-NO-OAC" for f in findings
+        f.rule_id == "ACME-CDK-CLOUDFRONT-NO-OAC" for f in findings
     )
 
 
@@ -2243,7 +2243,7 @@ def test_amx_cdk_cloudfront_no_oac_no_fp_on_oac_alone(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-CLOUDFRONT-NO-OAC" for f in findings
+        f.rule_id == "ACME-CDK-CLOUDFRONT-NO-OAC" for f in findings
     )
 
 
@@ -2258,7 +2258,7 @@ def test_amx_cdk_s3_no_public_access_block_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" for f in findings
+        f.rule_id == "ACME-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" for f in findings
     )
 
 
@@ -2275,12 +2275,12 @@ def test_amx_cdk_s3_no_public_access_block_no_fp_with_block_all(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" for f in findings
+        f.rule_id == "ACME-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" for f in findings
     )
 
 
 # ═════════════════════════════════════════════════════════════════════
-# v3.6.6 · 4 detectores enforcement · conformidad AMX
+# v3.6.6 · 4 detectores enforcement · conformidad ACME
 # ═════════════════════════════════════════════════════════════════════
 
 def test_amx_cicd_buildspec_missing_tz_fires(tmp_path):
@@ -2298,7 +2298,7 @@ def test_amx_cicd_buildspec_missing_tz_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CICD-BUILDSPEC-MISSING-TZ" for f in findings
+        f.rule_id == "ACME-CICD-BUILDSPEC-MISSING-TZ" for f in findings
     )
 
 
@@ -2317,7 +2317,7 @@ def test_amx_cicd_buildspec_with_tz_no_fp(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CICD-BUILDSPEC-MISSING-TZ" for f in findings
+        f.rule_id == "ACME-CICD-BUILDSPEC-MISSING-TZ" for f in findings
     )
 
 
@@ -2333,12 +2333,12 @@ def test_amx_cicd_buildspec_python_311_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CICD-BUILDSPEC-PYTHON-NOT-3-12" for f in findings
+        f.rule_id == "ACME-CICD-BUILDSPEC-PYTHON-NOT-3-12" for f in findings
     )
 
 
 def test_amx_cicd_buildspec_python_312_no_fp(tmp_path):
-    """v3.6.6 · Python 3.12 estándar AMX no dispara."""
+    """v3.6.6 · Python 3.12 estándar ACME no dispara."""
     (tmp_path / "buildspec.yaml").write_text(
         'phases:\n'
         '  install:\n'
@@ -2348,7 +2348,7 @@ def test_amx_cicd_buildspec_python_312_no_fp(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-CICD-BUILDSPEC-PYTHON-NOT-3-12" for f in findings
+        f.rule_id == "ACME-CICD-BUILDSPEC-PYTHON-NOT-3-12" for f in findings
     )
 
 
@@ -2363,7 +2363,7 @@ def test_amx_cdk_eks_raw_bypass_sc_product_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-EKS-RAW-BYPASS-SC-PRODUCT" for f in findings
+        f.rule_id == "ACME-CDK-EKS-RAW-BYPASS-SC-PRODUCT" for f in findings
     )
 
 
@@ -2375,12 +2375,12 @@ def test_amx_cdk_ecr_raw_bypass_sc_product_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-CDK-ECR-RAW-BYPASS-SC-PRODUCT" for f in findings
+        f.rule_id == "ACME-CDK-ECR-RAW-BYPASS-SC-PRODUCT" for f in findings
     )
 
 
 # ═══════════════════════════════════════════════════════════════════
-# v3.7.2 · G-NEW-KMS-AWS-MANAGED · regla AMX kms-aws-managed-keys-prohibition.md
+# v3.7.2 · G-NEW-KMS-AWS-MANAGED · regla ACME kms-aws-managed-keys-prohibition.md
 # ═══════════════════════════════════════════════════════════════════
 
 def test_amx_kms_aws_managed_alias_fires_cdk_python(tmp_path):
@@ -2391,7 +2391,7 @@ def test_amx_kms_aws_managed_alias_fires_cdk_python(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+        f.rule_id == "ACME-KMS-AWS-MANAGED-PROHIBITED" for f in findings
     )
 
 
@@ -2405,7 +2405,7 @@ def test_amx_kms_aws_managed_key_id_parameter_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+        f.rule_id == "ACME-KMS-AWS-MANAGED-PROHIBITED" for f in findings
     )
 
 
@@ -2416,18 +2416,18 @@ def test_amx_kms_acm_alias_not_flagged(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+        f.rule_id == "ACME-KMS-AWS-MANAGED-PROHIBITED" for f in findings
     )
 
 
 def test_amx_kms_customer_managed_not_flagged(tmp_path):
     """G-NEW-KMS · customer-managed (alias propio) NO debe firefly."""
     (tmp_path / "stack.py").write_text(
-        'key = kms.Alias.from_alias_name(self, "SicofavKey", "alias/amx-kms-sicofav-secrets")\n'
+        'key = kms.Alias.from_alias_name(self, "SicofavKey", "alias/acme-kms-fleet_ops_app-secrets")\n'
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+        f.rule_id == "ACME-KMS-AWS-MANAGED-PROHIBITED" for f in findings
     )
 
 
@@ -2442,12 +2442,12 @@ def test_amx_kms_aws_managed_yaml_buildspec_fires(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-KMS-AWS-MANAGED-PROHIBITED" for f in findings
+        f.rule_id == "ACME-KMS-AWS-MANAGED-PROHIBITED" for f in findings
     )
 
 
 # ═══════════════════════════════════════════════════════════════════
-# v3.7.3 · AMX-SERVICE-PROHIBITED · checklist retro arquitectos 20-abr
+# v3.7.3 · ACME-SERVICE-PROHIBITED · checklist retro arquitectos 20-abr
 # ═══════════════════════════════════════════════════════════════════
 
 def test_amx_service_prohibited_ecs_cdk_import(tmp_path):
@@ -2458,19 +2458,19 @@ def test_amx_service_prohibited_ecs_cdk_import(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+        f.rule_id == "ACME-SERVICE-PROHIBITED" for f in findings
     )
 
 
 def test_amx_service_prohibited_ses_cdk(tmp_path):
-    """v3.7.3 · CDK aws_ses prohibido · usar Relay interno AMX."""
+    """v3.7.3 · CDK aws_ses prohibido · usar Relay interno ACME."""
     (tmp_path / "stack.py").write_text(
         'from aws_cdk import aws_ses as ses\n'
         'id = ses.EmailIdentity(self, "MyEmail", identity=ses.Identity.email("x@x"))\n'
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+        f.rule_id == "ACME-SERVICE-PROHIBITED" for f in findings
     )
 
 
@@ -2482,7 +2482,7 @@ def test_amx_service_prohibited_sns_topic(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert any(
-        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+        f.rule_id == "ACME-SERVICE-PROHIBITED" for f in findings
     )
 
 
@@ -2494,7 +2494,7 @@ def test_amx_service_prohibited_sns_subscriptions_NOT_flagged(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+        f.rule_id == "ACME-SERVICE-PROHIBITED" for f in findings
     )
 
 
@@ -2506,7 +2506,7 @@ def test_amx_service_prohibited_eks_allowed(tmp_path):
     )
     findings = scan_directory(tmp_path)
     assert not any(
-        f.rule_id == "AMX-SERVICE-PROHIBITED" for f in findings
+        f.rule_id == "ACME-SERVICE-PROHIBITED" for f in findings
     )
 
 

@@ -61,22 +61,22 @@ aios refresh --summary "Built dashboard" --next-step "Add tests"
 
 ## Governance Pack (v3.8.0+)
 
-5 subcomandos para automatizar el flujo de gobernanza AMX (Revenue Accounting):
+5 subcomandos para automatizar el flujo de gobernanza ACME (Finance Operations):
 
 ```bash
 # Validar reglas (TIER · naming · approvals · stakeholders) sobre un app
-aios governance check --app sicofav --root .
+aios governance check --app fleet_ops_app --root .
 
 # Generar PDF formal de solicitud (5 templates: bd-access · aws-account · cmk · yubikey · dl-inclusion)
-aios governance request --type bd-access --app sicofav --output ./requests/
+aios governance request --type bd-access --app fleet_ops_app --output ./requests/
 
 # Audit trail SHA256 chain · 11 estados · tampering-evident
-aios governance audit --app sicofav --update --signer "Luis Ertuche" --status in-review
+aios governance audit --app fleet_ops_app --update --signer "Luis Ertuche" --status in-review
 
 # Escalación slippage automática (auto-routing severity → destinatario)
-aios governance escalate --app sicofav --auto
+aios governance escalate --app fleet_ops_app --auto
 
-# Clasificación TIER por 9 criterios oficiales AMX
+# Clasificación TIER por 9 criterios oficiales ACME
 aios tier classify --app srg --explain
 ```
 
@@ -92,17 +92,17 @@ Genera los 9 entregables estándar en `<root>/analisis/fase-1-discovery/`:
 
 ```bash
 # Generación básica · 9 markdown docs
-aios discovery-generate --app sicofav --root /ruta/al/refactor
+aios discovery-generate --app fleet_ops_app --root /ruta/al/refactor
 
 # Con PDFs (requiere weasyprint · v3.7.1+)
 pip install weasyprint
-aios discovery-generate --app sicofav --root /ruta/al/refactor --pdf
+aios discovery-generate --app fleet_ops_app --root /ruta/al/refactor --pdf
 
 # Sobreescribir docs existentes (default skip-existing preserva work humano)
-aios discovery-generate --app sicofav --root /ruta/al/refactor --overwrite
+aios discovery-generate --app fleet_ops_app --root /ruta/al/refactor --overwrite
 ```
 
-Apps soportadas: `sicofav`, `arc`, `bsp`, `asr`, `srg`, `cfdis`, `robot`, `noshow`, `com-d`, `com-i` (10 del plan v5).
+Apps soportadas: `fleet_ops_app`, `arc`, `bsp`, `asr`, `srg`, `cfdis`, `robot`, `noshow`, `com-d`, `com-i` (10 del plan v5).
 
 **Outputs**:
 
@@ -125,10 +125,10 @@ analisis/fase-1-discovery/
 Combina los 9 docs Discovery en un master markdown para presentar a stakeholders:
 
 ```bash
-aios phase1-report --app sicofav --root /ruta/al/refactor
+aios phase1-report --app fleet_ops_app --root /ruta/al/refactor
 
 # Con PDF master adicional
-aios phase1-report --app sicofav --root /ruta/al/refactor --pdf
+aios phase1-report --app fleet_ops_app --root /ruta/al/refactor --pdf
 ```
 
 Output: `<root>/PHASE1_REPORT_<app>.md` (+ `.pdf` opcional).
@@ -252,14 +252,14 @@ Estructura `aios-suppressions.json` (en repo root):
 
 multiagent, python, react, cicd, aws, docker, dotnet — auto-detected per project.
 
-## Detectores AMX-specific (29 totales)
+## Detectores ACME-specific (29 totales)
 
-Subset clave (BO-AMX governance):
+Subset clave (BO-ACME governance):
 
-- `AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS` · 8 tags AMX canonical (CentroDeCosto · DuenoDeLaCuenta · Proyecto · Ambiente · ImpactoANegocio · Aplicacion · GrupoDeParcheo · SistemaOperativo)
-- `AMX-KMS-AWS-MANAGED-PROHIBITED` · CMK customer-managed obligatorio
-- `AMX-S3-MISSING-KMS-ENCRYPTION` · S3 buckets sin KMS CMK
-- `AMX-SERVICE-PROHIBITED` · ECS / SES / SNS prohibidos por arquitectura T0
+- `ACME-CDK-STACK-REQUIRES-MANDATORY-TAGS` · 8 tags ACME canonical (CentroDeCosto · DuenoDeLaCuenta · Proyecto · Ambiente · ImpactoANegocio · Aplicacion · GrupoDeParcheo · SistemaOperativo)
+- `ACME-KMS-AWS-MANAGED-PROHIBITED` · CMK customer-managed obligatorio
+- `ACME-S3-MISSING-KMS-ENCRYPTION` · S3 buckets sin KMS CMK
+- `ACME-SERVICE-PROHIBITED` · ECS / SES / SNS prohibidos por arquitectura T0
 - `AUTH-MISSING-NET-CONTROLLER` · controllers .NET sin `[Authorize]` (v3.7.4 respeta class-level + inline)
 - `STATIC-GENERIC-EXCEPTION-CATCH-CSHARP` · catch-all sloppy (v3.7.4 degrade con `when` filter)
 - `HARDCODED-INTERNAL-HOSTNAME` · hostnames internos hardcoded
@@ -289,8 +289,8 @@ Estado v3.7.5: **428 tests pass** · 0 fail.
 |---|---|---|
 | v3.7.5 | 2026-04-27 | 3 framework gaps cross-app: path normalization · regex timeout · compliance-report --output CWD |
 | v3.7.4 | 2026-04-27 | 5 detector quality gaps: class-level Authorize · catch when filter · suppressions iterate · CWE alias |
-| v3.7.3 | 2026-04-24 | AMX-SERVICE-PROHIBITED detector (ECS/SES/SNS) |
-| v3.7.2 | 2026-04-24 | AMX KMS customer-managed detector |
+| v3.7.3 | 2026-04-24 | ACME-SERVICE-PROHIBITED detector (ECS/SES/SNS) |
+| v3.7.2 | 2026-04-24 | ACME KMS customer-managed detector |
 | v3.7.1 | 2026-04-24 | Discovery PDF generation (weasyprint) |
 | v3.7.0 | 2026-04-23 | Discovery 9 docs auto-generator |
 

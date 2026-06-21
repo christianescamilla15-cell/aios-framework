@@ -1,9 +1,9 @@
 # AIOS Discovery · Guía de comandos
 
-> Auto-generación de los 9 documentos estándar Fase 1 Discovery del plan v5 Revenue Accounting Aeroméxico.
+> Auto-generación de los 9 documentos estándar Fase 1 Discovery del plan v5 Finance Operations AcmeAir.
 >
 > Destinatarios: consultores del equipo eTribe con acceso al repo privado
-> `chernandeze_amx/aios-framework`.
+> `acme-team/aios-framework`.
 
 ---
 
@@ -21,7 +21,7 @@ ssh -T git@github.com  # verifica SSH config (o usa HTTPS + PAT)
 
 ```bash
 # Clone (SSH recomendado)
-git clone git@github.com:chernandeze_amx/aios-framework.git
+git clone git@github.com:acme-team/aios-framework.git
 cd aios-framework
 
 # Virtual environment (recomendado · evita conflicto con otros proyectos Python)
@@ -63,7 +63,7 @@ Genera los 9 docs en `<root>/analisis/fase-1-discovery/`:
 01_code_scan.md          findings AIOS por severidad + top CWEs
 02_hallazgos_mapped.md   CWE mapping + placeholder assessment externo
 03_arq_as_is.md          stack detectado + topología template
-04_stakeholders.md       owners plan v5 + governance AMX completo
+04_stakeholders.md       owners plan v5 + governance ACME completo
 05_vulns.md              vulns detalle + compliance LFPDPPP/PCI/SOX/CFF
 06_deps.md               lockfiles detectados + upgrade targets
 07_preguntas_nuevas.md   6 categorías bloqueadoras + TOP 5
@@ -74,20 +74,20 @@ Genera los 9 docs en `<root>/analisis/fase-1-discovery/`:
 ### 3.2 · Ejemplos concretos
 
 ```bash
-# SICOFAV (T0 Mission Critical · SOX)
-aios discovery-generate --app sicofav --root ~/apps/01-sicofav/refactor
+# FLEET_OPS_APP (T0 Mission Critical · SOX)
+aios discovery-generate --app fleet_ops_app --root ~/apps/01-fleet_ops_app/refactor
 
 # ARC (T1 Compliance)
 aios discovery-generate --app arc --root ~/apps/02-arc
 
 # Sobrescribir docs existentes (default: skip si existen)
-aios discovery-generate --app sicofav --root ~/apps/01-sicofav/refactor --overwrite
+aios discovery-generate --app fleet_ops_app --root ~/apps/01-fleet_ops_app/refactor --overwrite
 
 # Output JSON para scripts / pipelines
-aios discovery-generate --app sicofav --root ~/apps/01-sicofav --format json
+aios discovery-generate --app fleet_ops_app --root ~/apps/01-fleet_ops_app --format json
 
 # Con PDFs (v3.7.1+ · requiere weasyprint)
-aios discovery-generate --app sicofav --root ~/apps/01-sicofav --pdf
+aios discovery-generate --app fleet_ops_app --root ~/apps/01-fleet_ops_app --pdf
 # Genera también: fase-1-discovery/pdfs/01_code_scan.pdf ... 09_risk_register.pdf
 ```
 
@@ -95,7 +95,7 @@ aios discovery-generate --app sicofav --root ~/apps/01-sicofav --pdf
 
 | Key | App | Tier | Criticality |
 |---|---|---|---|
-| `sicofav` | SICOFAV | T0 | Mission Critical · SOX |
+| `fleet_ops_app` | FLEET_OPS_APP | T0 | Mission Critical · SOX |
 | `arc` | Reembolsos ARC | T1 | Compliance regulatorio |
 | `bsp` | Reembolsos BSP | T1 | Compliance regulatorio |
 | `cfdis` | Descarga CFDIs | T1 | Compliance regulatorio SAT |
@@ -130,7 +130,7 @@ python3 -c "from aios.core.plan_v5 import APPS; import json; print(json.dumps({k
 Scan AIOS standalone (opcional · `discovery-generate` lo corre internamente):
 
 ```bash
-aios scan --root ~/apps/01-sicofav/refactor
+aios scan --root ~/apps/01-fleet_ops_app/refactor
 ```
 
 Devuelve findings por severidad CRITICAL/HIGH/MEDIUM/LOW/INFO.
@@ -141,10 +141,10 @@ Consolida los 9 docs en un Evidence Bundle markdown (+ opcional PDF):
 
 ```bash
 # Markdown solamente
-aios phase1-report --app sicofav --root ~/apps/01-sicofav/refactor
+aios phase1-report --app fleet_ops_app --root ~/apps/01-fleet_ops_app/refactor
 
 # Markdown + PDF consolidado
-aios phase1-report --app sicofav --root ~/apps/01-sicofav/refactor --pdf
+aios phase1-report --app fleet_ops_app --root ~/apps/01-fleet_ops_app/refactor --pdf
 ```
 
 Output: `<root>/analisis/fase-1-discovery/DISCOVERY_PACKAGE_<APP>.md` (+ `.pdf`)
@@ -154,25 +154,25 @@ Output: `<root>/analisis/fase-1-discovery/DISCOVERY_PACKAGE_<APP>.md` (+ `.pdf`)
 Mapea findings → LFPDPPP / PCI-DSS / SOX / CFF / OWASP:
 
 ```bash
-aios compliance-report --root ~/apps/01-sicofav/refactor
+aios compliance-report --root ~/apps/01-fleet_ops_app/refactor
 ```
 
 ### 4.4 · Dependencias · `aios sbom` + `aios npm-audit`
 
 ```bash
 # SBOM CycloneDX (Python o Node)
-aios sbom --root ~/apps/01-sicofav/refactor --format cyclonedx
+aios sbom --root ~/apps/01-fleet_ops_app/refactor --format cyclonedx
 
 # Frontend (si la app tiene package.json)
-aios npm-audit --root ~/apps/01-sicofav/refactor --fail-on high
+aios npm-audit --root ~/apps/01-fleet_ops_app/refactor --fail-on high
 ```
 
-### 4.5 · BO-AMX análogos · `aios amx-analog`
+### 4.5 · BO-ACME análogos · `aios acme-analog`
 
-Sugiere repos BO-AMX análogos (plantillas / referencias):
+Sugiere repos BO-ACME análogos (plantillas / referencias):
 
 ```bash
-aios amx-analog --root ~/apps/01-sicofav/refactor
+aios acme-analog --root ~/apps/01-fleet_ops_app/refactor
 ```
 
 ### 4.6 · Ver todos los subcomandos disponibles
@@ -191,10 +191,10 @@ aios phase1-report --help
 
 ```bash
 # Navegar al repo de la app a analizar
-cd ~/apps/01-sicofav/refactor
+cd ~/apps/01-fleet_ops_app/refactor
 
 # 1. Generar los 9 docs Discovery (incluye scan internamente)
-aios discovery-generate --app sicofav --root . --pdf
+aios discovery-generate --app fleet_ops_app --root . --pdf
 
 # 2. Revisar los 9 docs generados
 ls analisis/fase-1-discovery/
@@ -205,15 +205,15 @@ code analisis/fase-1-discovery/03_arq_as_is.md  # o tu editor preferido
 #    Workshops, entrevistas con stakeholders, assessment externo, etc.
 
 # 4. Re-generar PDFs después de editar (opcional)
-aios discovery-generate --app sicofav --root . --overwrite --pdf
+aios discovery-generate --app fleet_ops_app --root . --overwrite --pdf
 
 # 5. Consolidar en Evidence Bundle
-aios phase1-report --app sicofav --root . --pdf
+aios phase1-report --app fleet_ops_app --root . --pdf
 
 # 6. Commit al repo de la app (NO al de aios-framework)
-cd ~/apps/01-sicofav
+cd ~/apps/01-fleet_ops_app
 git add analisis/fase-1-discovery/
-git commit -m "docs(discovery): cerrar Fase 1 Discovery · baseline SICOFAV"
+git commit -m "docs(discovery): cerrar Fase 1 Discovery · baseline FLEET_OPS_APP"
 ```
 
 ---
@@ -262,7 +262,7 @@ cat ~/.ssh/id_ed25519.pub  # copiar al clipboard + pegar en GitHub
 # Si SSH no es opción (red corporativa, firewall, etc.)
 # GitHub > Settings > Developer settings > Personal access tokens > Fine-grained
 # Scope: Read repository
-git clone https://<username>:<token>@github.com/chernandeze_amx/aios-framework.git
+git clone https://<username>:<token>@github.com/acme-team/aios-framework.git
 ```
 
 ### `weasyprint: command not found` al usar `--pdf`
@@ -327,7 +327,7 @@ aios version   # verifica versión nueva
 | Acceso al repo (invite no llegó) | Christian Hernández · christianescamilla15@gmail.com |
 | Bug en el framework (error Python) | Christian (NO editar código local · centralizado) |
 | Duda sobre contenido de un doc Discovery | Consultor responsable de la app · workshop técnico |
-| Falla permiso AMX (VPN / acceso red) | IT AMX · Luis Ertuche (vía Christian) |
+| Falla permiso ACME (VPN / acceso red) | IT ACME · Luis Ertuche (vía Christian) |
 
 ---
 
@@ -374,13 +374,13 @@ Si tu `aios-suppressions.json` tiene entries con `rule` (alias) o `rule_id="CWE-
 | Métrica | v3.7.3 | v3.7.4 | v3.7.5 |
 |---|---:|---:|---:|
 | Tests pass | 401 | 419 | **428** |
-| Detectores AMX | 29 | 29 | 29 (quality only) |
+| Detectores ACME | 29 | 29 | 29 (quality only) |
 | Subcommands consume suppressions | release | release · iterate · compliance-report | idem |
 
-Para SICOFAV (post-v3.7.5):
+Para FLEET_OPS_APP (post-v3.7.5):
 - `aios iterate --root .` full-repo · 0 CRIT/HIGH/MED · 21 LOW · 4 suppressed
 - `aios iterate --root infra/k8s/` ya no se cuelga · termina < 90s
-- `aios discovery-generate --app sicofav --root <repo>` produce 9 docs sin FPs sobre code post-T6/T7/T8 fixes
+- `aios discovery-generate --app fleet_ops_app --root <repo>` produce 9 docs sin FPs sobre code post-T6/T7/T8 fixes
 
 ---
 

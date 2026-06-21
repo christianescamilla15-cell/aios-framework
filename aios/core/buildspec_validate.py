@@ -1,7 +1,7 @@
 """v3.5.0 · Buildspec validator.
 
 Valida que el `buildspec.yaml` del repo esté alineado con el catálogo de
-plantillas oficiales AMX en `BO-AMX/CS_CI_Artifacts` · detecta anti-patrón
+plantillas oficiales ACME en `BO-ACME/CS_CI_Artifacts` · detecta anti-patrón
 "copié el buildspec de otra app y nunca lo adapté".
 
 Catálogo hardcoded (snapshot 2026-04-23 del repo CS_CI_Artifacts) · si el

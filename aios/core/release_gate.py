@@ -41,7 +41,7 @@ def _enumerate_multi_module_specs(root: Path) -> list[Path]:
 
     Retorna lista de subdirs de specs/ que contienen requirements.md.
     Usado por el release_gate para validar refactors end-to-end con
-    N specs paralelos (ej. LM-FRK70K: specs/legacy-01-sicofav-module/,
+    N specs paralelos (ej. LM-FRK70K: specs/legacy-01-fleet_ops_app-module/,
     specs/legacy-02-arc-module/, ..., specs/legacy-10-noshow-module/).
     """
     specs_root = root / "specs"

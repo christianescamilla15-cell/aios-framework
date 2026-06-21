@@ -1,5 +1,5 @@
 {
-  "$schema": "https://github.com/OYN-AMX/am-kiro/schema/settings.schema.json",
+  "$schema": "https://github.com/OYN-ACME/am-kiro/schema/settings.schema.json",
   "aios": {
     "version": "2.2.0",
     "default_mode": "auto",
@@ -21,7 +21,7 @@
     },
     "policies": {
       "active": "default",
-      "available": ["default", "enterprise", "amx-revenue-accounting"]
+      "available": ["default", "enterprise", "acme-finance_operations"]
     },
     "stacks": {
       "auto_detect": true,
@@ -34,12 +34,12 @@
     }
   },
   "amx_overrides": {
-    "when_policy": "amx-revenue-accounting",
+    "when_policy": "acme-finance_operations",
     "applies": {
       "prohibited_services": ["ECS", "SES", "SNS (for email)"],
-      "required_services": ["Akamai (internet-facing)", "EKS or Serverless (T0/T1 apps)", "Relay interno AMX (emails/alerts)"],
+      "required_services": ["Akamai (internet-facing)", "EKS or Serverless (T0/T1 apps)", "Relay interno ACME (emails/alerts)"],
       "kms_rule": "one_per_service",
-      "role_prefix": "amx-r-*",
+      "role_prefix": "acme-r-*",
       "scan_sequence": ["wiz", "veracode", "prisma", "tenable"],
       "gates_pre_prod": [
         "optimo", "leanix_c4", "adr", "borde_arquitectura", "scans", "miguel_rachid"

@@ -1,5 +1,5 @@
-# AIOS Governance · Naming patterns oficiales · Aeroméxico
-# Fuente: thread Teams 27-abr 03:52 PM · spec creación repos AMX 28-abr · sesión Fernando
+# AIOS Governance · Naming patterns oficiales · AcmeAir
+# Fuente: thread Teams 27-abr 03:52 PM · spec creación repos ACME 28-abr · sesión Fernando
 # Aplica a: 5 detectores nuevos v3.8.0
 # Versión: 1.0 · catálogo base v3.8.0
 
@@ -7,11 +7,11 @@ schema_version: 1
 last_updated: "2026-04-28"
 
 # ---------------------------------------------------------------------------
-# AppPrefix oficiales · 8 aplicativos Revenue Accounting
+# AppPrefix oficiales · 8 aplicativos Finance Operations
 # ---------------------------------------------------------------------------
 
 app_prefixes:
-  sicofav: { id: "01", canonical: "Sicofav", short: "SCV", display: "SICOFAV" }
+  fleet_ops_app: { id: "01", canonical: "FleetOpsApp", short: "SCV", display: "FLEET_OPS_APP" }
   arc:     { id: "02", canonical: "Arc",     short: "ARC", display: "ARC" }
   bsp:     { id: "03", canonical: "Bsp",     short: "BSP", display: "BSP" }
   cfdi:    { id: "04", canonical: "Cfdi",    short: "CFDI", display: "CFDIs" }
@@ -21,50 +21,50 @@ app_prefixes:
   noshow:  { id: "10", canonical: "NoShow",  short: "NS",  display: "NoShow" }
 
 # AppPrefixes de utility · NO scope (Revenue Federation general · post 28-abr)
-revenue_accounting_program_prefix: "RFED"  # Revenue Federation · usado en AMX-R-RFED-DES inicial
+revenue_accounting_program_prefix: "RFED"  # Revenue Federation · usado en ACME-R-RFED-DES inicial
 
 # ---------------------------------------------------------------------------
-# 1. IAM Role Naming · AMX-R-{App}-{Profile}
+# 1. IAM Role Naming · ACME-R-{App}-{Profile}
 # ---------------------------------------------------------------------------
 
 iam_role_naming:
   detector_id: "G-NEW-IAM-NAMING-FULL"
   severity: "HIGH"
-  pattern_regex: "^AMX-R-([A-Z][A-Z0-9_]{1,30})-(A|DES|SL)$"
-  description: "Nombre IAM role debe seguir AMX-R-{APP}-{PROFILE} donde PROFILE = A · DES · SL"
+  pattern_regex: "^ACME-R-([A-Z][A-Z0-9_]{1,30})-(A|DES|SL)$"
+  description: "Nombre IAM role debe seguir ACME-R-{APP}-{PROFILE} donde PROFILE = A · DES · SL"
 
-  # v3.8.2 · G-DRIFT-1 · prefijos reservados para roles de servicios oficiales AMX
-  # que NO siguen el pattern del programa Revenue Accounting · alineado con
-  # BO-AMX/CS_Scripts@v0.12.0 compliance/check_f06_compliance.py (Fer Pérez 29-abr).
+  # v3.8.2 · G-DRIFT-1 · prefijos reservados para roles de servicios oficiales ACME
+  # que NO siguen el pattern del programa Finance Operations · alineado con
+  # BO-ACME/CS_Scripts@v0.12.0 compliance/check_f06_compliance.py (Fer Pérez 29-abr).
   reserved_prefixes:
-    - prefix: "AMX-R-ADEA-"
+    - prefix: "ACME-R-ADEA-"
       reason: "ADEA roles (AI DevOps Agent + Agent Spaces) · canonical names dictated by Amazon Q service · check_f06_compliance.py exact_names list"
       examples:
-        - "AMX-R-ADEA-WEBAPP-ADMIN"
-        - "AMX-R-ADEA-RESOURCE-ACCESS"
-    - prefix: "AMX-R-ADEA-"
+        - "ACME-R-ADEA-WEBAPP-ADMIN"
+        - "ACME-R-ADEA-RESOURCE-ACCESS"
+    - prefix: "ACME-R-ADEA-"
       reason_legacy: "Legacy ADEA naming with account_id suffix (transitional)"
       examples_legacy:
-        - "AMX-R-ADEA-WebappAdmin-{account_id}"
-        - "AMX-R-ADEA-ResourceAccess-{account_id}"
+        - "ACME-R-ADEA-WebappAdmin-{account_id}"
+        - "ACME-R-ADEA-ResourceAccess-{account_id}"
 
   examples_valid:
-    - "AMX-R-SICOFAV-A"     # Admin de SICOFAV
-    - "AMX-R-SICOFAV-DES"   # Developer de SICOFAV
-    - "AMX-R-SICOFAV-SL"    # Solo Lectura SICOFAV
-    - "AMX-R-RFED-DES"      # Revenue Federation Developer (cross-program)
-    - "AMX-R-NOSHOW-A"
-    - "AMX-R-ROBOT-DES"
-    - "AMX-R-ADEA-WEBAPP-ADMIN"      # v3.8.2 · reserved prefix ADEA · skip detector
-    - "AMX-R-ADEA-RESOURCE-ACCESS"   # idem
+    - "ACME-R-FLEET_OPS_APP-A"     # Admin de FLEET_OPS_APP
+    - "ACME-R-FLEET_OPS_APP-DES"   # Developer de FLEET_OPS_APP
+    - "ACME-R-FLEET_OPS_APP-SL"    # Solo Lectura FLEET_OPS_APP
+    - "ACME-R-RFED-DES"      # Revenue Federation Developer (cross-program)
+    - "ACME-R-NOSHOW-A"
+    - "ACME-R-ROBOT-DES"
+    - "ACME-R-ADEA-WEBAPP-ADMIN"      # v3.8.2 · reserved prefix ADEA · skip detector
+    - "ACME-R-ADEA-RESOURCE-ACCESS"   # idem
 
   examples_invalid:
-    - "amx-r-sicofav-A"            # lowercase prefix no permitido
-    - "AMX-R-SICOFAV-ADMIN"        # ADMIN en lugar de A
-    - "AMX-R-SICOFAV-DEV"          # DEV en lugar de DES
-    - "AMX-R-SICOFAV-READONLY"     # READONLY en lugar de SL
-    - "AMX-SICOFAV-A"              # falta R-
-    - "ROLE-AMX-R-SICOFAV-A"       # prefijo extra
+    - "acme-r-fleet_ops_app-A"            # lowercase prefix no permitido
+    - "ACME-R-FLEET_OPS_APP-ADMIN"        # ADMIN en lugar de A
+    - "ACME-R-FLEET_OPS_APP-DEV"          # DEV en lugar de DES
+    - "ACME-R-FLEET_OPS_APP-READONLY"     # READONLY en lugar de SL
+    - "ACME-FLEET_OPS_APP-A"              # falta R-
+    - "ROLE-ACME-R-FLEET_OPS_APP-A"       # prefijo extra
 
   profiles:
     A:
@@ -96,7 +96,7 @@ iam_role_naming:
 repo_naming:
   detector_id: "G-NEW-REPO-NAMING"
   severity: "MEDIUM"
-  pattern_regex: "^RevAcc_(Sicofav|Arc|Bsp|Cfdi|Srg|Asr|Robot|NoShow)(Backend|Front|IaC|PPL|Lambda)$"
+  pattern_regex: "^RevAcc_(FleetOpsApp|Arc|Bsp|Cfdi|Srg|Asr|Robot|NoShow)(Backend|Front|IaC|PPL|Lambda)$"
   description: "Nombre de repositorio TO-BE debe seguir RevAcc_{AppPrefix}{Tipo}"
 
   legacy_pattern_regex: "^RevAcc_Praxis_ASIS_.+"
@@ -133,7 +133,7 @@ repo_naming:
   examples_invalid:
     - "revacc_sicofav_backend"            # snake_case no permitido
     - "RevAcc_Sicofav_Backend"            # underscore entre App y Tipo no permitido
-    - "RevAcc_SICOFAVBackend"             # SICOFAV en mayúsculas no permitido
+    - "RevAcc_SICOFAVBackend"             # FLEET_OPS_APP en mayúsculas no permitido
     - "RevAccSicofavBackend"              # falta underscore después de RevAcc
     - "Sicofav_Backend"                   # falta prefix RevAcc_
     - "RevAcc_SicofavApi"                 # Api en lugar de Backend
@@ -144,14 +144,14 @@ repo_naming:
     - "package.json (name field)"
 
 # ---------------------------------------------------------------------------
-# 3. KMS CMK Naming · amx-kms-{app}-{scope}
+# 3. KMS CMK Naming · acme-kms-{app}-{scope}
 # ---------------------------------------------------------------------------
 
 cmk_naming:
   detector_id: "G-NEW-CMK-NAMING"
   severity: "MEDIUM"
-  pattern_regex: "^amx-kms-(sicofav|arc|bsp|cfdi|srg|asr|robot|noshow|t2)-(secrets|aurora|s3-cfdis|s3|logs|ebs|sqs|dynamodb)$"
-  description: "Nombre de CMK alias debe seguir amx-kms-{app}-{scope}"
+  pattern_regex: "^acme-kms-(fleet_ops_app|arc|bsp|cfdi|srg|asr|robot|noshow|t2)-(secrets|aurora|s3-cfdis|s3|logs|ebs|sqs|dynamodb)$"
+  description: "Nombre de CMK alias debe seguir acme-kms-{app}-{scope}"
 
   required_5_per_dedicated_account:
     - "secrets"     # Secrets Manager
@@ -167,27 +167,27 @@ cmk_naming:
     - "rds"         # RDS non-Aurora (rare)
 
   examples_valid:
-    - "amx-kms-sicofav-secrets"
-    - "amx-kms-sicofav-aurora"
-    - "amx-kms-sicofav-s3-cfdis"
-    - "amx-kms-sicofav-logs"
-    - "amx-kms-sicofav-ebs"
-    - "amx-kms-noshow-secrets"
-    - "amx-kms-noshow-aurora"
-    - "amx-kms-t2-secrets"           # Cuenta T2 compartida (SRG+ASR+NoShow)
+    - "acme-kms-fleet_ops_app-secrets"
+    - "acme-kms-fleet_ops_app-aurora"
+    - "acme-kms-fleet_ops_app-s3-cfdis"
+    - "acme-kms-fleet_ops_app-logs"
+    - "acme-kms-fleet_ops_app-ebs"
+    - "acme-kms-noshow-secrets"
+    - "acme-kms-noshow-aurora"
+    - "acme-kms-t2-secrets"           # Cuenta T2 compartida (SRG+ASR+NoShow)
 
   examples_invalid:
-    - "alias/aws/s3"                 # AWS-managed key prohibida (regla AMX)
-    - "AMX-KMS-SICOFAV-SECRETS"      # MAYÚSCULAS no permitidas
-    - "amx-kms-Sicofav-secrets"      # CamelCase no permitido
-    - "amx-kms-sicofav-database"     # 'database' en lugar de 'aurora'
-    - "kms-sicofav-secrets"          # falta prefix amx-
+    - "alias/aws/s3"                 # AWS-managed key prohibida (regla ACME)
+    - "ACME-KMS-FLEET_OPS_APP-SECRETS"      # MAYÚSCULAS no permitidas
+    - "acme-kms-FleetOpsApp-secrets"      # CamelCase no permitido
+    - "acme-kms-fleet_ops_app-database"     # 'database' en lugar de 'aurora'
+    - "kms-fleet_ops_app-secrets"          # falta prefix acme-
 
   prohibited_aws_managed:
     pattern_regex: "^alias/aws/.+"
     severity: "CRITICAL"
     detector_id: "G-CDK-KMS-AWS-MANAGED-PROHIBITION"
-    description: "AMX prohíbe AWS-managed keys (alias/aws/*) excepto ACM · regla amazon-q-rules"
+    description: "ACME prohíbe AWS-managed keys (alias/aws/*) excepto ACM · regla amazon-q-rules"
 
   required_properties:
     enable_key_rotation: true   # Rotation anual obligatoria
@@ -198,60 +198,60 @@ cmk_naming:
     multi_region: false         # Default false · explicit true para T0 multi-región
 
 # ---------------------------------------------------------------------------
-# 4. Secrets Manager Naming · amx/{##-app}/{type}
+# 4. Secrets Manager Naming · acme/{##-app}/{type}
 # ---------------------------------------------------------------------------
 
 secret_naming:
   detector_id: "G-NEW-SECRET-NAMING"
   severity: "MEDIUM"
-  pattern_regex: "^amx/(0[1-9]|10)-([a-z][a-z0-9-]{1,30})/[a-z][a-z0-9-]{1,40}$"
-  description: "Secret name debe seguir amx/{##-app}/{type}"
+  pattern_regex: "^acme/(0[1-9]|10)-([a-z][a-z0-9-]{1,30})/[a-z][a-z0-9-]{1,40}$"
+  description: "Secret name debe seguir acme/{##-app}/{type}"
 
   examples_valid:
-    - "amx/01-sicofav/db"
-    - "amx/01-sicofav/db-readonly"
-    - "amx/01-sicofav/praxis-api"
-    - "amx/01-sicofav/balanceador-api"
-    - "amx/07-robot/cybersource"
-    - "amx/07-robot/sabre-prod"
-    - "amx/10-noshow/sabre-sandbox"
-    - "amx/10-noshow/sabre-prod"
-    - "amx/04-cfdi/sat-cert"
+    - "acme/01-fleet_ops_app/db"
+    - "acme/01-fleet_ops_app/db-readonly"
+    - "acme/01-fleet_ops_app/praxis-api"
+    - "acme/01-fleet_ops_app/balanceador-api"
+    - "acme/07-robot/cybersource"
+    - "acme/07-robot/sabre-prod"
+    - "acme/10-noshow/sabre-sandbox"
+    - "acme/10-noshow/sabre-prod"
+    - "acme/04-cfdi/sat-cert"
 
   examples_invalid:
-    - "amx/sicofav/db"                # falta numeración ##
-    - "amx/01-Sicofav/db"             # MAYÚSCULAS no permitidas
-    - "AMX/01-sicofav/DB"             # MAYÚSCULAS no permitidas
-    - "01-sicofav/db"                 # falta prefix amx/
-    - "amx-01-sicofav-db"             # delimiter wrong (debe ser /)
-    - "amx/01-sicofav/db_password"    # underscore no permitido (usar dash)
+    - "acme/fleet_ops_app/db"                # falta numeración ##
+    - "acme/01-FleetOpsApp/db"             # MAYÚSCULAS no permitidas
+    - "ACME/01-fleet_ops_app/DB"             # MAYÚSCULAS no permitidas
+    - "01-fleet_ops_app/db"                 # falta prefix acme/
+    - "acme-01-fleet_ops_app-db"             # delimiter wrong (debe ser /)
+    - "acme/01-fleet_ops_app/db_password"    # underscore no permitido (usar dash)
 
   required_secret_per_app:
-    - app: "sicofav"
+    - app: "fleet_ops_app"
       secrets:
-        - "amx/01-sicofav/db"
-        - "amx/01-sicofav/praxis-api"
-        - "amx/01-sicofav/balanceador-api"
+        - "acme/01-fleet_ops_app/db"
+        - "acme/01-fleet_ops_app/praxis-api"
+        - "acme/01-fleet_ops_app/balanceador-api"
     - app: "noshow"
       secrets:
-        - "amx/10-noshow/sabre-sandbox"  # Agent ID · Password · IPCC
-        - "amx/10-noshow/sabre-prod"
-        - "amx/10-noshow/db"
+        - "acme/10-noshow/sabre-sandbox"  # Agent ID · Password · IPCC
+        - "acme/10-noshow/sabre-prod"
+        - "acme/10-noshow/db"
     - app: "robot"
       secrets:
-        - "amx/07-robot/cybersource"
-        - "amx/07-robot/sabre-prod"
-        - "amx/07-robot/db"
+        - "acme/07-robot/cybersource"
+        - "acme/07-robot/sabre-prod"
+        - "acme/07-robot/db"
     - app: "cfdi"
       secrets:
-        - "amx/04-cfdi/sat-cert"
-        - "amx/04-cfdi/db"
+        - "acme/04-cfdi/sat-cert"
+        - "acme/04-cfdi/db"
 
   rotation_policy:
     rotation_required: true
     rotation_period_days_default: 365  # anual mínimo
     rotation_period_days_pci: 90       # PCI-DSS scope (Robot · CFDIs)
-    rotation_lambda_pattern: "amx-rotation-{app}-{type}"
+    rotation_lambda_pattern: "acme-rotation-{app}-{type}"
 
 # ---------------------------------------------------------------------------
 # 5. Branch Naming · feature/etriber working master
@@ -284,7 +284,7 @@ branch_naming:
   allowed_pattern_regex: "^(feature|fix|chore|docs|test|refactor)/[a-z][a-z0-9-]+$"
   examples_valid:
     - "feature/etriber"            # Working master eTribe
-    - "feature/sicofav-block4-p2"
+    - "feature/fleet_ops_app-block4-p2"
     - "fix/audit-interceptor-shadow"
     - "chore/update-deps"
     - "docs/discovery-guide-v2"
@@ -351,20 +351,20 @@ detection_metadata:
 # ---------------------------------------------------------------------------
 
 source_documents:
-  - title: "Spec creación repos AMX"
+  - title: "Spec creación repos ACME"
     date: "2026-04-28"
     excerpt: "Convención RevAcc_{AppPrefix}{Tipo} · 1 repo por aplicativo por componente"
 
   - title: "Thread Teams · Creación de Cuentas AWS"
     author: "Juan Carlos Vázquez Lorenzo"
     date: "2026-04-27 03:52 PM"
-    excerpt: "Perfil para nosotros tendríamos AMX-R-RFED-DES (se requiere agregar correo por correo)"
+    excerpt: "Perfil para nosotros tendríamos ACME-R-RFED-DES (se requiere agregar correo por correo)"
 
-  - title: "Sesión Solution Architects AMX"
+  - title: "Sesión Solution Architects ACME"
     author: "Jose Fernando Pérez Izquierdo + Rigo Ferqui"
     date: "2026-04-27 03:30 PM"
-    excerpt: "Naming pattern AMX-R-* + 3 perfiles A/DES/SL + branch convention"
+    excerpt: "Naming pattern ACME-R-* + 3 perfiles A/DES/SL + branch convention"
 
-  - title: "Imagen 3 perfiles IAM AMX"
+  - title: "Imagen 3 perfiles IAM ACME"
     date: "2026-04-28"
     excerpt: "Administrador (FullAccess) · Desarrollador (Power User) · Consultor/Soporte (Read Only)"

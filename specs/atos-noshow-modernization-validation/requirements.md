@@ -4,7 +4,7 @@
 ## Introducción
 
 El componente **ATOS-NOSHOW-ROBOT** es un servicio de misión crítica (Tier T1) que procesa
-aproximadamente **1,350 no-shows por día** para Aeromexico Revenue Accounting. El sistema
+aproximadamente **1,350 no-shows por día** para AcmeAir Finance Operations. El sistema
 consulta la base de datos AIDX para obtener vuelos del día anterior, interroga la API SOAP de
 SABRE para obtener listas de pasajeros y documentos de ticketing, genera un archivo batch en
 formato pipe-delimited y lo transfiere vía SFTP al servidor CADUCOS, además de enviar
@@ -14,7 +14,7 @@ El stack actual (.NET 4.7.2 · Windows Service · Quartz.NET) alcanza **EOL en e
 lo que representa un riesgo de seguridad crítico. La modernización migra el componente a
 **.NET 8 LTS** sobre infraestructura EKS (Tier T1 obligatorio), elimina las 6 credenciales
 en texto plano migrándolas a **AWS Secrets Manager + KMS CMK custom**, y externaliza los
-13 destinatarios de correo hardcoded al **Relay interno AMX** con configuración dinámica.
+13 destinatarios de correo hardcoded al **Relay interno ACME** con configuración dinámica.
 
 ---
 
@@ -24,19 +24,19 @@ en texto plano migrándolas a **AWS Secrets Manager + KMS CMK custom**, y extern
 - **AIDX_DB**: Base de datos SQL Server que contiene la tabla `flights` con datos operacionales de vuelos.
 - **SABRE_API**: Sistema GDS externo accedido vía SOAP (SessionCreate · GetPassengerList · GetReservation · TicketingDocument).
 - **SFTP_CADUCOS**: Servidor SFTP destino (`/CADUCOS`) donde se deposita el archivo batch diario.
-- **AMX_Relay**: Servidor de correo interno AMX (`172.18.60.227:25`) — único mecanismo permitido para envío de correos (SES y SNS prohibidos).
-- **Secrets_Manager**: AWS Secrets Manager con CMK KMS custom exclusiva del servicio (`amx-noshow-cmk`).
+- **AMX_Relay**: Servidor de correo interno ACME (`172.18.60.227:25`) — único mecanismo permitido para envío de correos (SES y SNS prohibidos).
+- **Secrets_Manager**: AWS Secrets Manager con CMK KMS custom exclusiva del servicio (`acme-noshow-cmk`).
 - **Report_File**: Archivo batch pipe-delimited (`yyyyMMdd.txt`) con registros de no-shows.
 - **PNR**: Passenger Name Record — localizador de reserva en SABRE.
 - **TKT**: Ticket electrónico de pasajero.
 - **EMD**: Electronic Miscellaneous Document — documento anciliar asociado a un TKT.
-- **RAC474**: Código de endoso de Revenue Accounting Aeromexico.
+- **RAC474**: Código de endoso de Finance Operations AcmeAir.
 - **OUTOFSCOPE_PREFIXES**: Prefijos de ticket excluidos del reporte (`139047`, `139048`, `139049`).
 - **Scheduler**: Componente de programación de ejecución (cron `0 50 6 1/1 * ? *` — 06:50 UTC diario).
 - **EKS_Pod**: Unidad de despliegue Kubernetes en Amazon EKS (reemplaza Windows Service).
 - **Dual_Run**: Período de ejecución paralela legacy + modernizado para validación de paridad.
-- **CMK**: Customer Managed Key — clave KMS custom, una por servicio según constraint AMX.
-- **IAM_Role**: Rol IAM con prefijo obligatorio `amx-r-*` según SCPs AMX.
+- **CMK**: Customer Managed Key — clave KMS custom, una por servicio según constraint ACME.
+- **IAM_Role**: Rol IAM con prefijo obligatorio `acme-r-*` según SCPs ACME.
 
 ---
 
@@ -46,7 +46,7 @@ en texto plano migrándolas a **AWS Secrets Manager + KMS CMK custom**, y extern
 
 ### Requisito 1: Ejecución Programada Diaria
 
-**User Story:** Como equipo de Revenue Accounting, quiero que el NoShow_Robot se ejecute
+**User Story:** Como equipo de Finance Operations, quiero que el NoShow_Robot se ejecute
 automáticamente cada día a las 06:50 UTC, para que el reporte de no-shows del día anterior
 esté disponible al inicio de la jornada operativa.
 
@@ -78,7 +78,7 @@ vuelos operados el día anterior, para determinar qué vuelos debo procesar.
 ### Requisito 3: Obtención de Lista de Pasajeros desde SABRE_API
 
 **User Story:** Como NoShow_Robot, quiero consultar la API SABRE para obtener la lista de
-pasajeros no-show por vuelo, para construir el reporte de Revenue Accounting.
+pasajeros no-show por vuelo, para construir el reporte de Finance Operations.
 
 #### Criterios de Aceptación
 
@@ -109,7 +109,7 @@ de cada PNR, para incluir la información de ticketing en el reporte.
 
 ### Requisito 5: Generación del Report_File
 
-**User Story:** Como equipo de Revenue Accounting, quiero recibir un archivo batch diario en
+**User Story:** Como equipo de Finance Operations, quiero recibir un archivo batch diario en
 formato pipe-delimited con todos los no-shows procesados, para alimentar los sistemas de
 contabilidad de ingresos.
 
@@ -143,7 +143,7 @@ para procesar los no-shows en los sistemas downstream de Revenue.
 
 ### Requisito 7: Notificaciones por Correo Electrónico
 
-**User Story:** Como equipo de Revenue Accounting, quiero recibir notificaciones por correo
+**User Story:** Como equipo de Finance Operations, quiero recibir notificaciones por correo
 cuando el proceso falla o completa exitosamente, para tener visibilidad del estado del robot.
 
 #### Criterios de Aceptación
@@ -151,7 +151,7 @@ cuando el proceso falla o completa exitosamente, para tener visibilidad del esta
 1. THE NoShow_Robot SHALL enviar correos exclusivamente a través de AMX_Relay (`172.18.60.227:25`) — el uso de AWS SES, AWS SNS o cualquier servicio externo de correo está PROHIBIDO.
 2. THE NoShow_Robot SHALL leer la lista de destinatarios (`ToAddress`, `CCAddress`) desde Secrets_Manager en el path `noshow/email-config`, no desde código ni archivos de configuración estáticos.
 3. WHEN el ciclo de procesamiento falla con excepción no controlada, THE NoShow_Robot SHALL enviar correo de alerta a los destinatarios configurados con el mensaje de error y stack trace.
-4. THE NoShow_Robot SHALL usar la dirección remitente `amnoshow@aeromexico.com` con display name `AM No Show Report`.
+4. THE NoShow_Robot SHALL usar la dirección remitente `amnoshow@acmeair.com` con display name `AM No Show Report`.
 5. THE NoShow_Robot SHALL usar el asunto `AM No Show Report` para todos los correos de notificación.
 6. IF AMX_Relay no está disponible, THEN THE NoShow_Robot SHALL registrar el fallo de envío con nivel ERROR en log sin abortar el proceso principal.
 7. WHERE el cuerpo del correo contiene plantilla HTML, THE NoShow_Robot SHALL reemplazar los tokens `@fechaInicio`, `@fechaFin` y `@fecha` con los valores del ciclo actual antes del envío.
@@ -160,45 +160,45 @@ cuando el proceso falla o completa exitosamente, para tener visibilidad del esta
 
 ### Requisito 8: Gestión de Credenciales con AWS Secrets Manager
 
-**User Story:** Como equipo de Seguridad AMX, quiero que todas las credenciales del sistema
+**User Story:** Como equipo de Seguridad ACME, quiero que todas las credenciales del sistema
 estén almacenadas en AWS Secrets Manager con CMK custom, para eliminar el riesgo CWE-522
 (credenciales en texto plano) y cumplir con los controles SOX.
 
 #### Criterios de Aceptación
 
 1. THE NoShow_Robot SHALL obtener todas las credenciales en tiempo de ejecución desde Secrets_Manager — ninguna credencial SHALL existir en archivos de configuración, variables de entorno, código fuente ni imágenes de contenedor.
-2. THE NoShow_Robot SHALL usar una CMK KMS exclusiva (`amx-noshow-cmk`) para cifrar los secretos — esta CMK NO SHALL ser compartida con ningún otro servicio.
+2. THE NoShow_Robot SHALL usar una CMK KMS exclusiva (`acme-noshow-cmk`) para cifrar los secretos — esta CMK NO SHALL ser compartida con ningún otro servicio.
 3. THE Secrets_Manager SHALL almacenar los siguientes secretos bajo el prefijo `noshow/`:
    - `noshow/sabre-credentials` → `{ "username": "...", "password": "...", "ipcc": "AM", "subjectArea": "FULL" }`
    - `noshow/sftp-credentials` → `{ "host": "10.19.17.33", "port": 22, "username": "AMUSER", "passphrase": "..." }`
    - `noshow/db-connection` → `{ "server": "172.24.34.77", "database": "AIDX", "uid": "...", "password": "..." }`
-   - `noshow/email-config` → `{ "toAddress": [...], "ccAddress": [...], "fromAddress": "amnoshow@aeromexico.com" }`
+   - `noshow/email-config` → `{ "toAddress": [...], "ccAddress": [...], "fromAddress": "amnoshow@acmeair.com" }`
 4. THE NoShow_Robot SHALL cachear los secretos en memoria por un máximo de **15 minutos** antes de refrescarlos desde Secrets_Manager para reducir latencia.
 5. IF Secrets_Manager no está disponible al inicio, THEN THE NoShow_Robot SHALL abortar el arranque con exit code distinto de cero y registrar el error con nivel FATAL.
-6. THE IAM_Role asignado al EKS_Pod SHALL tener prefijo `amx-r-*` y permisos mínimos: `secretsmanager:GetSecretValue` y `kms:Decrypt` únicamente sobre los ARNs de los secretos `noshow/*`.
+6. THE IAM_Role asignado al EKS_Pod SHALL tener prefijo `acme-r-*` y permisos mínimos: `secretsmanager:GetSecretValue` y `kms:Decrypt` únicamente sobre los ARNs de los secretos `noshow/*`.
 
 ---
 
 ### Requisito 9: Infraestructura EKS (Tier T1)
 
-**User Story:** Como arquitecto AMX, quiero que el NoShow_Robot se despliegue en EKS
+**User Story:** Como arquitecto ACME, quiero que el NoShow_Robot se despliegue en EKS
 (no ECS, que está prohibido), para cumplir con los constraints de infraestructura Tier T1.
 
 #### Criterios de Aceptación
 
-1. THE NoShow_Robot SHALL desplegarse como EKS_Pod en Amazon EKS — el uso de Amazon ECS está PROHIBIDO por constraints AMX retro 20-abr.
-2. THE EKS_Pod SHALL ejecutarse con el IAM_Role `amx-r-noshow-execution` que tenga únicamente los permisos mínimos necesarios.
+1. THE NoShow_Robot SHALL desplegarse como EKS_Pod en Amazon EKS — el uso de Amazon ECS está PROHIBIDO por constraints ACME retro 20-abr.
+2. THE EKS_Pod SHALL ejecutarse con el IAM_Role `acme-r-noshow-execution` que tenga únicamente los permisos mínimos necesarios.
 3. THE NoShow_Robot SHALL empaquetarse como imagen de contenedor basada en `mcr.microsoft.com/dotnet/runtime:8.0` (imagen oficial .NET 8 LTS).
 4. THE EKS_Pod SHALL usar un CronJob de Kubernetes con el schedule `50 6 * * *` para disparar la ejecución diaria.
 5. THE EKS_Pod SHALL tener resource limits definidos: CPU máximo **500m**, memoria máxima **512Mi**.
 6. WHERE el NoShow_Robot está expuesto a internet, THE sistema SHALL usar Akamai como edge obligatorio — para este componente (batch interno) Akamai no aplica al no tener endpoints HTTP públicos.
-7. THE NoShow_Robot SHALL almacenar el código fuente exclusivamente en **GitHub Enterprise AMX** — GitLab y repositorios Miatech on-prem están PROHIBIDOS.
+7. THE NoShow_Robot SHALL almacenar el código fuente exclusivamente en **GitHub Enterprise ACME** — GitLab y repositorios Miatech on-prem están PROHIBIDOS.
 
 ---
 
 ### Requisito 10: Seguridad de Logs y Protección de PII
 
-**User Story:** Como equipo de Seguridad y Compliance AMX, quiero que los logs del sistema
+**User Story:** Como equipo de Seguridad y Compliance ACME, quiero que los logs del sistema
 no contengan información personal identificable (PII) ni credenciales, para cumplir con
 controles SOX y políticas de privacidad.
 
@@ -207,18 +207,18 @@ controles SOX y políticas de privacidad.
 1. THE NoShow_Robot SHALL enmascarar los PNRs en todos los mensajes de log usando el patrón `***{últimos 2 caracteres}` (ej: `***AB`).
 2. THE NoShow_Robot SHALL enmascarar los nombres de pasajeros en logs usando el patrón `{inicial}.***` (ej: `J.***`).
 3. THE NoShow_Robot SHALL enmascarar los números de ticket en logs mostrando únicamente los últimos 4 dígitos (ej: `***1234`).
-4. THE NoShow_Robot SHALL usar logging estructurado (JSON) compatible con el stack de observabilidad AMX — no Console.WriteLine.
+4. THE NoShow_Robot SHALL usar logging estructurado (JSON) compatible con el stack de observabilidad ACME — no Console.WriteLine.
 5. THE NoShow_Robot SHALL registrar en log el nivel de severidad, timestamp ISO-8601, nombre del componente, correlationId del ciclo y el mensaje — sin incluir valores de credenciales.
 6. IF un mensaje de excepción contiene una credencial o token de sesión SABRE, THEN THE NoShow_Robot SHALL sanitizar el mensaje antes de escribirlo en log.
-7. THE NoShow_Robot SHALL retener logs locales por un máximo de **7 días** — la retención a largo plazo es responsabilidad del stack de observabilidad AMX.
+7. THE NoShow_Robot SHALL retener logs locales por un máximo de **7 días** — la retención a largo plazo es responsabilidad del stack de observabilidad ACME.
 
 ---
 
 ### Requisito 11: SLA, RTO y RPO (Tier T1)
 
-**User Story:** Como Director de Revenue Accounting, quiero que el sistema tenga SLAs
+**User Story:** Como Director de Finance Operations, quiero que el sistema tenga SLAs
 definidos y documentados, para garantizar la continuidad operativa del proceso de no-shows
-que impacta directamente los ingresos de Aeromexico.
+que impacta directamente los ingresos de AcmeAir.
 
 #### Criterios de Aceptación
 
@@ -233,9 +233,9 @@ que impacta directamente los ingresos de Aeromexico.
 
 ### Requisito 12: Compliance SOX y Auditoría
 
-**User Story:** Como equipo de Auditoría Interna AMX, quiero que el sistema genere trazas
+**User Story:** Como equipo de Auditoría Interna ACME, quiero que el sistema genere trazas
 de auditoría completas e inmutables, para cumplir con los controles SOX aplicables a
-sistemas de Revenue Accounting.
+sistemas de Finance Operations.
 
 #### Criterios de Aceptación
 
@@ -267,9 +267,9 @@ del cutover definitivo.
 
 ### Requisito 14: Corrección del Vuelo Hardcoded (Hallazgo Crítico)
 
-**User Story:** Como equipo de Revenue Accounting, quiero que el sistema procese los vuelos
+**User Story:** Como equipo de Finance Operations, quiero que el sistema procese los vuelos
 reales del día anterior en lugar de un vuelo hardcoded, para que el reporte refleje la
-operación real de Aeromexico.
+operación real de AcmeAir.
 
 #### Criterios de Aceptación
 
@@ -280,11 +280,11 @@ operación real de Aeromexico.
 
 ---
 
-### Requisito 15: Gates Pre-Producción AMX
+### Requisito 15: Gates Pre-Producción ACME
 
-**User Story:** Como arquitecto AMX, quiero que el proceso de release del sistema modernizado
+**User Story:** Como arquitecto ACME, quiero que el proceso de release del sistema modernizado
 siga los gates obligatorios definidos en la retro del 20-abr-2026, para garantizar el
-cumplimiento de los estándares de gobernanza AMX antes del go-live.
+cumplimiento de los estándares de gobernanza ACME antes del go-live.
 
 #### Criterios de Aceptación
 
@@ -292,7 +292,7 @@ cumplimiento de los estándares de gobernanza AMX antes del go-live.
 2. THE NoShow_Robot SHALL pasar la secuencia de escaneos CYBER en orden: **WIZ** (postura AWS) → **Veracode** (análisis estático) → **Prisma Cloud** (containers) → **Tenable** (IaC).
 3. THE NoShow_Robot SHALL tener diagramas C4 publicados en **LeanIX** (link, no archivo adjunto) antes de solicitar aprobación de Borde de Arquitectura.
 4. THE NoShow_Robot SHALL tener un ADR con comparativa opción A vs opción B documentado antes del gate de Borde de Arquitectura.
-5. THE NoShow_Robot SHALL tener ticket KMS individual levantado vía GateOne o AMX Chat Service Desk para la CMK `amx-noshow-cmk` — no compartir CMK con otros servicios.
+5. THE NoShow_Robot SHALL tener ticket KMS individual levantado vía GateOne o ACME Chat Service Desk para la CMK `acme-noshow-cmk` — no compartir CMK con otros servicios.
 6. WHEN algún escaneo CYBER detecta vulnerabilidades altas o críticas, THE NoShow_Robot SHALL bloquear el gate de Miguel Rachid hasta que las vulnerabilidades sean remediadas o tengan excepción formal aprobada por correo a Miguel Rachid.
 
 ---
@@ -305,8 +305,8 @@ cumplimiento de los estándares de gobernanza AMX antes del go-live.
 | Vuelo 829 hardcoded | CRÍTICO | Req 14 |
 | 6 credenciales plaintext | CRÍTICO | Req 8 |
 | Drift SABRE creds source↔prod | CRÍTICO | Req 8 (Secrets Manager) |
-| ECS prohibido (AMX constraint) | BLOQUEADOR | Req 9 |
-| SES/SNS prohibido (AMX constraint) | BLOQUEADOR | Req 7 |
+| ECS prohibido (ACME constraint) | BLOQUEADOR | Req 9 |
+| SES/SNS prohibido (ACME constraint) | BLOQUEADOR | Req 7 |
 | KMS compartida prohibida | BLOQUEADOR | Req 8 |
 | Remove en iteración (MainServices.cs:87) | HIGH | Req 5 (generación correcta) |
 | 0 tests · 0% XML-doc | HIGH | Req 3, 4, 5 (criterios testables) |

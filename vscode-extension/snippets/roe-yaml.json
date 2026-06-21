@@ -12,13 +12,13 @@
       "ends_at:   \"2099-01-02T00:00:00Z\"",
       "",
       "scope_hosts:",
-      "  - \"${4:staging.app.amx.internal}\"",
+      "  - \"${4:staging.app.acme.internal}\"",
       "scope_cidr:",
       "  - \"${5:10.50.10.0/24}\"",
       "",
       "excluded_hosts:",
-      "  - \"prod.${6:app}.amx.internal\"",
-      "  - \"${6:app}.amx.com\"",
+      "  - \"prod.${6:app}.acme.internal\"",
+      "  - \"${6:app}.acme.com\"",
       "",
       "allowed_techniques:",
       "  - \"T1595.002\"",
@@ -38,13 +38,13 @@
       "  - name: \"TBD · Etrive TPM\"",
       "    role: \"Etrive TPM\"",
       "    signature: \"pending\"",
-      "  - name: \"TBD · AMX Legal\"",
-      "    role: \"AMX Legal\"",
+      "  - name: \"TBD · ACME Legal\"",
+      "    role: \"ACME Legal\"",
       "    signature: \"pending\"",
       "",
       "kill_switch_contact:",
-      "  email: \"security-redteam@amx.internal\"",
-      "  slack: \"#red-team-amx\"",
+      "  email: \"security-redteam@acme.internal\"",
+      "  slack: \"#red-team-acme\"",
       "",
       "max_parallel_sessions: 2",
       "rate_limit_requests_per_second: 10",
@@ -60,7 +60,7 @@
     "prefix": "roe-approver",
     "body": [
       "  - name: \"${1:Nombre · Apellido}\"",
-      "    role: \"${2|Miatech Ciberseguridad,Etrive TPM,AMX Legal|}\"",
+      "    role: \"${2|Miatech Ciberseguridad,Etrive TPM,ACME Legal|}\"",
       "    signature: \"${3:pending}\""
     ],
     "description": "Bloque de approver para roe.yaml"
@@ -69,12 +69,12 @@
     "prefix": "roe-scope",
     "body": [
       "scope_hosts:",
-      "  - \"${1:staging.app.amx.internal}\"",
+      "  - \"${1:staging.app.acme.internal}\"",
       "scope_cidr:",
       "  - \"${2:10.50.10.0/24}\"",
       "",
       "excluded_hosts:",
-      "  - \"prod.${3:app}.amx.internal\""
+      "  - \"prod.${3:app}.acme.internal\""
     ],
     "description": "Bloque de scope"
   },

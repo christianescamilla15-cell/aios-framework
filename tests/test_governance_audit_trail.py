@@ -60,12 +60,12 @@ def test_valid_transitions_dict_has_11_states():
 
 def test_append_entry_writes_jsonl_with_hash(trail):
     entry = trail.append_entry(
-        request_id="GOV-SICOFAV-BD-20260429-001",
-        app="sicofav",
+        request_id="GOV-FLEET_OPS_APP-BD-20260429-001",
+        app="fleet_ops_app",
         resource_type="bd-access",
-        requested_by="chernandeze@aeromexico.com",
+        requested_by="engineer@acmeair.com",
         state_to=AuditState.REQUESTED,
-        actor="chernandeze@aeromexico.com",
+        actor="engineer@acmeair.com",
         actor_role="requester",
     )
     assert entry.entry_hash
@@ -77,7 +77,7 @@ def test_append_entry_writes_jsonl_with_hash(trail):
 def test_append_entry_chains_prev_hash(trail):
     e1 = trail.append_entry(
         request_id="GOV-X-BD-20260429-001",
-        app="sicofav",
+        app="fleet_ops_app",
         resource_type="bd-access",
         requested_by="x@x.com",
         state_to=AuditState.REQUESTED,
@@ -86,7 +86,7 @@ def test_append_entry_chains_prev_hash(trail):
     )
     e2 = trail.append_entry(
         request_id="GOV-X-BD-20260429-001",
-        app="sicofav",
+        app="fleet_ops_app",
         resource_type="bd-access",
         requested_by="x@x.com",
         state_to=AuditState.IN_REVIEW,
@@ -100,7 +100,7 @@ def test_append_entry_rejects_invalid_transition(trail):
     """REQUESTED → REQUESTED es transición inválida."""
     trail.append_entry(
         request_id="GOV-X-BD-20260429-001",
-        app="sicofav",
+        app="fleet_ops_app",
         resource_type="bd-access",
         requested_by="x@x.com",
         state_to=AuditState.REQUESTED,
@@ -110,7 +110,7 @@ def test_append_entry_rejects_invalid_transition(trail):
     with pytest.raises(ValueError, match="Transición inválida"):
         trail.append_entry(
             request_id="GOV-X-BD-20260429-001",
-            app="sicofav",
+            app="fleet_ops_app",
             resource_type="bd-access",
             requested_by="x@x.com",
             state_to=AuditState.REQUESTED,
@@ -122,7 +122,7 @@ def test_append_entry_rejects_invalid_transition(trail):
 def test_verify_chain_intact_after_append(trail):
     trail.append_entry(
         request_id="GOV-X-BD-20260429-001",
-        app="sicofav",
+        app="fleet_ops_app",
         resource_type="bd-access",
         requested_by="x@x.com",
         state_to=AuditState.REQUESTED,
@@ -131,7 +131,7 @@ def test_verify_chain_intact_after_append(trail):
     )
     trail.append_entry(
         request_id="GOV-X-BD-20260429-001",
-        app="sicofav",
+        app="fleet_ops_app",
         resource_type="bd-access",
         requested_by="x@x.com",
         state_to=AuditState.IN_REVIEW,
@@ -147,7 +147,7 @@ def test_verify_chain_detects_tampering(trail):
     """Si alguien edita el JSONL manualmente · verify_chain debe FAIL."""
     trail.append_entry(
         request_id="GOV-X-BD-20260429-001",
-        app="sicofav",
+        app="fleet_ops_app",
         resource_type="bd-access",
         requested_by="x@x.com",
         state_to=AuditState.REQUESTED,
@@ -205,7 +205,7 @@ def _seed_old_entry(
 
 
 def test_detect_slippage_warn_at_3_days(trail):
-    _seed_old_entry(trail, "GOV-X-BD-001", "sicofav", days_ago=4)
+    _seed_old_entry(trail, "GOV-X-BD-001", "fleet_ops_app", days_ago=4)
     slips = trail.detect_slippage(warn_after_days=3, escalate_after_days=5, emergency_after_days=10)
     assert len(slips) == 1
     assert slips[0]["severity"] == "warn"
@@ -213,29 +213,29 @@ def test_detect_slippage_warn_at_3_days(trail):
 
 
 def test_detect_slippage_escalate_at_7_days(trail):
-    _seed_old_entry(trail, "GOV-X-BD-001", "sicofav", days_ago=7)
+    _seed_old_entry(trail, "GOV-X-BD-001", "fleet_ops_app", days_ago=7)
     slips = trail.detect_slippage()
     assert slips[0]["severity"] == "escalate"
 
 
 def test_detect_slippage_emergency_at_12_days(trail):
-    _seed_old_entry(trail, "GOV-X-BD-001", "sicofav", days_ago=12)
+    _seed_old_entry(trail, "GOV-X-BD-001", "fleet_ops_app", days_ago=12)
     slips = trail.detect_slippage()
     assert slips[0]["severity"] == "emergency"
 
 
 def test_detect_slippage_filters_by_app(trail):
-    h = _seed_old_entry(trail, "GOV-A-BD-001", "sicofav", days_ago=7)
+    h = _seed_old_entry(trail, "GOV-A-BD-001", "fleet_ops_app", days_ago=7)
     _seed_old_entry(trail, "GOV-B-BD-001", "noshow", days_ago=7, prev_hash=h)
-    slips = trail.detect_slippage(app="sicofav")
+    slips = trail.detect_slippage(app="fleet_ops_app")
     assert len(slips) == 1
-    assert slips[0]["app"] == "sicofav"
+    assert slips[0]["app"] == "fleet_ops_app"
 
 
 def test_detect_slippage_skips_terminal_states(trail):
     """Si el último estado es 'approved' · no es slippage."""
-    h = _seed_old_entry(trail, "GOV-A-BD-001", "sicofav", days_ago=20, state=AuditState.REQUESTED)
-    _seed_old_entry(trail, "GOV-A-BD-001", "sicofav", days_ago=15,
+    h = _seed_old_entry(trail, "GOV-A-BD-001", "fleet_ops_app", days_ago=20, state=AuditState.REQUESTED)
+    _seed_old_entry(trail, "GOV-A-BD-001", "fleet_ops_app", days_ago=15,
                     state=AuditState.APPROVED, prev_hash=h)
     slips = trail.detect_slippage()
     assert slips == []
@@ -250,6 +250,6 @@ def test_default_audit_path_produces_aios_governance_subpath(tmp_path):
 
 
 def test_generate_request_id_format():
-    rid = generate_request_id(resource_type="bd-access", app="sicofav")
-    assert rid.startswith("GOV-SICOFAV-BD-")
+    rid = generate_request_id(resource_type="bd-access", app="fleet_ops_app")
+    assert rid.startswith("GOV-FLEET_OPS_APP-BD-")
     assert len(rid.split("-")) == 5  # GOV-APP-TYPE-DATE-NNN

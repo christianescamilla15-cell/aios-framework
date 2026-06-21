@@ -22,8 +22,8 @@ EMPTY_SCAN = {"findings": [], "count": 0, "by_severity": {}, "by_cwe": {}, "erro
 
 
 def test_resolve_app_valid():
-    app = resolve_app("sicofav")
-    assert app.short == "SICOFAV"
+    app = resolve_app("fleet_ops_app")
+    assert app.short == "FLEET_OPS_APP"
     assert app.tier == "T0"
 
 
@@ -33,16 +33,16 @@ def test_resolve_app_invalid_raises():
 
 
 def test_resolve_app_case_insensitive():
-    app = resolve_app("SICOFAV")
-    assert app.short == "SICOFAV"
+    app = resolve_app("FLEET_OPS_APP")
+    assert app.short == "FLEET_OPS_APP"
 
 
 def test_doc_01_contains_severity_table():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
     scan = {"findings": [], "count": 5, "by_severity": {"HIGH": 3, "LOW": 2},
             "by_cwe": {"CWE-22": 2}, "error": None}
     md = build_doc_01_code_scan(app, scan)
-    assert "# 01 · Code Scan · SICOFAV" in md
+    assert "# 01 · Code Scan · FLEET_OPS_APP" in md
     assert "| HIGH | 3 |" in md or "HIGH | 3" in md
     assert "CWE-22" in md
 
@@ -57,7 +57,7 @@ def test_doc_01_with_scan_error():
 
 
 def test_doc_02_includes_cwe_mapping():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
 
     # Fake findings con CWE
     class FakeFinding:
@@ -86,7 +86,7 @@ def test_doc_03_with_empty_stack():
 
 
 def test_doc_03_with_detected_stack():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
     stack = {"dotnet": ["src/Foo.csproj"], "docker": ["Dockerfile"]}
     md = build_doc_03_arq_as_is(app, stack)
     assert "dotnet" in md
@@ -94,7 +94,7 @@ def test_doc_03_with_detected_stack():
 
 
 def test_doc_04_has_governance_contacts():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
     md = build_doc_04_stakeholders(app)
     assert "Antonio Hernández" in md
     assert "Miguel Rachid" in md
@@ -102,7 +102,7 @@ def test_doc_04_has_governance_contacts():
 
 
 def test_doc_05_vulns_compliance_rows():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
     md = build_doc_05_vulns(app, EMPTY_SCAN)
     assert "LFPDPPP" in md
     assert "SOX" in md
@@ -110,21 +110,21 @@ def test_doc_05_vulns_compliance_rows():
 
 
 def test_doc_05_t0_is_sox_critical():
-    app = resolve_app("sicofav")  # T0
+    app = resolve_app("fleet_ops_app")  # T0
     md = build_doc_05_vulns(app, EMPTY_SCAN)
     # T0 debe tener SOX como "Sí"
     assert "SOX" in md and "✅ Sí" in md
 
 
 def test_doc_06_deps_lists_lockfile_by_stack():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
     md = build_doc_06_deps(app, {"dotnet": ["foo.csproj"], "node": ["package.json"]})
     assert "dotnet" in md
     assert "node" in md
 
 
 def test_doc_07_preguntas_6_categorias():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
     md = build_doc_07_preguntas_nuevas(app)
     for cat in ["Arquitectura", "Datos", "Integraciones",
                 "Seguridad", "Operación", "Negocio"]:
@@ -132,14 +132,14 @@ def test_doc_07_preguntas_6_categorias():
 
 
 def test_doc_08_cross_app_blockers_present():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
     md = build_doc_08_bloqueadores(app)
     assert "Cross-app blockers" in md
     assert "KMS" in md or "kms" in md.lower()
 
 
 def test_doc_09_risk_register_tier_aware():
-    app_t0 = resolve_app("sicofav")  # T0
+    app_t0 = resolve_app("fleet_ops_app")  # T0
     md_t0 = build_doc_09_risk_register(app_t0, EMPTY_SCAN)
     assert "SOX" in md_t0
 
@@ -150,7 +150,7 @@ def test_doc_09_risk_register_tier_aware():
 
 
 def test_doc_09_aios_findings_impact():
-    app = resolve_app("sicofav")
+    app = resolve_app("fleet_ops_app")
     scan = {"findings": [], "count": 0,
             "by_severity": {"CRITICAL": 2, "HIGH": 5},
             "by_cwe": {}, "error": None}
@@ -160,8 +160,8 @@ def test_doc_09_aios_findings_impact():
 
 
 def test_generate_discovery_docs_creates_9(tmp_path: Path):
-    result = generate_discovery_docs("sicofav", tmp_path)
-    assert result["app"] == "SICOFAV"
+    result = generate_discovery_docs("fleet_ops_app", tmp_path)
+    assert result["app"] == "FLEET_OPS_APP"
     assert result["tier"] == "T0"
     assert len(result["docs"]) == 9
 
@@ -172,15 +172,15 @@ def test_generate_discovery_docs_creates_9(tmp_path: Path):
 
 
 def test_generate_skips_existing_without_overwrite(tmp_path: Path):
-    r1 = generate_discovery_docs("sicofav", tmp_path)
-    r2 = generate_discovery_docs("sicofav", tmp_path)  # sin overwrite
+    r1 = generate_discovery_docs("fleet_ops_app", tmp_path)
+    r2 = generate_discovery_docs("fleet_ops_app", tmp_path)  # sin overwrite
     skipped = [d for d in r2["docs"] if d["status"] == "skipped-exists"]
     assert len(skipped) == 9
 
 
 def test_generate_overwrite_true_rewrites(tmp_path: Path):
-    generate_discovery_docs("sicofav", tmp_path)
-    r2 = generate_discovery_docs("sicofav", tmp_path, overwrite=True)
+    generate_discovery_docs("fleet_ops_app", tmp_path)
+    r2 = generate_discovery_docs("fleet_ops_app", tmp_path, overwrite=True)
     written = [d for d in r2["docs"] if d["status"] == "written"]
     assert len(written) == 9
 
@@ -204,7 +204,7 @@ def test_pdf_flag_creates_pdfs_subdir(tmp_path: Path, monkeypatch):
 
     monkeypatch.setattr(gen_mod, "md_to_pdf", fake_md_to_pdf)
 
-    result = generate_discovery_docs("sicofav", tmp_path, pdf=True)
+    result = generate_discovery_docs("fleet_ops_app", tmp_path, pdf=True)
     pdf_dir = Path(result["pdf_dir"])
     assert pdf_dir.exists()
     assert pdf_dir.name == "pdfs"
@@ -220,7 +220,7 @@ def test_pdf_flag_without_weasyprint_reports_zero(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(gen_mod, "md_to_pdf",
                         lambda md, pdf, timeout=60: False)
 
-    result = generate_discovery_docs("sicofav", tmp_path, pdf=True)
+    result = generate_discovery_docs("fleet_ops_app", tmp_path, pdf=True)
     assert result["pdf_enabled"] is True
     assert result["pdf_generated"] == 0
     assert result["pdf_total"] == 9
@@ -232,7 +232,7 @@ def test_pdf_flag_without_weasyprint_reports_zero(tmp_path: Path, monkeypatch):
 
 def test_pdf_flag_false_no_pdf_dir(tmp_path: Path):
     """Sin --pdf, no existe subdirectorio pdfs/."""
-    result = generate_discovery_docs("sicofav", tmp_path, pdf=False)
+    result = generate_discovery_docs("fleet_ops_app", tmp_path, pdf=False)
     assert "pdf_enabled" not in result
     out_dir = Path(result["out_dir"])
     assert not (out_dir / "pdfs").exists()

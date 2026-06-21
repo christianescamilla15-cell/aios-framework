@@ -16,18 +16,18 @@ Templates para `aios governance request` · generan PDF + Markdown formal de sol
 
 ```python
 {
-    "app": "sicofav",                        # Nombre del aplicativo
-    "app_display": "SICOFAV",                # Display name
+    "app": "fleet_ops_app",                        # Nombre del aplicativo
+    "app_display": "FLEET_OPS_APP",                # Display name
     "app_id": "01",                          # Numeración 01-10
     "tier": "T0",                            # Tier asignado
     "requester": {
         "name": "Christian Hernández Escamilla",
-        "email": "chernandeze@aeromexico.com",
-        "role": "Líder técnico SICOFAV (eTribe)",
+        "email": "engineer@acmeair.com",
+        "role": "Líder técnico FLEET_OPS_APP (eTribe)",
     },
     "co_requester": {                        # Para BD-access · Read Only
         "name": "Víctor Hugo Araiza",
-        "email": "varaiza@aeromexico.com",
+        "email": "varaiza@acmeair.com",
     },
     "approval_chain": [                      # 5 firmas en cadena
         {"step": 1, "role": "PM", "name": "Luis Ertuche"},
@@ -35,7 +35,7 @@ Templates para `aios governance request` · generan PDF + Markdown formal de sol
     ],
     "request_date": "2026-04-28",
     "valid_for_days": 30,
-    "request_id": "GOV-SICOFAV-BD-20260428-001",  # ID único · audit trail
+    "request_id": "GOV-FLEET_OPS_APP-BD-20260428-001",  # ID único · audit trail
     "context": "...",                        # Contexto técnico
     "compliance_commitments": [...],         # LFPDPPP/SOX/PCI commitments
 }
@@ -70,7 +70,7 @@ Cada template Jinja2 es la versión generative de un PDF que ya armé manualment
 
 ## Templates futuros · v3.9.0+
 
-- `iam-role.j2` · creación IAM role AMX-R-{App}-{tipo}
+- `iam-role.j2` · creación IAM role ACME-R-{App}-{tipo}
 - `vpc-cidr.j2` · asignación CIDR + creación VPC
 - `adr-signature.j2` · solicitud firma ADR (Borde Arq)
 - `tier-reclassification.j2` · Re-clasificación TIER (caso SRG)

@@ -3,7 +3,7 @@
 v1.7.0 changes:
 - Multi-stack aware pre-commit (detects affected files' stack)
 - Comprehensive secrets patterns (15+ tokens · IPs · creds)
-- AMX policy check (debug=true · customErrors Off · ECS · etc.)
+- ACME policy check (debug=true · customErrors Off · ECS · etc.)
 - Combined "all-in-one" hook that runs lint + tests + secrets + policy
 - Better error messages with bypass instructions
 """
@@ -28,22 +28,22 @@ SECRETS_PATTERNS = [
     "ghs_",             # GitHub server
     "github_pat_",      # GitHub fine-grained
     "xoxb-",            # Slack bot
-    "ATOS5246",         # AMX-specific (NoShow vendor code)
+    "ATOS5246",         # ACME-specific (NoShow vendor code)
 ]
 
 
-# v1.7.0 · AMX policy patterns (configurable via .aios/policy.toml in future)
+# v1.7.0 · ACME policy patterns (configurable via .aios/policy.toml in future)
 AMX_POLICY_BLOCKERS = [
     (r'customErrors\s+mode\s*=\s*["\']Off["\']', "customErrors mode=Off (CWE-209) · prod expone stack traces"),
     (r'(?<!#)\s*compilation\s+debug\s*=\s*["\']true["\']', "compilation debug=true en .config · forbidden en prod"),
     (r'flight\w*\.flightNumber\s*=\s*["\']829["\']', "Vuelo 829 hardcoded (NoShow regression) · use PNR real"),
-    (r'amazonaws\.com/v1/[^"\']*ecs', "ECS endpoint detected · ECS PROHIBIDO por policy AMX"),
+    (r'amazonaws\.com/v1/[^"\']*ecs', "ECS endpoint detected · ECS PROHIBIDO por policy ACME"),
 ]
 
 
 HOOK_TEMPLATES = {
     "pre-commit": {
-        "description": "v1.7.0 · all-in-one: lint + tests + secrets + AMX policy",
+        "description": "v1.7.0 · all-in-one: lint + tests + secrets + ACME policy",
         "script": """#!/bin/sh
 # AIOS pre-commit hook v1.7.0
 # Bypass with: git commit --no-verify
@@ -78,12 +78,12 @@ if [ $SECRETS_FOUND -eq 1 ]; then
     FAIL=1
 fi
 
-# 4. AMX policy check (regex blockers)
-echo "[AIOS] AMX policy check..."
+# 4. ACME policy check (regex blockers)
+echo "[AIOS] ACME policy check..."
 POLICY_FAIL=0
 {policy_checks}
 if [ $POLICY_FAIL -eq 1 ]; then
-    echo "[AIOS] AMX policy violation · fix or bypass with --no-verify"
+    echo "[AIOS] ACME policy violation · fix or bypass with --no-verify"
     FAIL=1
 fi
 
@@ -205,14 +205,14 @@ def _build_test_cmd(stacks: List[str]) -> str:
 
 
 def _build_policy_checks() -> str:
-    """v1.7.0 · AMX policy regex blockers (per-pattern)."""
+    """v1.7.0 · ACME policy regex blockers (per-pattern)."""
     parts = ['CHANGED_FILES=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null)']
     for pattern, msg in AMX_POLICY_BLOCKERS:
         # Escape single quotes for shell
         msg_esc = msg.replace("'", "'\\''")
         pat_esc = pattern.replace("'", "'\\''")
         parts.append(f"""if [ -n "$CHANGED_FILES" ] && echo "$CHANGED_FILES" | xargs grep -lE '{pat_esc}' 2>/dev/null; then
-    echo "[AIOS] AMX policy: {msg_esc}"
+    echo "[AIOS] ACME policy: {msg_esc}"
     POLICY_FAIL=1
 fi""")
     return "\n".join(parts)

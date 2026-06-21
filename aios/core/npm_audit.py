@@ -9,7 +9,7 @@ Uso:
     aios npm-audit --root frontend/ --fail-on high
     aios npm-audit --root frontend/ --format json
 
-Diseñado para policies AMX frontend (Angular / React SPA):
+Diseñado para policies ACME frontend (Angular / React SPA):
 - CWE-1104 (EOL packages · Angular ≤16 ya cubierto por G-10)
 - CWE-1395 (dependency con vulnerability known)
 - CWE-937 (components with known vulnerabilities · OWASP A06:2021)

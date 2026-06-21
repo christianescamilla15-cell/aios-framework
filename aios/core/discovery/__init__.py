@@ -1,7 +1,7 @@
 """v3.7.0 · Discovery Package generator · 9 documentos Fase 1 via comandos.
 
 Entrega automatizada de los 9 documentos requeridos por el Flujo de Aprobación
-AMX (sesión arquitectos 20-abr · FASE 1 Diseño + FASE 3 Cyber handoff):
+ACME (sesión arquitectos 20-abr · FASE 1 Diseño + FASE 3 Cyber handoff):
 
 1. Resumen Técnico-Funcional (10 secciones)   · `discovery-resumen-tf`
 2. C4 Context L1 (sistema + actores)          · `analyze` (existente)

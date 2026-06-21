@@ -2,40 +2,40 @@
 
 **Versión:** v3.8.0 · 2026-04-29
 **Audiencia:** equipo eTribe (Christian · Oscar · Alonso · Gustavo · Víctor) y Borde Arq
-**Alcance:** programa Revenue Accounting Modernization 2026 · 8 aplicativos AMX
+**Alcance:** programa Finance Operations Modernization 2026 · 8 aplicativos ACME
 
 ---
 
 ## 1 · Qué es el Governance Pack
 
-5 subcomandos del CLI `aios` que automatizan los flujos de gobernanza AMX descritos en sesiones 23-abr a 28-abr 2026:
+5 subcomandos del CLI `aios` que automatizan los flujos de gobernanza ACME descritos en sesiones 23-abr a 28-abr 2026:
 
 | Subcomando | Propósito | Implementación |
 |---|---|---|
-| `aios governance check` | Valida reglas AMX (TIER · naming · approvals · stakeholders) sobre el repo del aplicativo | F2 Día 3 |
+| `aios governance check` | Valida reglas ACME (TIER · naming · approvals · stakeholders) sobre el repo del aplicativo | F2 Día 3 |
 | `aios governance request` | Genera Markdown + PDF formal de solicitud (BD · AWS · CMK · YubiKey · DL) + entry inicial al audit trail | F2 Día 4 |
 | `aios governance audit` | Audit trail SHA256-chained con 11 estados (state machine), detección de tampering, slippage tracking | F2 Día 5 |
 | `aios governance escalate` | Detecta firmas atoradas (>3/5/10d) y genera correo de escalación con auto-routing al destinatario apropiado | F2 Día 6 |
-| `aios tier classify` | Clasifica un aplicativo aplicando los 9 criterios oficiales AMX · detecta mismatches (ej: caso SRG declared T3 + PII Sí) | F2 Día 7 |
+| `aios tier classify` | Clasifica un aplicativo aplicando los 9 criterios oficiales ACME · detecta mismatches (ej: caso SRG declared T3 + PII Sí) | F2 Día 7 |
 
 ---
 
-## 2 · Flujo end-to-end · ejemplo SICOFAV
+## 2 · Flujo end-to-end · ejemplo FLEET_OPS_APP
 
 ### 2.1 · Generar solicitud BD legacy
 
 ```bash
-cd /path/to/01-sicofav
+cd /path/to/01-fleet_ops_app
 aios governance request \
     --type bd-access \
-    --app sicofav \
+    --app fleet_ops_app \
     --output ./governance-requests/ \
-    --requester chernandeze@aeromexico.com
+    --requester engineer@acmeair.com
 ```
 
 Esto produce:
-- `governance-requests/GOV-SICOFAV-BD-20260429-001.md` (Markdown · listo para revisar)
-- `governance-requests/GOV-SICOFAV-BD-20260429-001.pdf` (PDF formal · listo para enviar por correo)
+- `governance-requests/GOV-FLEET_OPS_APP-BD-20260429-001.md` (Markdown · listo para revisar)
+- `governance-requests/GOV-FLEET_OPS_APP-BD-20260429-001.pdf` (PDF formal · listo para enviar por correo)
 - `.aios/governance/audit-trail.jsonl` (entry inicial · estado `requested`)
 
 ### 2.2 · Trackear firmas conforme avanzan
@@ -43,7 +43,7 @@ Esto produce:
 ```bash
 # Luis Ertuche (PM) firma · estado pasa a 'in-review'
 aios governance audit \
-    --app sicofav \
+    --app fleet_ops_app \
     --update \
     --status in-review \
     --signer "Luis Ertuche" \
@@ -52,7 +52,7 @@ aios governance audit \
 
 # DBA custodio firma · estado pasa a 'partially-approved'
 aios governance audit \
-    --app sicofav \
+    --app fleet_ops_app \
     --update \
     --status partially-approved \
     --signer "DBA Miatech" \
@@ -72,7 +72,7 @@ Cada call:
 Cron diario (o manual) corre:
 
 ```bash
-aios governance escalate --app sicofav --auto
+aios governance escalate --app fleet_ops_app --auto
 ```
 
 Si alguna firma lleva >3 días sin avanzar:
@@ -85,7 +85,7 @@ Genera Markdown + PDF + nuevo entry `escalation_sent` en el audit trail (loop ce
 ### 2.4 · Validar reglas continuamente
 
 ```bash
-aios governance check --app sicofav --root .
+aios governance check --app fleet_ops_app --root .
 ```
 
 Detecta:
@@ -95,7 +95,7 @@ Detecta:
 
 ---
 
-## 3 · 9 criterios oficiales AMX (referencia)
+## 3 · 9 criterios oficiales ACME (referencia)
 
 `aios tier classify --app <name> --explain` muestra los 9 criterios evaluados:
 
@@ -143,9 +143,9 @@ Defaults en `approvals.yaml.slippage_thresholds`:
 
 | Severity | Días sin avance | Destinatario default | Override flag |
 |---|---|---|---|
-| warn | 3-5 | Luis Ertuche · `luisertuche@aeromexico.com` | `--to luis` |
-| escalate | 5-10 | Elías Tapia · `etapia@aeromexico.com` | `--to elias` |
-| emergency | >10 | Víctor Araiza · Eloisa · J.T. · `varaiza@aeromexico.com` | `--to sponsor` |
+| warn | 3-5 | Luis Ertuche · `luisertuche@acmeair.com` | `--to luis` |
+| escalate | 5-10 | Elías Tapia · `etapia@acmeair.com` | `--to elias` |
+| emergency | >10 | Víctor Araiza · Eloisa · J.T. · `varaiza@acmeair.com` | `--to sponsor` |
 
 Override manual disponible: `--to luis | elias | sponsor | victor | miguel-rachid | auto`.
 
@@ -162,7 +162,7 @@ Los 4 archivos canónicos en `aios/governance/rules/`:
 | `tiers.yaml` | 466 | 4 TIERs con 9 criterios + 8 reglas validación + 8 assignments |
 | `approvals.yaml` | 393 | Cadena 5 firmas + 11 chains by resource type + state machine + slippage thresholds |
 | `naming.yaml` | 353 | 5 naming patterns con regex + 8 AppPrefixes |
-| `stakeholders.yaml` | 494 | 5 eTribe + 30 AMX stakeholders + matriz contactos |
+| `stakeholders.yaml` | 494 | 5 eTribe + 30 ACME stakeholders + matriz contactos |
 
 Editar estos YAMLs y re-correr `aios governance check`/`aios tier classify` para validar.
 
@@ -184,12 +184,12 @@ aios governance request --type bd-access --app <new_app>
 aios governance audit --app <new_app>
 ```
 
-### 7.2 · Demo a stakeholders AMX
+### 7.2 · Demo a stakeholders ACME
 
 ```bash
-# 30 segundos · audit + check + tier classify de SICOFAV
-aios governance audit --app sicofav
-aios governance check --app sicofav --strict
+# 30 segundos · audit + check + tier classify de FLEET_OPS_APP
+aios governance audit --app fleet_ops_app
+aios governance check --app fleet_ops_app --strict
 aios tier classify --app all
 ```
 
@@ -217,5 +217,5 @@ Drifts pendientes: ninguno material. Ver `BACKLOG.md` para items futuros.
 ## 9 · Soporte
 
 - Slack canal eTribe (TBD)
-- Issues en `chernandeze_amx/aios-framework` (privado)
-- Owner: Christian Hernández Escamilla · `chernandeze@aeromexico.com`
+- Issues en `acme-team/aios-framework` (privado)
+- Owner: Christian Hernández Escamilla · `engineer@acmeair.com`

@@ -1,9 +1,9 @@
 ---
-displayName: AMX AIOS Unified v3.3
-description: Pack AMX unificado v3.3.1 · spec-driven dev + security gate (85 detectores · 28 CWEs) + cross-copy drift + PII runtime scan + ensemble OSS + LLM classifier RAG · compliant retro 20-abr
+displayName: ACME AIOS Unified v3.3
+description: Pack ACME unificado v3.3.1 · spec-driven dev + security gate (85 detectores · 28 CWEs) + cross-copy drift + PII runtime scan + ensemble OSS + LLM classifier RAG · compliant retro 20-abr
 keywords:
-  - aeromexico
-  - amx
+  - acmeair
+  - acme
   - aios
   - spec-driven
   - security
@@ -16,14 +16,14 @@ keywords:
   - pii-scan
 ---
 
-# AMX AIOS Unified Power · v3.3.1
+# ACME AIOS Unified Power · v3.3.1
 
-Pack unificado que expone **AIOS · Mythos · Arena · Nemesis** como un solo Power de Kiro. Cubre el ciclo completo de desarrollo moderno AMX · ahora con **4 detectores únicos vs SAST comercial** (drift · credential byte-identity · third-party exfil · runtime PII) + LLM classifier Nivel 2 con RAG.
+Pack unificado que expone **AIOS · Mythos · Arena · Nemesis** como un solo Power de Kiro. Cubre el ciclo completo de desarrollo moderno ACME · ahora con **4 detectores únicos vs SAST comercial** (drift · credential byte-identity · third-party exfil · runtime PII) + LLM classifier Nivel 2 con RAG.
 
 - **AIOS** (spec-driven + session management): router + spec generator + execution engine + context refresh
 - **Mythos** (security scanning): **85 detectores · 28 CWEs (100% únicos)** · 9 lenguajes
 - **Arena** (self-play validation): runner de adversarial testing contra TUTs
-- **Nemesis** (engagement scaffolding): catálogo 10 apps AMX · scaffold por quarter
+- **Nemesis** (engagement scaffolding): catálogo 10 apps ACME · scaffold por quarter
 
 Cumple retro 20-abr: sin ECS · sin SES · sin SNS · KMS + Akamai + observabilidad correlation-id.
 
@@ -32,7 +32,7 @@ Cumple retro 20-abr: sin ECS · sin SES · sin SNS · KMS + Akamai + observabili
 - `BUGFIX` · fix localizado + regression test
 - `FEATURE` · nueva capability end-to-end (requirements EARS → design → tasks)
 - `MIGRATION` · cambio de stack con paridad funcional
-- `LEGACY_MODERNIZATION` · refactor profundo con gates AMX
+- `LEGACY_MODERNIZATION` · refactor profundo con gates ACME
 
 **Nota UI (BUG-001):** Kiro expone sólo `Build a Feature` / `Fix a Bug` aunque este pack declare 4. Workaround: describe intent explícitamente ("LEGACY_MODERNIZATION · refactor de …") y el router interno resuelve correctamente.
 
@@ -41,13 +41,13 @@ Cumple retro 20-abr: sin ECS · sin SES · sin SNS · KMS + Akamai + observabili
 | Tool | Framework | Uso |
 |---|---|---|
 | `security_scan(project_path)` | Mythos | Corre scanner embebido · retorna findings + severity · v3.3.1 detecta PII logs · host key · SMTP TLS · substring identity · `.Hours` misuse · IP literals |
-| `release_gate_check(project_path)` | AIOS | Release gate completo · 10 checks AMX (incluye behavior preservation · SITL queue · domain ontology) |
+| `release_gate_check(project_path)` | AIOS | Release gate completo · 10 checks ACME (incluye behavior preservation · SITL queue · domain ontology) |
 | `arena_list_targets()` | Arena | Lista TUTs disponibles |
 | `arena_run(target, max_rounds, target_url?)` | Arena | Corre self-play contra un TUT |
-| `engagement_list()` | Nemesis | Lista catálogo 10 apps AMX |
+| `engagement_list()` | Nemesis | Lista catálogo 10 apps ACME |
 | `engagement_scaffold(app_id, quarter?)` | Nemesis | Genera scaffold del engagement |
 | `aggregate_report(project_path)` | AIOS | Consolida reporte markdown de la sesión |
-| `forbidden_literals_suggest()` | AIOS | Sugiere literales prohibidos (policy AMX) |
+| `forbidden_literals_suggest()` | AIOS | Sugiere literales prohibidos (policy ACME) |
 
 ## CLI capabilities nuevas (v2.2 → v3.3 · no-MCP · invocables vía Bash)
 
@@ -96,7 +96,7 @@ El Power expone **steering rules** (carpeta `steering/`) que el agente sigue aut
 
 - **Antes de cada tarea** (`02_session_boot.md`): el agente puede invocar `forbidden_literals_suggest` para cargar policy
 - **Después de cambios significativos** (`04_execution.md`): invocar `security_scan` antes de commit
-- **Antes de merge/release** (`amx-constraints-retro-20abr.md`): invocar `release_gate_check`
+- **Antes de merge/release** (`acme-constraints-retro-20abr.md`): invocar `release_gate_check`
 - **Al cerrar sesión** (`05_context_refresh.md`): invocar `aggregate_report` para persistir estado
 - **Validación cross-copy** (pre-deploy): correr `aios drift --source source-tree --compare build-output` desde Bash
 - **Validación PII en logs productivos**: `aios runtime-data --root logs/` desde Bash pre-upload
@@ -119,7 +119,7 @@ El Power expone **steering rules** (carpeta `steering/`) que el agente sigue aut
 - **Security detectors:** 85 (+18% vs v1.7.1)
 - **CWE coverage:** 28/28 (100% únicos vs 21/28 · 75% antes)
 - **Stacks soportados:** AWS · CI/CD · COBOL · Docker · .NET · Java · Multiagent · PHP · Python
-- **Policies:** `default` · `enterprise` · `amx-revenue-accounting` (26 patterns con multi-match v3.1)
+- **Policies:** `default` · `enterprise` · `acme-finance_operations` (26 patterns con multi-match v3.1)
 
 ### Coverage medido vs auditor humano senior (validado por 2 clean sessions Opus)
 
@@ -154,13 +154,13 @@ Narrativa defendible: 2-3x mejor que SAST comercial sobre código real · SIN pr
 - `aios-overview.md` · overview del framework
 - `aios-stacks-auto-detection.md` · detección automática de stack
 - `aios-modes.md` · detalle de los 4 modos
-- `amx-constraints-retro-20abr.md` · constraints AMX post retro 20-abr
+- `acme-constraints-retro-20abr.md` · constraints ACME post retro 20-abr
 
 ## Audit Bridge · integración con kcb (kiro-claude-bridge)
 
 Los 8 tools están instrumentados para emitir eventos `mcp_tool_call` (start/end con `correlation_id` + `duration_ms`) al `kcb bridge`. Esto permite auditar end-to-end cada invocación MCP hecha por Kiro — factorizaciones, scans, release gates.
 
-**Cómo activarlo**: edita el `mcp.json` instalado (`~/.kiro/powers/installed/amx-aios-unified/mcp.json`) e inyecta las env vars:
+**Cómo activarlo**: edita el `mcp.json` instalado (`~/.kiro/powers/installed/acme-aios-unified/mcp.json`) e inyecta las env vars:
 
 ```json
 {
@@ -204,5 +204,5 @@ Después: `Ctrl+Shift+P` → `Developer: Reload Window` en Kiro para que el MCP 
 
 - **Autor:** Christian Hernández Escamilla · eTride
 - **Repo fuente:** `github.com/christianescamilla15-cell/aios-framework` (rama `feat/am-kiro-compat` · tag `v3.3.1`)
-- **Compatible con:** AM-KIRO framework AMX (`github.com/OYN-AMX/am-kiro` · sesión Ciber 20-abr)
+- **Compatible con:** AM-KIRO framework ACME (`github.com/OYN-ACME/am-kiro` · sesión Ciber 20-abr)
 - **Versión:** 3.3.1

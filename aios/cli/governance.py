@@ -1,7 +1,7 @@
 """AIOS Governance CLI · 4 subcomandos del módulo Governance Pack v3.8.0
 
 Subcomandos expuestos vía aios CLI:
-  aios governance check    --app <app>             · valida reglas AMX
+  aios governance check    --app <app>             · valida reglas ACME
   aios governance request  --type <type> --app ... · genera PDF formal
   aios governance audit    --app <app> [--update]  · audit trail 5 firmas
   aios governance escalate --app <app> --to <who>  · escalación slippage
@@ -82,9 +82,9 @@ class CheckReport:
 # ---------------------------------------------------------------------------
 
 def cmd_check(args: argparse.Namespace) -> int:
-    """`aios governance check --app sicofav --root /path`
+    """`aios governance check --app fleet_ops_app --root /path`
 
-    Valida que el aplicativo cumple las reglas AMX:
+    Valida que el aplicativo cumple las reglas ACME:
       - TIER assignment correcto vs criterios oficiales (tiers.yaml)
       - Naming patterns (IAM · CMK · Secret · KMS-aws-managed prohibition)
       - Status de las 5 firmas en cadena (cuando aplica · audit-trail.jsonl)
@@ -142,7 +142,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_request(args: argparse.Namespace) -> int:
-    """`aios governance request --type bd-access --app sicofav --requester chernandeze@aeromexico.com`
+    """`aios governance request --type bd-access --app fleet_ops_app --requester engineer@acmeair.com`
 
     Genera PDF + Markdown formal + audit trail entry inicial.
 
@@ -218,7 +218,7 @@ def cmd_request(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_audit(args: argparse.Namespace) -> int:
-    """`aios governance audit --app sicofav [--update --signer "..." --status approved]`
+    """`aios governance audit --app fleet_ops_app [--update --signer "..." --status approved]`
 
     Modos:
       - Lectura (default): muestra tabla con estado actual de todas las solicitudes del app
@@ -371,7 +371,7 @@ def _print_audit_table(trail, app: str, args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_escalate(args: argparse.Namespace) -> int:
-    """`aios governance escalate --app sicofav [--to elias | --auto]`
+    """`aios governance escalate --app fleet_ops_app [--to elias | --auto]`
 
     Genera correo de escalación cuando una firma se atora >5 días:
       - Detección automática de slippage (vs thresholds en approvals.yaml)
@@ -489,9 +489,9 @@ def cmd_escalate(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_tier_classify(args: argparse.Namespace) -> int:
-    """`aios tier classify --app sicofav [--explain]`
+    """`aios tier classify --app fleet_ops_app [--explain]`
 
-    Clasifica un aplicativo aplicando los 9 criterios oficiales AMX (tiers.yaml).
+    Clasifica un aplicativo aplicando los 9 criterios oficiales ACME (tiers.yaml).
 
     Criterios evaluados:
       1. Impacto ingresos (alto/medio/bajo/muy bajo)
@@ -603,13 +603,13 @@ def add_governance_subcommand(subparsers: argparse._SubParsersAction) -> None:
 
     p = subparsers.add_parser(
         "governance",
-        help="AMX Governance Pack · check · request · audit · escalate (v3.8.0)",
+        help="ACME Governance Pack · check · request · audit · escalate (v3.8.0)",
     )
     sub = p.add_subparsers(dest="governance_action", required=True)
 
     # check
-    p_check = sub.add_parser("check", help="Valida reglas AMX para un aplicativo")
-    p_check.add_argument("--app", required=True, help="App key (sicofav · robot · etc.)")
+    p_check = sub.add_parser("check", help="Valida reglas ACME para un aplicativo")
+    p_check.add_argument("--app", required=True, help="App key (fleet_ops_app · robot · etc.)")
     p_check.add_argument("--root", default=".", help="Path raíz del aplicativo")
     p_check.add_argument("--strict", action="store_true", help="Falla en WARN · no solo FAIL")
     p_check.add_argument("--format", choices=["text", "json"], default="text")
@@ -659,7 +659,7 @@ def add_governance_subcommand(subparsers: argparse._SubParsersAction) -> None:
     # escalate
     p_esc = sub.add_parser("escalate", help="Genera correo escalación slippage")
     p_esc.add_argument("--app", required=True,
-                       help="App key (sicofav · robot · ... · 'all' para todos)")
+                       help="App key (fleet_ops_app · robot · ... · 'all' para todos)")
     p_esc.add_argument(
         "--to",
         choices=["luis", "elias", "sponsor", "victor", "miguel-rachid", "auto"],
@@ -720,7 +720,7 @@ def get_app_metadata(app: str) -> dict[str, Any]:
 def list_supported_apps() -> list[str]:
     """Retorna las keys del scope vigente · v3.8.2 excluye CFDIs (out_of_scope_29abr).
 
-    Catálogo histórico completo: ['sicofav', 'arc', 'bsp', 'cfdis', 'srg', 'asr', 'robot', 'noshow']
+    Catálogo histórico completo: ['fleet_ops_app', 'arc', 'bsp', 'cfdis', 'srg', 'asr', 'robot', 'noshow']
     Scope vigente (7 apps · post-29abr): omite 'cfdis'.
     """
     from ..governance.loader import load_rules

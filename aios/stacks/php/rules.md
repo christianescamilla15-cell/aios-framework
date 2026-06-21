@@ -43,8 +43,8 @@
 ## CI/CD
 - GitHub Actions / GitLab CI
 - Composer install + tests
-- 4 mandatory pre-prod scans (AMX policy)
-- Container Docker (NO ECS · constraint AMX)
+- 4 mandatory pre-prod scans (ACME policy)
+- Container Docker (NO ECS · constraint ACME)
 
 ## Framework best practices
 

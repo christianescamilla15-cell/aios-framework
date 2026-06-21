@@ -1,5 +1,5 @@
 """
-AIOS · AM-KIRO bridge · simula el CLI oficial am-kiro mientras no hay acceso al repo OYN-AMX/am-kiro.
+AIOS · AM-KIRO bridge · simula el CLI oficial am-kiro mientras no hay acceso al repo OYN-ACME/am-kiro.
 
 Funciones:
     install(pack_name) · instala pack (lee manifest · resuelve DAG · copia archivos a .kiro/)

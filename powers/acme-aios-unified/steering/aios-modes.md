@@ -24,7 +24,7 @@ Phased cloud migration. Typical phases:
 - Phase 4 · Validation (scans · load tests)
 - Phase 5 · Cutover (blue-green deployment)
 
-When AMX policies active: enforce óptimo → LeanIX C4 → ADR → Borde Arq → Escaneos → Miguel Rachid gate order before any production release.
+When ACME policies active: enforce óptimo → LeanIX C4 → ADR → Borde Arq → Escaneos → Miguel Rachid gate order before any production release.
 
 ## LEGACY_MODERNIZATION
 Stabilize and modernize simultaneously:

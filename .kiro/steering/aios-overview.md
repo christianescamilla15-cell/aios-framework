@@ -4,7 +4,7 @@ inclusion: always
 
 # AIOS · AI Engineering Operating System
 
-AIOS is a spec-driven development framework with agent orchestration · modeled after Kiro-style workflows · extended with 72 security detectors and AMX governance compliance.
+AIOS is a spec-driven development framework with agent orchestration · modeled after Kiro-style workflows · extended with 72 security detectors and ACME governance compliance.
 
 ## Core capabilities exposed when this pack is installed
 
@@ -23,12 +23,12 @@ When this pack is installed via `am-kiro install aios`:
 3. MCP server (`aios.mcp_server`) becomes available to the Kiro Agent
 4. Settings in `.kiro/settings/` merge with existing project config
 
-## AMX-specific behavior
+## ACME-specific behavior
 
-When the workspace detects AMX policies (`policies/amx-revenue-accounting/`) · AIOS enforces:
+When the workspace detects ACME policies (`policies/acme-finance_operations/`) · AIOS enforces:
 - ECS service prohibition (must use EKS or Serverless)
-- SES + SNS prohibition (must use Relay interno AMX)
+- SES + SNS prohibition (must use Relay interno ACME)
 - KMS 1 per service (no shared CMKs)
 - Akamai mandatory at edge for internet-facing apps
-- Role naming prefix `amx-r-*` (enforced by SCPs)
+- Role naming prefix `acme-r-*` (enforced by SCPs)
 - Scan sequence before production: WIZ → Veracode → Prisma → Tenable

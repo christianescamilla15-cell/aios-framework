@@ -65,11 +65,11 @@ class AuditEntry:
 
     # Identificación
     entry_id: str           # ULID o UUID v7 · ordenable por tiempo
-    request_id: str         # ID de la solicitud (ej. GOV-SICOFAV-BD-20260428-001)
+    request_id: str         # ID de la solicitud (ej. GOV-FLEET_OPS_APP-BD-20260428-001)
     timestamp: str          # ISO 8601 UTC
 
     # Contexto
-    app: str                # sicofav · robot · etc.
+    app: str                # fleet_ops_app · robot · etc.
     resource_type: str      # bd-access · aws-account · etc. (matchea approvals.yaml)
     requested_by: str       # Email del solicitante
 
@@ -114,12 +114,12 @@ class AuditTrail:
     Usage:
         trail = AuditTrail(Path(".aios/governance/audit-trail.jsonl"))
         trail.append_entry(
-            request_id="GOV-SICOFAV-BD-001",
-            app="sicofav",
+            request_id="GOV-FLEET_OPS_APP-BD-001",
+            app="fleet_ops_app",
             resource_type="bd-access",
-            requested_by="chernandeze@aeromexico.com",
+            requested_by="engineer@acmeair.com",
             state_to=AuditState.REQUESTED,
-            actor="chernandeze@aeromexico.com",
+            actor="engineer@acmeair.com",
             actor_role="requester",
         )
 
@@ -127,7 +127,7 @@ class AuditTrail:
         is_valid = trail.verify_chain()  # True si SHA chain íntegra
 
         # Lectura
-        entries = trail.list_entries(request_id="GOV-SICOFAV-BD-001")
+        entries = trail.list_entries(request_id="GOV-FLEET_OPS_APP-BD-001")
     """
 
     def __init__(self, path: Path):
@@ -404,7 +404,7 @@ def generate_request_id(
     """Genera request ID determinístico.
 
     Formato: GOV-{APP}-{TYPE}-{YYYYMMDD}-{NNN}
-    Ejemplo: GOV-SICOFAV-BD-20260428-001
+    Ejemplo: GOV-FLEET_OPS_APP-BD-20260428-001
     """
     ts = timestamp or datetime.utcnow()
     type_short = {

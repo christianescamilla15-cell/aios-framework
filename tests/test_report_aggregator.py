@@ -72,13 +72,13 @@ def test_build_report_reads_last_arena_from_memory(tmp_path):
     memory = tmp_path / "ai-memory" / "security_findings.md"
     memory.write_text(
         "# Security findings · Arena runs\n\n"
-        "## Run 2026-04-19T15:00:00+00:00 · amx-mini-refund\n\n"
+        "## Run 2026-04-19T15:00:00+00:00 · acme-mini-refund\n\n"
         "- **Verdict:** `MYTHOS_WINS` [OK]\n"
         "- **Rounds completed:** 6\n"
     )
     report = build_report(tmp_path)
     arena_sec = next(s for s in report.sections if s.title == "Last Arena self-play run")
-    assert "amx-mini-refund" in arena_sec.body
+    assert "acme-mini-refund" in arena_sec.body
     assert "MYTHOS_WINS" in arena_sec.body
     assert arena_sec.status == "pass"
 

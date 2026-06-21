@@ -58,7 +58,7 @@ def test_iterate_suppression_via_rule_alias(tmp_path):
 
 def test_iterate_suppression_via_cwe_when_rule_id_differs(tmp_path):
     """v3.7.4 · entry con rule_id="CWE-89" cubre findings con ese CWE
-    aunque el rule_id concreto sea distinto. Patrón observado en SICOFAV
+    aunque el rule_id concreto sea distinto. Patrón observado en FLEET_OPS_APP
     (suppression por CWE-547 cubre HARDCODED-INTERNAL-HOSTNAME)."""
     (tmp_path / "bad.py").write_text('cursor.execute(f"SELECT * FROM t WHERE id={x}")\n')
     _suppress(tmp_path, [{

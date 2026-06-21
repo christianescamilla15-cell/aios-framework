@@ -180,11 +180,11 @@ def test_parse_cobertura_merged_multiple_files(tmp_path):
     el de mayor lines_covered."""
     f1 = tmp_path / "f1.xml"
     f2 = tmp_path / "f2.xml"
-    f1.write_text(_cobertura_with_classes("Sicofav.Core", line_hits=5, line_total=10))
-    f2.write_text(_cobertura_with_classes("Sicofav.Core", line_hits=8, line_total=10))
+    f1.write_text(_cobertura_with_classes("FleetOpsApp.Core", line_hits=5, line_total=10))
+    f2.write_text(_cobertura_with_classes("FleetOpsApp.Core", line_hits=8, line_total=10))
     from aios.core.coverage_gate import parse_cobertura_merged
     report = parse_cobertura_merged([f1, f2])
-    core = [p for p in report.packages if p.name == "Sicofav.Core"]
+    core = [p for p in report.packages if p.name == "FleetOpsApp.Core"]
     assert len(core) == 1
     assert core[0].lines_covered == 8
 

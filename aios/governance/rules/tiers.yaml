@@ -1,6 +1,6 @@
-# AIOS Governance · Reglas oficiales TIER · Aeroméxico
+# AIOS Governance · Reglas oficiales TIER · AcmeAir
 # Fuente autoritativa: Tiers 2.xlsx · sheet Tier_definicion · equipo Domini
-# Validador final: Roberto Carlos Osorio + José Ángel León (Cumplimiento AMX)
+# Validador final: Roberto Carlos Osorio + José Ángel León (Cumplimiento ACME)
 # Última actualización: 2026-04-28 · sesión Fernando Pérez Izquierdo + Rigo Ferqui (27-abr 03:30 PM)
 # Versión: 1.0 · catálogo base v3.8.0
 
@@ -9,9 +9,9 @@ last_updated: "2026-04-28"
 source_document: "Tiers 2.xlsx · sheet Tier_definicion"
 authoritative_validators:
   - name: "Roberto Carlos Osorio"
-    role: "Equipo arquitectura/cumplimiento AMX · DECISOR final TIER + agrupación T2"
+    role: "Equipo arquitectura/cumplimiento ACME · DECISOR final TIER + agrupación T2"
   - name: "José Ángel León"
-    role: "Equipo cumplimiento AMX · Co-evaluador con Roberto Carlos"
+    role: "Equipo cumplimiento ACME · Co-evaluador con Roberto Carlos"
   - name: "Domini"
     role: "Dueño catálogo y formatos de evaluación TIER"
 
@@ -65,7 +65,7 @@ tiers:
     estrategia_migracion: "Refactoring"
     nivel_riesgo_aceptado: "No críticas, no altas. Cumplimiento SLAs."
 
-    # AMX-specific (derivado sesión Fernando)
+    # ACME-specific (derivado sesión Fernando)
     multiregion_required: true
     multiregion_pattern: "Activo-Activo Virginia (us-east-1) + Oregon (us-west-2)"
     yubikey_required: true  # Admin role
@@ -255,19 +255,19 @@ validation_rules:
     detector_id: "G-NEW-TIER-DECOMISO-MISMATCH"
 
 # ---------------------------------------------------------------------------
-# Asignación TIER · 8 aplicativos Revenue Accounting (post scope-change 27-abr)
+# Asignación TIER · 8 aplicativos Finance Operations (post scope-change 27-abr)
 # ---------------------------------------------------------------------------
 
 assignments:
 
-  sicofav:
+  fleet_ops_app:
     app_id: "01"
-    name: "SICOFAV"
+    name: "FLEET_OPS_APP"
     description: "Sistema de Conciliación Factura BSP"
     tier: "T0"
     tier_status: "confirmed"
     rationale:
-      - "Alto impacto ingresos: revenue accounting · cierre mensual · facturación CFDIs SAT"
+      - "Alto impacto ingresos: finance_operations · cierre mensual · facturación CFDIs SAT"
       - "SOX critical: audit trail TIMESTAMP(6) · auditoría externa"
       - "PII/PCI Sí: CFDIs con RFC + datos pasajeros"
       - "BIA exige RTO 15m / RPO 5m (alineado T0 0-10min)"
@@ -298,7 +298,7 @@ assignments:
     rationale:
       - "Medio-alto impacto ingresos: canal global IATA agencias"
       - "PII Sí: datos agencias + RFC"
-      - "Downstream Robot · feed SICOFAV"
+      - "Downstream Robot · feed FLEET_OPS_APP"
       - "Activo-Pasivo multi-región · failover sí, no Activo-Activo"
       - "Skeleton hoy · pending Miatech (Juanito coord)"
     owner_etribe: "Gustavo Magallanes (post-liberación Comisiones)"
@@ -309,17 +309,17 @@ assignments:
     name: "CFDIs"
     description: "FEBOL_MX_DescargaMasivaSAT"
     tier: "T1"
-    tier_status: "out_of_scope_29abr"  # decisión LJ 29-abr · custodia AMX TI as-is
-    out_of_scope_reason: "29-abr-2026 decisión LJ · CFDIs sin refactor · custodia AMX TI Eban Valdo + Corato Ledo opera as-is · programa pasa de 8 a 7 apps · agrupación AWS pasa de 5 a 4 cuentas (sin amx-revacc-cfdis)"
+    tier_status: "out_of_scope_29abr"  # decisión LJ 29-abr · custodia ACME TI as-is
+    out_of_scope_reason: "29-abr-2026 decisión LJ · CFDIs sin refactor · custodia ACME TI Eban Valdo + Corato Ledo opera as-is · programa pasa de 8 a 7 apps · agrupación AWS pasa de 5 a 4 cuentas (sin acme-revacc-cfdis)"
     out_of_scope_decision_date: "2026-04-29"
     out_of_scope_decision_by: "LJ"
     rationale:
       - "Alto impacto operación: cumplimiento fiscal SAT · LFPDPPP regulatorio"
       - "PII Sí: RFCs + datos emisor/receptor"
       - "Retención 7 años SAT + Object Lock COMPLIANCE"
-      - "Custodia AMX TI: Eban Valdo Flores + Corato Ledo (NO DxC · NO Miatech)"
+      - "Custodia ACME TI: Eban Valdo Flores + Corato Ledo (NO DxC · NO Miatech)"
       - "OUT del refactor 29-abr · pre-existing system continues as-is"
-    owner_etribe: "Alonso Montiel (apoya · custodia AMX TI · ahora liberado del scope)"
+    owner_etribe: "Alonso Montiel (apoya · custodia ACME TI · ahora liberado del scope)"
     owner_amx: "Eban Valdo Flores · Corato Ledo"
 
   srg:
@@ -332,7 +332,7 @@ assignments:
     promotion_reason: "T3 prohíbe PCI/PII por definición · SRG maneja RFCs (PII Sí) · descalificación automática"
     promotion_signed_by: "Israel Miguel González Sandoval (Borde Arq) · pendiente firma 28-abr"
     rationale:
-      - "NO califica T3 por definición: tabla AMX dice T3 = PCI/PII No · SRG maneja RFCs (PII Sí)"
+      - "NO califica T3 por definición: tabla ACME dice T3 = PCI/PII No · SRG maneja RFCs (PII Sí)"
       - "Riesgo técnico EOL: .NET 7 EOL 2024-05 + Angular 15 EOL 2024-05"
       - "31 HIGH AIOS findings: CWE-522 plaintext · CWE-521 RequiredLength=1 · CWE-295 TrustServerCertificate"
       - "Medio impacto: garantías agencias · respaldo de ventas"
@@ -381,7 +381,7 @@ assignments:
       - "Medio impacto ingresos: revenue post-vuelo (no real-time)"
       - "PII Sí: PNRs en logs prod (3,697 detectados · ~2.3M extrapolados)"
       - "Bugs revenue net-new: DR-25 (.Hours vs .TotalHours) + DR-18 (substring matching pasajeros)"
-      - "Custodia DxC: NO en BO-AMX · código en Arquitectura_Aeromexico/apps_code/10_noshow"
+      - "Custodia DxC: NO en BO-ACME · código en Arquitectura_AcmeAir/apps_code/10_noshow"
       - "Promoción T1 justificable si revenue impact cuantificado por Elías + Javi Toledo"
     owner_etribe: "Alonso Montiel (lead)"
     owner_amx: "Elías Tapia · Javi Toledo · Braulio"
@@ -405,24 +405,24 @@ aws_account_model:
   total_aws_accounts: 18  # 6 dedicated × 3 env + 1 shared × 3 env
 
   dedicated:
-    - app: "sicofav"
+    - app: "fleet_ops_app"
       tier: "T0"
-      naming: "amx-revacc-sicofav-{des/qa/prod}"
+      naming: "acme-revacc-fleet_ops_app-{des/qa/prod}"
     - app: "robot"
       tier: "T0"
-      naming: "amx-revacc-robot-{des/qa/prod}"
+      naming: "acme-revacc-robot-{des/qa/prod}"
     - app: "bsp"
       tier: "T1"
-      naming: "amx-revacc-bsp-{des/qa/prod}"
+      naming: "acme-revacc-bsp-{des/qa/prod}"
     - app: "arc"
       tier: "T1"
-      naming: "amx-revacc-arc-{des/qa/prod}"
+      naming: "acme-revacc-arc-{des/qa/prod}"
     - app: "cfdis"
       tier: "T1"
-      naming: "amx-revacc-cfdis-{des/qa/prod}"
+      naming: "acme-revacc-cfdis-{des/qa/prod}"
 
   shared:
-    - account_naming: "amx-revacc-t2-{des/qa/prod}"
+    - account_naming: "acme-revacc-t2-{des/qa/prod}"
       tier: "T2"
       apps_consolidated:
         - "srg"
@@ -434,13 +434,13 @@ aws_account_model:
 
   cmk_per_account: 5
   cmk_total_program: 30  # 5 × 6 dedicated accounts (T2 shared cuenta separada)
-  cmk_naming_pattern: "amx-kms-{app}-{secrets|aurora|s3-cfdis|logs|ebs}"
+  cmk_naming_pattern: "acme-kms-{app}-{secrets|aurora|s3-cfdis|logs|ebs}"
 
   yubikey_total: 1  # 1 por persona admin (Christian) · cubre las 18 cuentas
   yubikey_owner: "Christian Hernández Escamilla"
 
 # ---------------------------------------------------------------------------
-# Notas de cementación · cementado tras 8 sesiones SICOFAV (T1-T8)
+# Notas de cementación · cementado tras 8 sesiones FLEET_OPS_APP (T1-T8)
 # ---------------------------------------------------------------------------
 
 cementation_notes:
@@ -455,15 +455,15 @@ cementation_notes:
     efecto observable es gate real."
 
   source_sesion_fernando: |
-    Sesión Solution Architects AMX · 27-abr-2026 03:30 PM
+    Sesión Solution Architects ACME · 27-abr-2026 03:30 PM
     Participantes: Jose Fernando Pérez Izquierdo + Rigo Ferqui + Luis Ertuche +
                    Christian Hernández + Juan Carlos Vázquez Lorenzo + Gerardo Téllez Pacheco
     Duración: 25 min
     Output: reglas T2 max 6 apps · 3 perfiles IAM · YubiKey 1/persona ·
-            DL amcssolutionarchitects@aeromexico.com · Service Catalog AMX
+            DL amcssolutionarchitects@acmeair.com · Service Catalog ACME
 
   imagen_3_perfiles_iam: |
-    Imagen oficial AMX 28-abr 2026 confirma 3 perfiles IAM:
+    Imagen oficial ACME 28-abr 2026 confirma 3 perfiles IAM:
     - Administrador (FullAccess) · YubiKey física obligatoria
     - Desarrollador (Power User) · sin YubiKey · NO modifica IAM/VPC/Organizations
     - Consultor/Soporte (Read Only) · monitoreo · escalación

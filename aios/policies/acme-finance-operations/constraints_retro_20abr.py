@@ -1,36 +1,36 @@
 """
-AMX Revenue Accounting · constraints adicionales derivados de retro arquitectos 20-abr-2026.
+ACME Finance Operations · constraints adicionales derivados de retro arquitectos 20-abr-2026.
 
 Aplica restricciones descubiertas en las sesiones con:
-- Antonio Hernández Oropeza (arquitecto AWS AMX)
-- Pedro Emmanuel Abaonza (arquitecto AMX)
+- Antonio Hernández Oropeza (arquitecto AWS ACME)
+- Pedro Emmanuel Abaonza (arquitecto ACME)
 - Israel Miguel González Sandoval (principal Borde de Arquitectura)
 - Martín Alexis Martínez Hernández (líder madurez DevOps/SRE)
 - Rigoberto Texmayer Gaona (Corp Solutions · pipelines)
-- Miguel Rachid (Gerente Ciberseguridad AMX)
+- Miguel Rachid (Gerente Ciberseguridad ACME)
 
-Carga como módulo del policy amx-revenue-accounting · enriquece las reglas existentes.
+Carga como módulo del policy acme-finance_operations · enriquece las reglas existentes.
 """
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
 
 # ---------------------------------------------------------------------------
-# Servicios AWS prohibidos en AMX México
+# Servicios AWS prohibidos en ACME México
 # ---------------------------------------------------------------------------
 PROHIBITED_AWS_SERVICES = {
     "ECS": {
         "alternative": "EKS (Kubernetes)",
-        "reason": "ECS is explicitly prohibited in AMX Mexico per retro 20-abr-2026 (Antonio)",
+        "reason": "ECS is explicitly prohibited in ACME Mexico per retro 20-abr-2026 (Antonio)",
         "severity": "CRITICAL",
     },
     "SES": {
-        "alternative": "Relay interno AMX",
-        "reason": "SES prohibited for transactional email · use AMX internal relay",
+        "alternative": "Relay interno ACME",
+        "reason": "SES prohibited for transactional email · use ACME internal relay",
         "severity": "HIGH",
     },
     "SNS_FOR_EMAIL": {
-        "alternative": "Relay interno AMX",
+        "alternative": "Relay interno ACME",
         "reason": "SNS not allowed for email notifications · events-only use",
         "severity": "HIGH",
     },
@@ -43,7 +43,7 @@ PROHIBITED_AWS_SERVICES = {
 KMS_RULES = {
     "one_key_per_service": True,
     "no_shared_cmk": True,
-    "provisioning_channels": ["GateOne portal autoservicio", "AMX Chat Service Desk"],
+    "provisioning_channels": ["GateOne portal autoservicio", "ACME Chat Service Desk"],
     "requires": [
         "correo_visto_bueno_lider_amx_previo",
         "captura_correo_adjunta_ticket",
@@ -53,10 +53,10 @@ KMS_RULES = {
 
 
 # ---------------------------------------------------------------------------
-# Roles IAM · prefijo amx-r-* enforced por SCPs
+# Roles IAM · prefijo acme-r-* enforced por SCPs
 # ---------------------------------------------------------------------------
 IAM_ROLE_RULES = {
-    "required_prefix": "amx-r-",
+    "required_prefix": "acme-r-",
     "enforced_by": "SCPs (Service Control Policies)",
     "two_principal_roles": {
         "ATR": {
@@ -91,11 +91,11 @@ CYBER_ACCEPTANCE_STANDARD = "practically no high/critical vulnerabilities"
 PRE_PROD_GATES = [
     {"id": 1, "gate": "óptimo · alta proyecto", "contact": "Carina"},
     {"id": 2, "gate": "Diagramas C4 en LeanIX", "contact": "Borde Arquitectura"},
-    {"id": 3, "gate": "ADR con opción A vs B", "contact": "arq AMX"},
+    {"id": 3, "gate": "ADR con opción A vs B", "contact": "arq ACME"},
     {"id": 4, "gate": "Borde de Arquitectura aprobación", "contact": "Israel Miguel González Sandoval"},
-    {"id": 5, "gate": "Cuenta AWS AMX", "contact": "Víctor Araiza (líder AMX)", "sla_hours": 24},
+    {"id": 5, "gate": "Cuenta AWS ACME", "contact": "Víctor Araiza (líder ACME)", "sla_hours": 24},
     {"id": 6, "gate": "VPC + subnets setup", "contact": "Diego Zarate"},
-    {"id": 7, "gate": "KMS tickets (1 por servicio)", "contact": "Antonio H. Oropeza + líder AMX"},
+    {"id": 7, "gate": "KMS tickets (1 por servicio)", "contact": "Antonio H. Oropeza + líder ACME"},
     {"id": 8, "gate": "Escaneos CYBER (secuencia)", "contact": "Miguel Rachid + equipo CYBER"},
     {"id": 9, "gate": "Miguel Rachid gate final", "contact": "Miguel Rachid"},
 ]
@@ -118,7 +118,7 @@ TIER_ARCHITECTURE = {
         "description": "Apps satelitales críticas",
         "mandatory_architecture": ["EKS (Kubernetes)", "Serverless (Lambda)"],
         "ec2_allowed": False,
-        "typical_apps": ["SICOFAV", "ARC", "BSP", "CFDIs", "NoShow"],
+        "typical_apps": ["FLEET_OPS_APP", "ARC", "BSP", "CFDIs", "NoShow"],
     },
     "T2": {
         "description": "Operación normal · menor criticidad",
@@ -135,25 +135,25 @@ TIERS_DOCUMENT_LOCATION = {
 
 
 # ---------------------------------------------------------------------------
-# Plataformas AMX obligatorias
+# Plataformas ACME obligatorias
 # ---------------------------------------------------------------------------
 MANDATORY_AMX_PLATFORMS = {
     "óptimo": "project management registry",
     "LeanIX": "architecture C4 diagrams",
     "GitHub Enterprise": "single source of truth code (no GitLab · no Miatech on-prem)",
     "GateOne": "ticket self-service portal",
-    "AMX Chat Service Desk": "alternative ticket portal",
+    "ACME Chat Service Desk": "alternative ticket portal",
     "ServiceNow CMDB": "Jira traceability · commit→release cycle",
     "Dynamo": "maturity documentation + TIERS doc",
 }
 
 
 # ---------------------------------------------------------------------------
-# Proceso estándar de ticket AMX
+# Proceso estándar de ticket ACME
 # ---------------------------------------------------------------------------
 AMX_TICKET_PROCESS = [
-    "Líder AMX directo envía correo previo con visto bueno",
-    "Levantar ticket en GateOne (o AMX Chat Service Desk)",
+    "Líder ACME directo envía correo previo con visto bueno",
+    "Levantar ticket en GateOne (o ACME Chat Service Desk)",
     "Adjuntar captura del correo como evidencia",
     "Esperar SLA (24h laborales para cuenta AWS)",
     "Recibir respuesta vía correo con ID del recurso",
@@ -165,7 +165,7 @@ AMX_TICKET_PROCESS = [
 # ---------------------------------------------------------------------------
 
 def check_prohibited_service(service_name: str) -> Optional[dict]:
-    """Check if a service is in the AMX prohibited list."""
+    """Check if a service is in the ACME prohibited list."""
     key = service_name.upper().replace(" ", "_")
     if key in PROHIBITED_AWS_SERVICES:
         return PROHIBITED_AWS_SERVICES[key]
@@ -173,7 +173,7 @@ def check_prohibited_service(service_name: str) -> Optional[dict]:
 
 
 def check_role_prefix(role_name: str) -> bool:
-    """Check if IAM role name has the required amx-r- prefix."""
+    """Check if IAM role name has the required acme-r- prefix."""
     return role_name.startswith(IAM_ROLE_RULES["required_prefix"])
 
 

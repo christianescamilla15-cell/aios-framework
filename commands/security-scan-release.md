@@ -48,7 +48,7 @@ otros 6 checks de release readiness.
 ## Fuera del scope de este check
 
 - No corre Arena self-play (usa `arena-selfplay` skill para eso).
-- No corre Mythos con catalogos AMX completos (usa `mythos-scan-amx`
+- No corre Mythos con catalogos ACME completos (usa `mythos-scan-acme`
   si tienes mythos CLI instalado).
 - No corre herramientas externas (semgrep · bandit · nuclei).
 
@@ -58,10 +58,10 @@ otros 6 checks de release readiness.
 {
   "security_gate": {
     "use_mythos_cli": true,
-    "mythos_target_id": "01-sicofav"
+    "mythos_target_id": "01-fleet_ops_app"
   }
 }
 ```
 
 Con `mythos` en PATH, AIOS delegara el scan profundo para findings
-con catalogos AMX.
+con catalogos ACME.

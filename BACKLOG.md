@@ -25,7 +25,7 @@ El router interno (ver `ai-memory/recent_decisions.md`) los puntúa correctament
 
 ### Workaround actual
 Elegir `Build a Feature` y forzar el contexto en la descripción:
-> "LEGACY_MODERNIZATION · refactor [app] [stack_origen] → [stack_destino] · aplicar constraints AMX retro 20-abr"
+> "LEGACY_MODERNIZATION · refactor [app] [stack_origen] → [stack_destino] · aplicar constraints ACME retro 20-abr"
 
 ### Fix propuesto
 Dos caminos (evaluar con Alberto Ibrahim Pedraza Cáscar · creador AM-KIRO):
@@ -33,12 +33,12 @@ Dos caminos (evaluar con Alberto Ibrahim Pedraza Cáscar · creador AM-KIRO):
 1. **Opción A · extensión del host**: solicitar a AM-KIRO que lea `capabilities.modes` del manifest y renderice botones adicionales dinámicamente.
 2. **Opción B · fallback en el pack**: el steering `01_router.md` de AIOS intercepta la clasificación inicial y re-mapea `FEATURE` → `MIGRATION`/`LEGACY_MODERNIZATION` según keywords (refactor, migrate, legacy, upgrade, .NET X → Y, etc.). No requiere cambios en Kiro pero pierde visibilidad en el UI.
 
-### Impacto en AMX
-Relevante porque el programa Armor incluye ≥4 apps en modernización (NoShow · SICOFAV · ARC · BSP · posiblemente más). Sin el fix, cada spec arranca con el modo equivocado y los steering rules de legacy (cobol/dotnet stacks + EARS acceptance criteria específicos) no se activan automáticamente.
+### Impacto en ACME
+Relevante porque el programa Armor incluye ≥4 apps en modernización (NoShow · FLEET_OPS_APP · ARC · BSP · posiblemente más). Sin el fix, cada spec arranca con el modo equivocado y los steering rules de legacy (cobol/dotnet stacks + EARS acceptance criteria específicos) no se activan automáticamente.
 
 ### Tracking
 - Reportar en correo a Alberto Ibrahim junto con propuesta de contribución packs
-- Registrar también como issue cuando haya acceso a `OYN-AMX/am-kiro`
+- Registrar también como issue cuando haya acceso a `OYN-ACME/am-kiro`
 
 ---
 
@@ -200,7 +200,7 @@ Al cerrar estos 4 detectores · el recall contra análisis humano NoShow deberí
 
 **AIOS ES**:
 - CWE-scanner automatizado (21/28 CWEs · 9 lenguajes)
-- Generador de evidencia reproducible para gates AMX (WIZ/Veracode/Prisma/Tenable)
+- Generador de evidencia reproducible para gates ACME (WIZ/Veracode/Prisma/Tenable)
 - Baseline mínimo en segundos sobre codebases sin análisis previo
 - Red de seguridad · escalable a N apps
 
@@ -209,7 +209,7 @@ Al cerrar estos 4 detectores · el recall contra análisis humano NoShow deberí
 - Detector de anti-patrones de negocio
 - Solución única pre-deploy · solo una capa de varias
 
-**Narrativa correcta**: "Framework da evidencia automatizada reproducible para los 4 gates AMX (compliance). El análisis humano experto captura los bugs de dominio que ningún scanner detecta (vuelo hardcoded · drift de configs · lógica de negocio). Son complementarios · no sustitutos."
+**Narrativa correcta**: "Framework da evidencia automatizada reproducible para los 4 gates ACME (compliance). El análisis humano experto captura los bugs de dominio que ningún scanner detecta (vuelo hardcoded · drift de configs · lógica de negocio). Son complementarios · no sustitutos."
 
 ---
 
@@ -245,7 +245,7 @@ Cuando hay mucho código no staged, los counts difieren legítimamente. Pero el 
 **Origen**: validación sesión limpia v2.1.0 · 2026-04-22 · 16/41 findings clasificados como `unclear` en carpeta test.
 
 ### Síntoma
-El ontology seed (`aios/policies/amx-revenue-accounting/ontology.yaml`) inicialmente solo tenía entries por `literal` (PERRO_ROBOTICO, ATOS5246, etc). Cuando un detector de Mythos emite un finding con rule_id que no está en el catálogo (ej. `CREDENTIAL-PLAINTEXT-WEBCONFIG`, `STATIC-PATH-TRAVERSAL-CSHARP`), el ontology cae al default_classification que es `unclear`, pasando a review queue en vez de auto_fix.
+El ontology seed (`aios/policies/acme-finance_operations/ontology.yaml`) inicialmente solo tenía entries por `literal` (PERRO_ROBOTICO, ATOS5246, etc). Cuando un detector de Mythos emite un finding con rule_id que no está en el catálogo (ej. `CREDENTIAL-PLAINTEXT-WEBCONFIG`, `STATIC-PATH-TRAVERSAL-CSHARP`), el ontology cae al default_classification que es `unclear`, pasando a review queue en vez de auto_fix.
 
 Resultado: review queue saturado de falsos unclears · UX pobre · el Nivel 1 no cumple su promesa de clasificar CWEs estándar como `bug`.
 
@@ -276,7 +276,7 @@ Re-correr el análisis sobre el mismo workspace post-v2.1.1 · esperado: unclear
 **Severidad**: ALTA · captura 4 clases de hallazgos reales que AIOS no ve hoy
 **Origen**: análisis sesión-limpia sobre ATOS-NOSHOW-ROBOT + NoshowReport · 2026-04-22. Framework detectó 3 findings reales vs ~7 detectables humano = 40% coverage · consistente con calibración previa 25-40% CWE-scanner+gates.
 
-Los 4 gaps descubiertos son **patrones de infosec reales** que escapan a CWE estándar · muy valiosos para AMX y cualquier enterprise con builds/deployments múltiples.
+Los 4 gaps descubiertos son **patrones de infosec reales** que escapan a CWE estándar · muy valiosos para ACME y cualquier enterprise con builds/deployments múltiples.
 
 ### RFC-004a · CROSS-COPY-DRIFT-DETECTOR
 
@@ -301,9 +301,9 @@ Detecta secretos **byte-idénticos** entre `prod.config` y `test.config` · indi
 ### RFC-004c · THIRD-PARTY-EXFIL-HEURISTIC · CERRADO v2.3.0
 
 Detecta distribución de datos a dominios no-corporativos desde código de producción. Caso NoShow:
-- Dist lists con emails `@miatech.net` (third-party · no AMX)
+- Dist lists con emails `@miatech.net` (third-party · no ACME)
 
-**Implementación**: scanner busca literales `user@dominio.tld` · compara contra whitelist de dominios corporativos (configurable en aios-config.json `corporate_domains: ["amx.com", "aeromexico.com", ...]`). Los que no matchean · flag HIGH.
+**Implementación**: scanner busca literales `user@dominio.tld` · compara contra whitelist de dominios corporativos (configurable en aios-config.json `corporate_domains: ["acme.com", "acmeair.com", ...]`). Los que no matchean · flag HIGH.
 
 **Caveat**: puede tener FPs para integraciones legítimas (auditores · partners). Solución: whitelist explícita por proyecto.
 
@@ -371,7 +371,7 @@ El refactor auto-mode asume que todo detected finding es bug · aplica fix gené
 
 ### 8 capacidades faltantes
 
-1. **Domain ontology** · catálogo AMX versionado (`amx-domain-ontology.yaml`) con clasificación por pattern (bug / business_rule / unclear) · auto_fix_allowed · fix_template · evidence_required
+1. **Domain ontology** · catálogo ACME versionado (`acme-domain-ontology.yaml`) con clasificación por pattern (bug / business_rule / unclear) · auto_fix_allowed · fix_template · evidence_required
 2. **Intent classification pre-fix** · LLM call o humano pregunta: "¿este valor es bug o intent?" antes de refactorizar
 3. **Characterization tests antes del refactor** · captura behavior real con inputs · genera suite · refactor rollback-safe si rompe contract
 4. **Cross-file semantic analysis** · call-graph + semantic clustering · detecta drift entre archivos · impacto de un cambio en otros files
@@ -399,34 +399,34 @@ Cross-file semantic analysis (capacidad 4) es transversal · se implementa gradu
 
 ### Plan propuesto
 
-- **v1.8 · Nivel 1**: `amx-domain-ontology.yaml` + helper `classify_finding(finding, ontology) -> {allowed, pause, skip}` · 2-3 días
+- **v1.8 · Nivel 1**: `acme-domain-ontology.yaml` + helper `classify_finding(finding, ontology) -> {allowed, pause, skip}` · 2-3 días
 - **v1.9 · Nivel 2**: LLM classifier · `classify_finding_with_llm(finding, git_context) -> intent` · 1-2 semanas
-- **v2.0 · Nivel 3-4**: characterization + stakeholder split · 1-2 meses · requiere piloto con AMX para validar antes
+- **v2.0 · Nivel 3-4**: characterization + stakeholder split · 1-2 meses · requiere piloto con ACME para validar antes
 
 ### Conclusión
 
 Este RFC es el **más crítico** del backlog · cierra la brecha entre "framework juguete" y "herramienta profesional". Sin esto · todo el pre-deploy (CI/CD · gates · release_gate) es teatro: el código refactorizado puede tener bugs de dominio intactos o nuevos · y ningún gate los detecta.
 
-Prioridad: ALTA · pre-requisito para cualquier piloto con cliente real (NoShow · otros AMX).
+Prioridad: ALTA · pre-requisito para cualquier piloto con cliente real (NoShow · otros ACME).
 
 ---
 
 ## v3.7.4 SHIPPED · 5 detector quality gaps cerrados · 2026-04-27
 
 **Branch**: `feat/v3.7.4-detector-quality-gaps`
-**Origen**: SICOFAV refactor triangulaciones T3..T6 (`docs/security-reviews/FINDINGS_TRIANGULATION.md` §13–§17)
+**Origen**: FLEET_OPS_APP refactor triangulaciones T3..T6 (`docs/security-reviews/FINDINGS_TRIANGULATION.md` §13–§17)
 **Tests**: 419/419 ✅ (+18 nuevos vs 401 baseline v3.7.3)
 **Stat**: 8 files modified · +417 -4
 
-### Gaps cerrados (los 5 que estaban siendo trackeados implícitamente en triangulaciones SICOFAV)
+### Gaps cerrados (los 5 que estaban siendo trackeados implícitamente en triangulaciones FLEET_OPS_APP)
 
 | ID | Severidad | Finding pre-fix | Fix v3.7.4 | Test cover |
 |---|---|---|---|---|
-| **G-AUTH-CLASS-LEVEL** | ALTA | detector `AUTH-MISSING-NET-CONTROLLER` ignoraba `[Authorize]` a nivel clase · FPs HIGH en SICOFAV `FacturasController` y `ConciliacionesController` | `_class_has_authorize_attr` (12-line lookback antes de declaración `class`) en `aios/core/security_gate.py` | `test_auth_missing_skipped_when_class_level_authorize` |
+| **G-AUTH-CLASS-LEVEL** | ALTA | detector `AUTH-MISSING-NET-CONTROLLER` ignoraba `[Authorize]` a nivel clase · FPs HIGH en FLEET_OPS_APP `FacturasController` y `ConciliacionesController` | `_class_has_authorize_attr` (12-line lookback antes de declaración `class`) en `aios/core/security_gate.py` | `test_auth_missing_skipped_when_class_level_authorize` |
 | **G-AUTH-LOOKAHEAD** | ALTA | detector consumía greedy el stack de attributes `[^\]]*\]` y luego `(?!Authorize)` solo veía la siguiente línea · `[HttpPost]\n[Authorize(Roles=...)]\npublic` matcheaba como FP | `_method_has_authorize_attr_inline` inspecciona el span match completo | `test_auth_missing_skipped_when_authorize_inline_after_http` + negative regression |
 | **G-EXCEPTION-WHEN-FILTER** | MEDIA | detector `STATIC-GENERIC-EXCEPTION-CATCH-CSHARP` flageaba MED a `catch (Ex) when (ex is not OperationCanceledException)` · diseño defendible, no catch-all sloppy | `_catch_has_when_filter` degrada MED→LOW (similar al downgrade existente por logging) | `test_generic_catch_with_when_filter_degrades_to_low` + negative |
 | **G-SUPPRESSIONS-ITERATE** | ALTA | `aios iterate` y `aios compliance-report` NO consumían `aios-suppressions.json` · sólo `aios release` lo hacía · suppressions documentadas seguían apareciendo en cada run | `_apply_iterate_suppressions` al final de `IterativeScanner.run()` + `suppressed_count` en `IterativeReport.to_dict()` · `cmd_compliance_report` también consume waivers | 6 tests integración (`tests/test_iterative_scanner_suppressions.py` nuevo) |
-| **G-RULE-ID-UNIFY** | MEDIA | `aios-suppressions.json` con `rule="CWE-547"` no matcheaba findings `rule_id=HARDCODED-INTERNAL-HOSTNAME` aunque ambos comparten CWE · UX inconsistente con SARIF/Sonar (que usan `rule`) | `load_suppressions` acepta `rule` como alias de `rule_id` · `Suppression.matches()` fallback CWE case-insensitive cuando `rule_id` parece `CWE-NNN` | 7 tests (alias · CWE fallback · case insensitive · legacy SICOFAV-shape) |
+| **G-RULE-ID-UNIFY** | MEDIA | `aios-suppressions.json` con `rule="CWE-547"` no matcheaba findings `rule_id=HARDCODED-INTERNAL-HOSTNAME` aunque ambos comparten CWE · UX inconsistente con SARIF/Sonar (que usan `rule`) | `load_suppressions` acepta `rule` como alias de `rule_id` · `Suppression.matches()` fallback CWE case-insensitive cuando `rule_id` parece `CWE-NNN` | 7 tests (alias · CWE fallback · case insensitive · legacy FLEET_OPS_APP-shape) |
 
 ### Helpers nuevos en `aios/core/security_gate.py`
 
@@ -451,18 +451,18 @@ Wire-up en `scan_directory` y `scan_files` (cobertura ambos paths · pre-commit 
 | `aios iterate` | NO consume waivers | **consume + reporta `suppressed_count` en JSON y stop_reason** |
 | `aios compliance-report` | NO consume waivers | **consume + log inline** |
 
-### Smoke validación vs SICOFAV
+### Smoke validación vs FLEET_OPS_APP
 
 | Métrica | T6 pre-fix v3.7.3 | T6 post-fix v3.7.4 | Δ |
 |---|---|---|---|
 | HIGH | 2 (FP × 2) | **0** | -2 ✅ |
-| MEDIUM | 5 | 3 (todos genuinos AMX-CDK tagging) | -2 |
+| MEDIUM | 5 | 3 (todos genuinos ACME-CDK tagging) | -2 |
 | `suppressed_count` (JSON) | 0 (gap) | **1** (T3-FP-001b activo via CWE fallback) | ✅ |
 | `BalanceadorUrlValidator.cs:144` en compliance LFPDPPP/PCI | sí (FP propagado) | **no** (suppressed) | ✅ |
 
 ### Impacto framework-wide
 
-- Beneficia las 10 apps Revenue Accounting (no sólo SICOFAV) · cualquier .NET ApiController con `[Authorize]` clase + `[Authorize(Roles=...)]` método ya no FP
+- Beneficia las 10 apps Finance Operations (no sólo FLEET_OPS_APP) · cualquier .NET ApiController con `[Authorize]` clase + `[Authorize(Roles=...)]` método ya no FP
 - `catch ... when` C# 6+ pattern reconocido como diseño correcto cross-codebase
 - Suppressions retroactivamente aplicables a iterate/compliance · cierra divergencia release vs reporting
 - Alias `rule` baja la barrera de entrada para teams que migran desde SARIF/Sonar/CodeQL
@@ -483,22 +483,22 @@ tests/test_iterative_scanner_suppressions.py (nuevo)         |  98 +
 
 ### Patrón operativo cementado
 
-> **Detector quality regla**: cada vez que un detector AIOS reporta un FP en una app real, abrir gap en framework backlog (no sólo suppression táctica). Suppressions cubren la app específica · gaps framework cubren el universo de apps AMX.
+> **Detector quality regla**: cada vez que un detector AIOS reporta un FP en una app real, abrir gap en framework backlog (no sólo suppression táctica). Suppressions cubren la app específica · gaps framework cubren el universo de apps ACME.
 
-Aplicado: 5 gaps de SICOFAV → 5 fixes de framework v3.7.4 que benefician las 10 apps R.A.
+Aplicado: 5 gaps de FLEET_OPS_APP → 5 fixes de framework v3.7.4 que benefician las 10 apps R.A.
 
 ### Pendientes post-shipping
 
 - ⏸ Tag `v3.7.4` post-merge a `main`
 - ⏸ Push origin (christianescamilla15-cell · público)
-- ⏸ Push amx (chernandeze_amx · privado · regla AMX)
+- ⏸ Push acme (acme-team · privado · regla ACME)
 - ⏸ Smoke vs apps adicionales R.A. cuando estén disponibles (Robot · SRG · BSP refactor)
 
 ---
 
 ## v3.7.5 · 3 framework gaps cerrados (T8 close · 2026-04-27)
 
-Derivado de SICOFAV triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULATION.md` §20-B) · 3 gaps detectados durante AIOS T8 run sobre repo SICOFAV post-T7 close:
+Derivado de FLEET_OPS_APP triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULATION.md` §20-B) · 3 gaps detectados durante AIOS T8 run sobre repo FLEET_OPS_APP post-T7 close:
 
 ### G-PATH-NORMALIZATION (T8-N1) · MED · CWE-1110
 
@@ -513,7 +513,7 @@ Derivado de SICOFAV triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULAT
 
 ### G-REGEX-TIMEOUT (T8-N3) · MED · operacional
 
-**Problema**: `aios iterate --root infra/k8s/` colgaba indefinidamente (>40min · 90% CPU) sobre `sicofav-deployment.yaml` (147 LOC YAML multiline) · regex catastrophic backtracking · gap framework documentado doble evidencia (iterate + compliance-report).
+**Problema**: `aios iterate --root infra/k8s/` colgaba indefinidamente (>40min · 90% CPU) sobre `fleet_ops_app-deployment.yaml` (147 LOC YAML multiline) · regex catastrophic backtracking · gap framework documentado doble evidencia (iterate + compliance-report).
 
 **Fix**: helper `_safe_finditer()` en `aios/core/security_gate.py` usa `signal.SIGALRM` con timeout configurable (default 2s · override `AIOS_REGEX_TIMEOUT_SECONDS`):
 - Unix-only protection (Linux/Mac/WSL · cubre 99% AIOS prod runs)
@@ -522,7 +522,7 @@ Derivado de SICOFAV triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULAT
 
 **Test coverage**: 4 tests (`test_safe_finditer_*`) en `tests/test_security_gate.py`.
 
-**Smoke test SICOFAV**: `aios iterate --root infra/k8s` ahora termina en <60s (antes hung indefinidamente).
+**Smoke test FLEET_OPS_APP**: `aios iterate --root infra/k8s` ahora termina en <60s (antes hung indefinidamente).
 
 ### T8-N2 · compliance-report `--output` CWD · LOW · CWE-22
 
@@ -530,25 +530,25 @@ Derivado de SICOFAV triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULAT
 
 **Fix**: en `aios/cli/main.py` 2 sites donde `dest = root / dest` cambiado a `dest = Path.cwd() / dest`. Display `rel = dest.relative_to(Path.cwd())` para mensaje correcto.
 
-**Smoke test SICOFAV**: `aios compliance-report --root src --output /tmp/x.md` y `--output reports/x.md` ambos resuelven correctamente desde CWD.
+**Smoke test FLEET_OPS_APP**: `aios compliance-report --root src --output /tmp/x.md` y `--output reports/x.md` ambos resuelven correctamente desde CWD.
 
 ### Métricas v3.7.5
 
 | Métrica | v3.7.4 | v3.7.5 |
 |---|---|---|
 | Tests pass | 419 | **428** (+9) |
-| Detectores AMX-specific | 29 | 29 (mejoras de calidad) |
+| Detectores ACME-specific | 29 | 29 (mejoras de calidad) |
 | Cross-app applicability | sí · base | sí · más robusto |
 
-### Smoke validación post-fix vs SICOFAV
+### Smoke validación post-fix vs FLEET_OPS_APP
 
 - `aios iterate --root infra/k8s` · ✅ termina <60s (antes hung indefinido)
 - `aios compliance-report --root src --output reports/x.md` · ✅ escribe en `<repo-root>/reports/x.md` (antes `src/reports/`)
-- Suppressions T7-FP-003-KMS/LOGS/S3 · esperado aplicar correctamente al re-correr SICOFAV T8 con `--root infra/cdk-pipeline` · `suppressed_count: 3` (antes 0)
+- Suppressions T7-FP-003-KMS/LOGS/S3 · esperado aplicar correctamente al re-correr FLEET_OPS_APP T8 con `--root infra/cdk-pipeline` · `suppressed_count: 3` (antes 0)
 
 ### Pendiente post-v3.7.5
 
-- ⏸ Commit + merge main + tag `v3.7.5` + push origin/amx (cross-app · pendiente confirmación user)
+- ⏸ Commit + merge main + tag `v3.7.5` + push origin/acme (cross-app · pendiente confirmación user)
 - ⏸ Update version en `pyproject.toml` + `aios/__init__.py` (DONE)
 
 ---
@@ -557,32 +557,32 @@ Derivado de SICOFAV triangulación-8 (`docs/security-reviews/FINDINGS_TRIANGULAT
 
 **STATUS 29-abr noche**: G-DRIFT-1 + G-DRIFT-3 cerrados en v3.8.2 · CFDIs OUT cementado.
 
-Antes de publicar v3.8.0, audit cruzado contra repos AMX detectó 3 alignment gaps que NO bloquean release pero deben tratarse en v3.8.1.
+Antes de publicar v3.8.0, audit cruzado contra repos ACME detectó 3 alignment gaps que NO bloquean release pero deben tratarse en v3.8.1.
 
-### G-DRIFT-1 · ADEA naming exception · MEDIUM · alineación BO-AMX
+### G-DRIFT-1 · ADEA naming exception · MEDIUM · alineación BO-ACME
 
-**Origen**: `BO-AMX/CS_Scripts@v0.12.0` · `compliance/check_f06_compliance.py` (Fer Pérez · 2026-04-29 12:15PM).
+**Origen**: `BO-ACME/CS_Scripts@v0.12.0` · `compliance/check_f06_compliance.py` (Fer Pérez · 2026-04-29 12:15PM).
 
 **Síntoma**: detector `G-NEW-IAM-NAMING-FULL` flaggearía como FAIL los nombres exactos ADEA actuales:
-- `AMX-R-ADEA-WEBAPP-ADMIN`
-- `AMX-R-ADEA-RESOURCE-ACCESS`
+- `ACME-R-ADEA-WEBAPP-ADMIN`
+- `ACME-R-ADEA-RESOURCE-ACCESS`
 
-Mi regex actual `^AMX-R-{App}-{A|DES|SL}$` no admite sufijos `WEBAPP-ADMIN` ni `RESOURCE-ACCESS`.
+Mi regex actual `^ACME-R-{App}-{A|DES|SL}$` no admite sufijos `WEBAPP-ADMIN` ni `RESOURCE-ACCESS`.
 
 **Fix v3.8.1**:
 - Añadir lista `iam_role_naming.exceptions` en `aios/governance/rules/naming.yaml` con prefijos reservados (`ADEA`, `WEBAPP`, etc.).
 - Actualizar `NamingChecker._check_iam_naming()` para skip si token coincide con exception.
-- Test: assert `AMX-R-ADEA-WEBAPP-ADMIN` NO produce finding.
+- Test: assert `ACME-R-ADEA-WEBAPP-ADMIN` NO produce finding.
 
 **Esfuerzo**: ~30min · 1 commit + test.
 
 ### G-DRIFT-2 · log-retention threshold ≥90d · LOW · alineación f03
 
-**Origen**: `BO-AMX/CS_Scripts@compliance/check_f03_compliance.py:447` exige `retentionInDays >= 90`.
+**Origen**: `BO-ACME/CS_Scripts@compliance/check_f03_compliance.py:447` exige `retentionInDays >= 90`.
 
-**Status v3.8.0**: Sugerencia del detector `AMX-CDK-LAMBDA-NO-LOG-RETENTION` actualizada a `RetentionDays.THREE_MONTHS` (90d) · ✅ ya alineado con commit del sprint v3.8.0.
+**Status v3.8.0**: Sugerencia del detector `ACME-CDK-LAMBDA-NO-LOG-RETENTION` actualizada a `RetentionDays.THREE_MONTHS` (90d) · ✅ ya alineado con commit del sprint v3.8.0.
 
-**Pendiente v3.8.1**: añadir un detector secundario que flague Lambdas con `log_retention=RetentionDays.ONE_MONTH` (30d) explícitamente como WARN ("log retention < 90d · AMX exige 90d hot tier").
+**Pendiente v3.8.1**: añadir un detector secundario que flague Lambdas con `log_retention=RetentionDays.ONE_MONTH` (30d) explícitamente como WARN ("log retention < 90d · ACME exige 90d hot tier").
 
 ### G-DRIFT-3 · _iter_files() no soporta prefijos en globs · LOW
 
@@ -596,7 +596,7 @@ Mi regex actual `^AMX-R-{App}-{A|DES|SL}$` no admite sufijos `WEBAPP-ADMIN` ni `
 
 ### Pre-publish v3.8.0 audit context
 
-Audit ejecutado 29-abr-2026 17:50 sobre 4 repos BO-AMX ancla:
+Audit ejecutado 29-abr-2026 17:50 sobre 4 repos BO-ACME ancla:
 
 | Repo | Última commit relevante | Status |
 |---|---|---|

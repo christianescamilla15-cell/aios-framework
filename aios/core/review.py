@@ -13,7 +13,7 @@ Flow canónico:
      - reject · rollback trigger · finding bloquea release
      - defer · pospuesto con razón · queda pending
      - add-to-ontology · approve + propone YAML snippet para que el
-       catálogo canónico AMX cubra este pattern en futuros scans
+       catálogo canónico ACME cubra este pattern en futuros scans
   4. .aios/review-log.jsonl · audit trail inmutable (append-only)
   5. Próximos scans leen el log · skip approved · block rejected
 
@@ -182,7 +182,7 @@ def generate_review_doc(finding: dict, root: Path) -> Path:
         "Si al approve este finding identificas un pattern reusable,",
         "agrega `--add-to-ontology --pattern \"regex\"` · el framework",
         "genera un snippet YAML en `.aios/ontology-proposed.yaml` para",
-        "que lo mergees al catálogo canónico (aprobación equipo AMX).",
+        "que lo mergees al catálogo canónico (aprobación equipo ACME).",
     ]
     out.write_text("\n".join(md) + "\n", encoding="utf-8")
     return out
@@ -294,7 +294,7 @@ def propose_ontology_entry(
         existing = (
             "# Ontology patterns propuestos durante reviews\n"
             "# MERGE MANUAL al catálogo canónico "
-            "(aios/policies/<policy>/ontology.yaml) tras aprobación AMX.\n"
+            "(aios/policies/<policy>/ontology.yaml) tras aprobación ACME.\n"
         )
     out_file.write_text(existing + "\n".join(entry) + "\n", encoding="utf-8")
     return out_file

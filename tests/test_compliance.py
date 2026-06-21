@@ -75,7 +75,7 @@ def test_compliance_tag_fields():
 
 
 def test_amx_specific_frameworks_present():
-    """Verifica que marcos AMX-specific esten mapeados."""
+    """Verifica que marcos ACME-specific esten mapeados."""
     # Al menos un CWE debe mapear a LFPDPPP (Mexico data protection)
     all_frameworks = set()
     for cwe in ("CWE-22", "CWE-79", "CWE-89", "CWE-319", "CWE-798"):

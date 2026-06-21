@@ -1,16 +1,16 @@
-# AMX Revenue Accounting Policy
+# ACME Finance Operations Policy
 
-Policy tropicalizada para el proyecto Revenue Accounting Modernization · Aeroméxico · Etrive + Miatech. Extiende `enterprise` con constraints específicos AMX.
+Policy tropicalizada para el proyecto Finance Operations Modernization · AcmeAir · Etrive + Miatech. Extiende `enterprise` con constraints específicos ACME.
 
 ## Scope
-Aplica a los 10 aplicativos del scope: Sicofav · Reembolsos ARC · Reembolsos BSP · CFDIs · SRG · ASR · Robot Cálculo · Comisiones Directas · Comisiones Indirectas · NoShow Report.
+Aplica a los 10 aplicativos del scope: FleetOpsApp · Reembolsos ARC · Reembolsos BSP · CFDIs · SRG · ASR · Robot Cálculo · Comisiones Directas · Comisiones Indirectas · NoShow Report.
 
 NO aplica a: Facturación Electrónica MX · Revenue Recognition · TNU · Interlineal · FEBOL · RAM (anti-scope).
 
-## Constraints AMX (obligatorios · no negociables)
+## Constraints ACME (obligatorios · no negociables)
 
 ### Arquitectura cloud
-- **ECS PROHIBIDO** (por decisión AMX · constraint de arquitectura empresarial)
+- **ECS PROHIBIDO** (por decisión ACME · constraint de arquitectura empresarial)
 - **Alternativas permitidas:** EC2 con docker-compose · EKS · Fargate (si autorizado por Diego Zarate)
 - **Akamai MANDATORIO** para endpoints públicos (WAF + CDN + DNS)
 - **VPC** dedicada por cuenta AWS · CIDR coordinado con Diego Zarate
@@ -22,29 +22,29 @@ NO aplica a: Facturación Electrónica MX · Revenue Recognition · TNU · Inter
   3. **WIZ** — AWS landscape (CSPM)
   4. **Prisma Cloud** — contenedores (si aplica)
 - **Cero credenciales hardcoded** — usar AWS Secrets Manager o Vault (Bolt/HashiCorp)
-- **KMS gestionado por AMX** — no por Etrive · usar CMK según autorización seguridad AWS AMX
+- **KMS gestionado por ACME** — no por Etrive · usar CMK según autorización seguridad AWS ACME
 - **Rotación de credenciales trimestral** mínimo
 
 ### Ambientes
-- **NO existe QA en AMX** · todo va directo a PROD en corporativo · DEV debe crearse localmente por cada app
+- **NO existe QA en ACME** · todo va directo a PROD en corporativo · DEV debe crearse localmente por cada app
 - **VPN** como prereq universal · cada dev necesita VPN configurada
 - **Ambiente DEV obligatorio** antes de refactor (no se puede refactorizar en PROD)
 
 ### Gates de release
-- **5 checkpoints SDLC AMX obligatorios:**
+- **5 checkpoints SDLC ACME obligatorios:**
   1. Discovery gate
   2. Design gate (arquitectura aprobada)
   3. Build gate (4 escaneos OK)
   4. Test gate (cobertura ≥ mínimo por app)
   5. Release gate (rollback plan + runbook)
-- **Definition of Done corporativa AMX** aplica a cada release
-- **Gate reviews** presentados al PMO AMX
+- **Definition of Done corporativa ACME** aplica a cada release
+- **Gate reviews** presentados al PMO ACME
 
 ### CI/CD
 - **GitHub Actions** para pipeline (sin excepciones)
 - **AWS CodeDeploy** para deployment
 - **Docker** (no Kubernetes · decisión equipo 16-abr)
-- **Contenedores con hardening AMX** · usar Golden Image / AMI custom (no genéricas)
+- **Contenedores con hardening ACME** · usar Golden Image / AMI custom (no genéricas)
 
 ### Gobernanza
 - **ADR obligatorios** para decisiones de arquitectura (Architecture Decision Records)
@@ -60,7 +60,7 @@ NO aplica a: Facturación Electrónica MX · Revenue Recognition · TNU · Inter
 
 ### Testing
 - **Cobertura mínima:**
-  - SICOFAV: 40% (baseline 0%)
+  - FLEET_OPS_APP: 40% (baseline 0%)
   - ARC/BSP/ASR: 50%
   - Robot #7: 60% (crítico · motor central)
   - NoShow: 60% (4 hallazgos CRITICAL)
@@ -72,7 +72,7 @@ NO aplica a: Facturación Electrónica MX · Revenue Recognition · TNU · Inter
 ### Prohibido explícitamente
 - Cambiar credenciales SABRE sin autorización (TANPUL limit 2000 sessions)
 - Modificar Sistema "Balanceador" (es del cliente · solo integrar)
-- Eliminar Stored Procedures sin audit previo (71 en SICOFAV · 67 obsoletos detectados)
+- Eliminar Stored Procedures sin audit previo (71 en FLEET_OPS_APP · 67 obsoletos detectados)
 - Deploy manual a PROD sin CI/CD post-estabilización
 - Tocar BD de Praxis Core (solo Miatech directo)
 
@@ -105,13 +105,13 @@ NO aplica a: Facturación Electrónica MX · Revenue Recognition · TNU · Inter
 
 | Tipo de cambio | Aprobador |
 |---|---|
-| Arquitectura | Toño (IT Drive · consultor AWS AMX) |
+| Arquitectura | Toño (IT Drive · consultor AWS ACME) |
 | CI/CD | Diego Zarate (red AWS) |
-| Seguridad | Carlos Reyes (Miatech) / Ciberseguridad AMX |
-| KMS / Secrets | Equipo seguridad AWS AMX |
-| Red / VPC | Diego Zarate + Ciberseguridad AMX |
+| Seguridad | Carlos Reyes (Miatech) / Ciberseguridad ACME |
+| KMS / Secrets | Equipo seguridad AWS ACME |
+| Red / VPC | Diego Zarate + Ciberseguridad ACME |
 | Contratos / scope | Víctor Araiza (PM) |
-| Compliance / PII | Elias Tapia + AMX Personal Data |
+| Compliance / PII | Elias Tapia + ACME Personal Data |
 | Release a PROD | Víctor + Líder Técnico + 5 gates OK |
 
 ## Contactos clave
@@ -119,9 +119,9 @@ NO aplica a: Facturación Electrónica MX · Revenue Recognition · TNU · Inter
 - **Líder Técnico:** Christian Hernández
 - **Experto COBOL:** Gustavo Magallanes (standby #8 #9)
 - **Manager cuenta Etrive:** Eloisa Sánchez
-- **Program Manager AMX:** Luis Ertuche (Sertuche)
-- **Sponsor AMX:** Elias Tapia
-- **Revenue owner AMX:** J.T. (VP Revenue · Javier Toledo Tovar)
+- **Program Manager ACME:** Luis Ertuche (Sertuche)
+- **Sponsor ACME:** Elias Tapia
+- **Revenue owner ACME:** J.T. (VP Revenue · Javier Toledo Tovar)
 
 ## Referencias
 - Memoria principal: `project_scope.md` · `project_aws_migration_constraints.md`

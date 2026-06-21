@@ -19,7 +19,7 @@ from aios.core.arena_runner import (
 
 def test_missing_binary_returns_not_ok():
     with patch("aios.core.arena_runner.shutil.which", return_value=None):
-        result = run_arena(target="amx-mini-refund")
+        result = run_arena(target="acme-mini-refund")
     assert result.ok is False
     assert "arena CLI no encontrado" in result.detail
 
@@ -28,7 +28,7 @@ def test_timeout_is_reported():
     with patch("aios.core.arena_runner.shutil.which", return_value="/usr/bin/arena"), \
          patch("aios.core.arena_runner.subprocess.run",
                side_effect=subprocess.TimeoutExpired(cmd="arena", timeout=1)):
-        result = run_arena(target="amx-mini-refund", timeout_seconds=1)
+        result = run_arena(target="acme-mini-refund", timeout_seconds=1)
     assert result.ok is False
     assert "timeout" in result.detail.lower()
 
@@ -43,7 +43,7 @@ def test_generic_exception_is_caught():
 
 def test_happy_path_parses_verdict():
     stdout = (
-        "Arena run · target=amx-mini-refund · max_rounds=10\n"
+        "Arena run · target=acme-mini-refund · max_rounds=10\n"
         "\n"
         "Verdict: MYTHOS_WINS\n"
         "Rounds completed: 6\n"
@@ -55,7 +55,7 @@ def test_happy_path_parses_verdict():
     fake = subprocess.CompletedProcess(args=[], returncode=0, stdout=stdout, stderr="")
     with patch("aios.core.arena_runner.shutil.which", return_value="/usr/bin/arena"), \
          patch("aios.core.arena_runner.subprocess.run", return_value=fake):
-        result = run_arena(target="amx-mini-refund", max_rounds=10)
+        result = run_arena(target="acme-mini-refund", max_rounds=10)
     assert result.ok is True
     assert result.verdict == "MYTHOS_WINS"
     assert result.rounds_completed == 6
@@ -67,7 +67,7 @@ def test_command_includes_target_url_flag():
     fake = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
     with patch("aios.core.arena_runner.shutil.which", return_value="/usr/bin/arena"), \
          patch("aios.core.arena_runner.subprocess.run", return_value=fake) as run:
-        run_arena(target="amx-mini-refund", target_url="http://localhost:8888")
+        run_arena(target="acme-mini-refund", target_url="http://localhost:8888")
     cmd = run.call_args.args[0]
     assert "--target-url" in cmd
     assert "http://localhost:8888" in cmd
@@ -77,7 +77,7 @@ def test_command_no_target_url_without_flag():
     fake = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
     with patch("aios.core.arena_runner.shutil.which", return_value="/usr/bin/arena"), \
          patch("aios.core.arena_runner.subprocess.run", return_value=fake) as run:
-        run_arena(target="amx-mini-refund")
+        run_arena(target="acme-mini-refund")
     cmd = run.call_args.args[0]
     assert "--target-url" not in cmd
 
@@ -102,7 +102,7 @@ def test_list_targets_parses_table_output():
         "┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓\n"
         "┃ Target ID           ┃ Path                ┃ Has README ┃\n"
         "┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩\n"
-        "│ amx-mini-refund     │ amx-mini-refund     │ ✓          │\n"
+        "│ acme-mini-refund     │ acme-mini-refund     │ ✓          │\n"
         "│ damn-vulnerable-api │ damn-vulnerable-api │ ✓          │\n"
         "└─────────────────────┴─────────────────────┴────────────┘\n"
     )
@@ -110,7 +110,7 @@ def test_list_targets_parses_table_output():
     with patch("aios.core.arena_runner.shutil.which", return_value="/usr/bin/arena"), \
          patch("aios.core.arena_runner.subprocess.run", return_value=fake):
         targets = list_targets()
-    assert "amx-mini-refund" in targets
+    assert "acme-mini-refund" in targets
     assert "damn-vulnerable-api" in targets
 
 
@@ -123,11 +123,11 @@ def test_write_summary_creates_file(tmp_path):
         mythos_win_streak=5, timeline_path="/x/timeline.md",
         run_id="arena-abc", elapsed_seconds=15.2,
     )
-    written = write_arena_summary_to_memory(tmp_path, result, "amx-mini-refund")
+    written = write_arena_summary_to_memory(tmp_path, result, "acme-mini-refund")
     assert written is not None
     content = written.read_text()
     assert "MYTHOS_WINS" in content
-    assert "amx-mini-refund" in content
+    assert "acme-mini-refund" in content
     assert "6" in content  # rounds
     assert "arena-abc" in content
 
@@ -142,7 +142,7 @@ def test_write_summary_appends_subsequent_runs(tmp_path):
     (tmp_path / "ai-memory").mkdir()
     r1 = ArenaResult(ok=True, verdict="MYTHOS_WINS", rounds_completed=6)
     r2 = ArenaResult(ok=True, verdict="DRAW", rounds_completed=10)
-    write_arena_summary_to_memory(tmp_path, r1, "amx-mini-refund")
+    write_arena_summary_to_memory(tmp_path, r1, "acme-mini-refund")
     write_arena_summary_to_memory(tmp_path, r2, "damn-vulnerable-api")
     content = (tmp_path / "ai-memory" / "security_findings.md").read_text()
     assert content.count("## Run ") == 2

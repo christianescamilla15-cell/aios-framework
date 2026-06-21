@@ -1,7 +1,7 @@
 # Tasks — ATOS-NOSHOW-ROBOT Modernización .NET 8 LTS
 
 > Formato: `- [ ] N. Título · Req X.Y · Design §Z`
-> 🚫 BLOCKER = depende de aprobación externa (gate AMX)
+> 🚫 BLOCKER = depende de aprobación externa (gate ACME)
 
 ---
 
@@ -129,12 +129,12 @@
 
 - [ ] 6.1. Crear `Dockerfile` multi-stage en la raíz de la solución: stage `build` con `mcr.microsoft.com/dotnet/sdk:8.0`, stage `runtime` con `mcr.microsoft.com/dotnet/runtime:8.0` (Linux), usuario no-root `noshow` · Req 9.3 · Design §Deployment
 - [ ] 6.2. Crear `infra/k8s/noshow-cronjob.yaml` con: `schedule: "50 6 * * *"`, `concurrencyPolicy: Forbid`, `startingDeadlineSeconds: 600`, `successfulJobsHistoryLimit: 3`, `failedJobsHistoryLimit: 5`, `backoffLimit: 3`, `restartPolicy: OnFailure`, resources requests `512Mi/500m`, limits `2Gi/1000m` · Req 9.4 · Design §Deployment
-- [ ] 6.3. Crear `infra/k8s/noshow-serviceaccount.yaml` con anotación IRSA `eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/amx-r-noshow-execution` · Req 9.2 · Design §Deployment
+- [ ] 6.3. Crear `infra/k8s/noshow-serviceaccount.yaml` con anotación IRSA `eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/acme-r-noshow-execution` · Req 9.2 · Design §Deployment
 - [ ] 6.4. Crear Helm chart en `infra/helm/noshow-robot/` con `Chart.yaml`, `values.yaml` (image tag, cron schedule, dual-run flag, log level), `values.prod.yaml`, templates `cronjob.yaml`, `serviceaccount.yaml`, `configmap.yaml` · Design §Deployment
-- [ ] 6.5. Crear `infra/iam/amx-r-noshow-execution-policy.json` con permisos mínimos: `secretsmanager:GetSecretValue` sobre `noshow/*` y `kms:Decrypt` sobre `amx-noshow-cmk` · Req 8.6 · Design §Secrets Strategy
+- [ ] 6.5. Crear `infra/iam/acme-r-noshow-execution-policy.json` con permisos mínimos: `secretsmanager:GetSecretValue` sobre `noshow/*` y `kms:Decrypt` sobre `acme-noshow-cmk` · Req 8.6 · Design §Secrets Strategy
 - [ ] 6.6. Crear `infra/cloudwatch/alarms.yaml` con alarmas: `noshow-sftp-failed`, `noshow-records-low` (< 500), `noshow-cycle-timeout` (> 90 min) · Design §Observability
 - [ ] 6.7. Crear `infra/cloudwatch/dashboard.json` con widgets: latencia ciclo, throughput, error rate, last successful run timestamp · Design §Observability
-- [ ] 6.8. Crear pipeline CI/CD en GitHub Enterprise (`.github/workflows/build-and-push.yml`): build → test → Veracode scan → docker build → push a ECR AMX → helm upgrade · Req 15.2 · Design §Deployment
+- [ ] 6.8. Crear pipeline CI/CD en GitHub Enterprise (`.github/workflows/build-and-push.yml`): build → test → Veracode scan → docker build → push a ECR ACME → helm upgrade · Req 15.2 · Design §Deployment
 - [ ] 6.9. Agregar `appsettings.json` en `NoShow.Worker/` con configuración no-sensible (cron, paths, timeouts, log level) — sin credenciales · Req 8.1 · Design §Components
 
 ---
@@ -147,11 +147,11 @@
 - [ ] 7.4. Implementar lectura de `NOSHOW_CUTOVER` en `NoshowPipeline`: si `true` → forzar modo `PRODUCTION` sin redespliegue · Req 13.5 · Design §Migration Strategy
 - [ ] 7.5. Escribir tests unitarios para `DualRunComparator`: diff < 2% no alerta, diff > 2% en 1 ejecución no alerta, diff > 2% en 3 consecutivas sí alerta · Req 13.4 · Design §Testing
 - [ ] 7.6. Documentar procedimiento de rollback en `docs/runbook-rollback.md`: pasos para revertir `NOSHOW_MODE`, detener CronJob, retomar legacy · Design §Migration Strategy
-- [ ] 7.7. Documentar exit criteria de cutover en `docs/cutover-checklist.md`: 10 ejecuciones con diff < 0.5%, sign-off Jacobo (Revenue Accounting), sign-off Víctor (líder AMX) · Design §Migration Strategy
+- [ ] 7.7. Documentar exit criteria de cutover en `docs/cutover-checklist.md`: 10 ejecuciones con diff < 0.5%, sign-off Jacobo (Finance Operations), sign-off Víctor (líder ACME) · Design §Migration Strategy
 
 ---
 
-## Phase 8 · AMX Gates — Pre-producción obligatorios (retro 20-abr-2026)
+## Phase 8 · ACME Gates — Pre-producción obligatorios (retro 20-abr-2026)
 
 > 🚫 BLOCKER = requiere aprobación o acción de persona externa al equipo de desarrollo.
 > Orden obligatorio: saltar un gate puede paralizar el equipo ~1 mes antes del go-live.
@@ -164,15 +164,15 @@
 - [ ] 8.6. Registrar ADR-004 (MailKit vs SmtpClient) en `docs/adr/` · Req 15.4 · Design §ADR-004
 - [ ] 8.7. Registrar ADR-005 (EKS CronJob vs Step Functions) en `docs/adr/` con comparativa opción A vs B · Req 15.4 · Design §ADR-005
 - [ ] 8.8. 🚫 BLOCKER · Obtener aprobación de **Borde de Arquitectura** (Israel Miguel González Sandoval, aprobación multi-persona) — presentar link LeanIX + ADRs · Req 15.1 · Design §ADR-005
-- [ ] 8.9. 🚫 BLOCKER · Enviar correo previo de Víctor (líder AMX) solicitando cuenta AWS, adjuntar captura al ticket · Req 15.1 · Design §Deployment
-- [ ] 8.10. 🚫 BLOCKER · Levantar ticket de **cuenta AWS AMX** en GateOne (SLA 24h laborales) adjuntando captura del correo de Víctor · Req 15.1 · Design §Deployment
+- [ ] 8.9. 🚫 BLOCKER · Enviar correo previo de Víctor (líder ACME) solicitando cuenta AWS, adjuntar captura al ticket · Req 15.1 · Design §Deployment
+- [ ] 8.10. 🚫 BLOCKER · Levantar ticket de **cuenta AWS ACME** en GateOne (SLA 24h laborales) adjuntando captura del correo de Víctor · Req 15.1 · Design §Deployment
 - [ ] 8.11. 🚫 BLOCKER · Coordinar con **Diego Zarate** la creación de VPC + subnets (Gateway / pública / privada / datos) para el cluster EKS · Req 15.1 · Design §Deployment
-- [ ] 8.12. 🚫 BLOCKER · Levantar ticket KMS individual para `amx-noshow-cmk` vía **GateOne** o **AMX Chat Service Desk** — UNA CMK por servicio, no compartir · Req 15.5 · Design §Secrets Strategy
+- [ ] 8.12. 🚫 BLOCKER · Levantar ticket KMS individual para `acme-noshow-cmk` vía **GateOne** o **ACME Chat Service Desk** — UNA CMK por servicio, no compartir · Req 15.5 · Design §Secrets Strategy
 - [ ] 8.13. 🚫 BLOCKER · Ejecutar escaneo **WIZ** (postura AWS cloud) — sin vulnerabilidades altas/críticas sin excepción · Req 15.2 · Design §ADR-005
 - [ ] 8.14. 🚫 BLOCKER · Ejecutar escaneo **Veracode** (análisis estático de código) sobre el repositorio GitHub Enterprise · Req 15.2 · Design §Deployment
 - [ ] 8.15. 🚫 BLOCKER · Ejecutar escaneo **Prisma Cloud** (containers y cargas de cómputo) sobre la imagen Docker publicada en ECR · Req 15.2 · Design §Deployment
 - [ ] 8.16. 🚫 BLOCKER · Ejecutar escaneo **Tenable** (infrastructure-as-code) sobre los manifests Helm/K8s en `infra/` · Req 15.2 · Design §Deployment
-- [ ] 8.17. 🚫 BLOCKER · Obtener aprobación de **Miguel Rachid** (Gerente Ciberseguridad AMX) — gate final, requiere los 4 escaneos CYBER sin vulnerabilidades altas/críticas o con excepción formal por correo · Req 15.6 · Design §ADR-005
+- [ ] 8.17. 🚫 BLOCKER · Obtener aprobación de **Miguel Rachid** (Gerente Ciberseguridad ACME) — gate final, requiere los 4 escaneos CYBER sin vulnerabilidades altas/críticas o con excepción formal por correo · Req 15.6 · Design §ADR-005
 
 ---
 
@@ -187,5 +187,5 @@
 | Phase 5 · Tests | 13 | 0 |
 | Phase 6 · Deployment | 9 | 0 |
 | Phase 7 · Migration | 7 | 0 |
-| Phase 8 · AMX Gates | 17 | 10 🚫 |
+| Phase 8 · ACME Gates | 17 | 10 🚫 |
 | **Total** | **109** | **10 🚫** |

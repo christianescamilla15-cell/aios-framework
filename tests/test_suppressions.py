@@ -206,7 +206,7 @@ def test_load_prefers_rule_id_over_alias_when_both_present(tmp_path):
 def test_matches_falls_back_to_cwe_when_rule_id_is_cwe_form():
     """v3.7.4 · suppression con rule_id="CWE-547" debe cubrir cualquier
     detector que emita ese CWE (HARDCODED-INTERNAL-HOSTNAME, etc.).
-    Patrón observado en SICOFAV donde la misma línea es flagged por
+    Patrón observado en FLEET_OPS_APP donde la misma línea es flagged por
     detectores con rule_id distinto pero comparten CWE."""
     sup = Suppression(rule_id="CWE-547", file="x.cs", line=144)
     finding = _f("HARDCODED-INTERNAL-HOSTNAME", "x.cs", 144, cwe="CWE-547")
@@ -235,7 +235,7 @@ def test_matches_with_only_cwe_set_requires_finding_cwe():
 
 
 def test_load_legacy_entry_with_rule_alias_and_cwe_field(tmp_path):
-    """Entry legacy SICOFAV-shape: { id, rule (alias), file, line }.
+    """Entry legacy FLEET_OPS_APP-shape: { id, rule (alias), file, line }.
     Carga sin error y matchea findings por rule_id resuelto."""
     data = [{
         "id": "T3-FP-001",
@@ -302,13 +302,13 @@ def test_paths_match_helper_windows_paths():
 def test_t8_n1_e2e_suppression_matches_with_scope_reduced_finding():
     """T8-N1 e2e · suppression repo-root path matchea finding emitido con --root subdir."""
     sup = Suppression(
-        rule_id="AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS",
+        rule_id="ACME-CDK-STACK-REQUIRES-MANDATORY-TAGS",
         file="infra/cdk-pipeline/stacks/sicofav_kms_stack.py",
         line=31,
     )
     # Finding emitido por `aios iterate --root infra/cdk-pipeline` · path relativo a --root
     finding = _f(
-        "AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS",
+        "ACME-CDK-STACK-REQUIRES-MANDATORY-TAGS",
         "stacks/sicofav_kms_stack.py",
         31,
     )

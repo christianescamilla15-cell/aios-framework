@@ -1,4 +1,4 @@
-"""AIOS Governance · TierClassifier · clasificación de aplicativos por TIER (9 criterios oficiales AMX).
+"""AIOS Governance · TierClassifier · clasificación de aplicativos por TIER (9 criterios oficiales ACME).
 
 Aplica los criterios de Tiers 2.xlsx · sheet Tier_definicion · equipo Domini.
 Detecta mismatches (caso SRG: declared T3 pero PII Sí → debería ser T2).
@@ -31,7 +31,7 @@ ImpactLevel = Literal["alto", "medio", "bajo", "muy_bajo"]
 
 @dataclass
 class TierCriteria:
-    """9 criterios oficiales AMX para clasificación TIER."""
+    """9 criterios oficiales ACME para clasificación TIER."""
 
     impact_revenue: ImpactLevel = "bajo"
     impact_service: ImpactLevel = "bajo"
@@ -74,7 +74,7 @@ class TierClassificationResult:
 # ---------------------------------------------------------------------------
 
 class TierClassifier:
-    """Clasifica aplicativos según 9 criterios oficiales AMX.
+    """Clasifica aplicativos según 9 criterios oficiales ACME.
 
     Carga reglas desde aios/governance/rules/tiers.yaml + heurísticas sobre
     el campo `rationale` (texto libre validado en sesión 28-abr).
@@ -321,7 +321,7 @@ class TierClassifier:
                 declared_tier=Tier.T3,
                 suggested_tier=Tier.T2,
                 reason=(
-                    "T3 prohíbe PCI/PII por definición (tabla oficial AMX). "
+                    "T3 prohíbe PCI/PII por definición (tabla oficial ACME). "
                     "Aplicativo maneja datos personales · debe ser T2 mínimo."
                 ),
                 severity="HIGH",
@@ -418,7 +418,7 @@ class TierClassifier:
             f"TIER declared: {declared.value if declared else '?'} (tier_status={meta.get('tier_status', '?')})",
             f"TIER computed: {computed.value}",
             "",
-            "Criterios oficiales AMX (9):",
+            "Criterios oficiales ACME (9):",
             f"  1. Impacto ingresos:   {criteria.impact_revenue}",
             f"  2. Impacto servicio:   {criteria.impact_service}",
             f"  3. Impacto operación:  {criteria.impact_operation}",

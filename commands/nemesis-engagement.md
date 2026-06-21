@@ -1,5 +1,5 @@
 ---
-description: "Scaffold Nemesis pentest engagement desde el catalogo de 10 apps AMX"
+description: "Scaffold Nemesis pentest engagement desde el catalogo de 10 apps ACME"
 triggers:
   - "scaffold engagement"
   - "nuevo pentest"
@@ -12,7 +12,7 @@ triggers:
 # Nemesis Engagement Scaffold
 
 Genera el paquete operacional (`roe.yaml` + `BRIEFING.md` + `PREFLIGHT.md`
-+ `RUNBOOK.md`) para una o todas las apps del catalogo AMX Revenue
++ `RUNBOOK.md`) para una o todas las apps del catalogo ACME Revenue
 Accounting · FROZEN by default (2099 + signatures pending).
 
 ## Prereq · config aios
@@ -22,7 +22,7 @@ Accounting · FROZEN by default (2099 + signatures pending).
 ```json
 {
   "engagement": {
-    "scaffold_script": "/path/absoluta/a/amx-hallazgos-audit/nemesis/nemesis-engagements/_catalog/scaffold.py",
+    "scaffold_script": "/path/absoluta/a/acme-hallazgos-audit/nemesis/nemesis-engagements/_catalog/scaffold.py",
     "quarter_default": "2026-Q2"
   }
 }
@@ -64,7 +64,7 @@ Para cada engagement generado:
 2. **Envialo a los 3 firmantes** out-of-band (correo/DocuSign/papel):
    - Miatech Ciberseguridad (Carlos Reyes · agendar)
    - Etrive TPM
-   - AMX Legal
+   - ACME Legal
 3. **Recolecta firmas** · archiva bajo `nemesis-memory/<eid>/preflight/signatures/`.
 4. **Completa PREFLIGHT.md** checklist (8 secciones · A-H).
 5. **Ajusta `roe.yaml`**:

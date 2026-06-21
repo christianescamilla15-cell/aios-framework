@@ -4,7 +4,7 @@ Separado del release gate porque Arena self-play es lento (minutos
 por 10 rounds) · no apto para integrar en `aios release`. Se expone
 como subcomando `aios arena` para uso on-demand:
 
-  aios arena --target amx-mini-refund [--target-url http://localhost:8888]
+  aios arena --target acme-mini-refund [--target-url http://localhost:8888]
 
 Si el binario `arena` no esta en PATH, emite mensaje con instrucciones
 de instalacion (no invoca fallback embedded · Arena requiere mythos +
@@ -90,7 +90,7 @@ def run_arena(
             ok=False,
             detail=(
                 "arena CLI no encontrado en PATH · instalar desde "
-                "amx-hallazgos-audit/arena: `pip install -e arena/`"
+                "acme-hallazgos-audit/arena: `pip install -e arena/`"
             ),
         )
 

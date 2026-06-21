@@ -1,7 +1,7 @@
-"""v3.5.0 · AMX Compliance Checker (F01 + F07).
+"""v3.5.0 · ACME Compliance Checker (F01 + F07).
 
-Verifica el cumplimiento de badges de gobernanza AMX al estilo de
-`BO-AMX/CS_Scripts/check-compliance.sh` · sin dependencia externa.
+Verifica el cumplimiento de badges de gobernanza ACME al estilo de
+`BO-ACME/CS_Scripts/check-compliance.sh` · sin dependencia externa.
 
 Si el script shell oficial (`check-compliance.sh`) está en PATH (instalado
 desde CS_Scripts vía `install-global-scripts.sh`), se delega · de lo
@@ -53,7 +53,7 @@ def check_compliance(root: Path) -> Dict:
             "detail": (
                 f"Badge F01 presente ({f01_pct}%)" if f01 and f01_pct else
                 "Badge F01 presente (sin % extraído)" if f01 else
-                "Sin badge F01 · opcional en apps AMX bajo gobernanza"
+                "Sin badge F01 · opcional en apps ACME bajo gobernanza"
             ),
         }
         f07 = ("F07_BADGE_START" in txt or "F07%20JIRA" in txt
@@ -129,7 +129,7 @@ def format_report(results: Dict) -> List[str]:
     lines: List[str] = []
     lines.append("")
     lines.append("=" * 60)
-    lines.append("  AMX COMPLIANCE CHECK (F01 + F07)")
+    lines.append("  ACME COMPLIANCE CHECK (F01 + F07)")
     lines.append("=" * 60)
     mode = results.get("mode")
     if mode == "delegated":

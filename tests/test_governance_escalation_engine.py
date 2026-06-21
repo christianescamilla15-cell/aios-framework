@@ -72,11 +72,11 @@ def test_detect_returns_empty_when_no_audit(tmp_path, engine):
 
 def test_detect_returns_slippages_with_severity(tmp_path, engine):
     _seed_audit_with_old_entries(tmp_path, [
-        ("GOV-SICOFAV-BD-001", "sicofav", "bd-access", 4),
-        ("GOV-SICOFAV-CMK-001", "sicofav", "cmk-request", 7),
-        ("GOV-SICOFAV-AWS-001", "sicofav", "aws-account-shared", 12),
+        ("GOV-FLEET_OPS_APP-BD-001", "fleet_ops_app", "bd-access", 4),
+        ("GOV-FLEET_OPS_APP-CMK-001", "fleet_ops_app", "cmk-request", 7),
+        ("GOV-FLEET_OPS_APP-AWS-001", "fleet_ops_app", "aws-account-shared", 12),
     ])
-    slips = engine.detect(audit_root=tmp_path, app="sicofav")
+    slips = engine.detect(audit_root=tmp_path, app="fleet_ops_app")
     assert len(slips) == 3
     severities = {s["severity"] for s in slips}
     assert severities == {"warn", "escalate", "emergency"}
@@ -87,12 +87,12 @@ def test_detect_returns_slippages_with_severity(tmp_path, engine):
 
 def test_emergency_routes_to_sponsor_business(tmp_path, engine):
     _seed_audit_with_old_entries(tmp_path, [
-        ("GOV-SICOFAV-AWS-001", "sicofav", "aws-account-shared", 12),
+        ("GOV-FLEET_OPS_APP-AWS-001", "fleet_ops_app", "aws-account-shared", 12),
     ])
     artifacts = engine.generate(
         audit_root=tmp_path,
         output_dir=tmp_path / "esc",
-        app="sicofav",
+        app="fleet_ops_app",
         write_pdf=False,
     )
     assert artifacts.severity == "emergency"
@@ -101,30 +101,30 @@ def test_emergency_routes_to_sponsor_business(tmp_path, engine):
 
 def test_escalate_routes_to_elias(tmp_path, engine):
     _seed_audit_with_old_entries(tmp_path, [
-        ("GOV-SICOFAV-BD-001", "sicofav", "bd-access", 7),
+        ("GOV-FLEET_OPS_APP-BD-001", "fleet_ops_app", "bd-access", 7),
     ])
     artifacts = engine.generate(
         audit_root=tmp_path,
         output_dir=tmp_path / "esc",
-        app="sicofav",
+        app="fleet_ops_app",
         write_pdf=False,
     )
     assert artifacts.severity == "escalate"
-    assert artifacts.escalation_to["email"] == "etapia@aeromexico.com"
+    assert artifacts.escalation_to["email"] == "etapia@acmeair.com"
 
 
 def test_warn_routes_to_luis(tmp_path, engine):
     _seed_audit_with_old_entries(tmp_path, [
-        ("GOV-SICOFAV-BD-001", "sicofav", "bd-access", 4),
+        ("GOV-FLEET_OPS_APP-BD-001", "fleet_ops_app", "bd-access", 4),
     ])
     artifacts = engine.generate(
         audit_root=tmp_path,
         output_dir=tmp_path / "esc",
-        app="sicofav",
+        app="fleet_ops_app",
         write_pdf=False,
     )
     assert artifacts.severity == "warn"
-    assert artifacts.escalation_to["email"] == "luisertuche@aeromexico.com"
+    assert artifacts.escalation_to["email"] == "luisertuche@acmeair.com"
 
 
 # ── manual override ──────────────────────────────────────────────────
@@ -132,13 +132,13 @@ def test_warn_routes_to_luis(tmp_path, engine):
 
 def test_manual_to_overrides_severity_routing(tmp_path, engine):
     _seed_audit_with_old_entries(tmp_path, [
-        ("GOV-SICOFAV-AWS-001", "sicofav", "aws-account-shared", 12),
+        ("GOV-FLEET_OPS_APP-AWS-001", "fleet_ops_app", "aws-account-shared", 12),
     ])
     # Severity emergency · pero manual override = luis
     artifacts = engine.generate(
         audit_root=tmp_path,
         output_dir=tmp_path / "esc",
-        app="sicofav",
+        app="fleet_ops_app",
         manual_to="luis",
         write_pdf=False,
     )
@@ -148,13 +148,13 @@ def test_manual_to_overrides_severity_routing(tmp_path, engine):
 
 def test_manual_to_invalid_raises(tmp_path, engine):
     _seed_audit_with_old_entries(tmp_path, [
-        ("GOV-SICOFAV-BD-001", "sicofav", "bd-access", 4),
+        ("GOV-FLEET_OPS_APP-BD-001", "fleet_ops_app", "bd-access", 4),
     ])
     with pytest.raises(ValueError, match="--to 'invalid_target'"):
         engine.generate(
             audit_root=tmp_path,
             output_dir=tmp_path / "esc",
-            app="sicofav",
+            app="fleet_ops_app",
             manual_to="invalid_target",
             write_pdf=False,
         )
@@ -165,18 +165,18 @@ def test_manual_to_invalid_raises(tmp_path, engine):
 
 def test_markdown_output_contains_severity_and_app(tmp_path, engine):
     _seed_audit_with_old_entries(tmp_path, [
-        ("GOV-SICOFAV-BD-001", "sicofav", "bd-access", 4),
+        ("GOV-FLEET_OPS_APP-BD-001", "fleet_ops_app", "bd-access", 4),
     ])
     artifacts = engine.generate(
         audit_root=tmp_path,
         output_dir=tmp_path / "esc",
-        app="sicofav",
+        app="fleet_ops_app",
         write_pdf=False,
     )
     md = artifacts.markdown_path.read_text(encoding="utf-8")
     assert "Aviso temprano" in md or "warn" in md.lower()
-    assert "SICOFAV" in md
-    assert "GOV-SICOFAV-BD-001" in md
+    assert "FLEET_OPS_APP" in md
+    assert "GOV-FLEET_OPS_APP-BD-001" in md
 
 
 def test_no_slippage_returns_none(tmp_path, engine):
@@ -197,12 +197,12 @@ def test_request_ids_unique_within_same_day_via_hhmmss(tmp_path, engine):
     """Dos runs el mismo día/app deben generar request_ids distintos (HHMMSS suffix)."""
     import time
     _seed_audit_with_old_entries(tmp_path, [
-        ("GOV-SICOFAV-BD-001", "sicofav", "bd-access", 7),
+        ("GOV-FLEET_OPS_APP-BD-001", "fleet_ops_app", "bd-access", 7),
     ])
     a1 = engine.generate(
         audit_root=tmp_path,
         output_dir=tmp_path / "esc",
-        app="sicofav",
+        app="fleet_ops_app",
         write_pdf=False,
         record_audit=False,  # evitar spam audit
     )
@@ -210,7 +210,7 @@ def test_request_ids_unique_within_same_day_via_hhmmss(tmp_path, engine):
     a2 = engine.generate(
         audit_root=tmp_path,
         output_dir=tmp_path / "esc",
-        app="sicofav",
+        app="fleet_ops_app",
         write_pdf=False,
         record_audit=False,
     )

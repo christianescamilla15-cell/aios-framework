@@ -660,7 +660,7 @@ def cmd_compliance_report(args):
 
 
 def cmd_engagement(args):
-    """Invoca el scaffolder de Nemesis engagements (AMX Revenue
+    """Invoca el scaffolder de Nemesis engagements (ACME Revenue
     Accounting scope).
 
     Requiere `nemesis-engagements/_catalog/scaffold.py` reachable ·
@@ -1306,7 +1306,7 @@ def main():
                    help="Directorio a escanear (default: cwd)")
     p.add_argument("--corporate", default="",
                    help="CSV de dominios corporativos whitelisted "
-                        "(default: aeromexico.com.mx,am.com.mx,aeromexicocargo.com)")
+                        "(default: acmeair.com.mx,am.com.mx,acmeaircargo.com)")
     p.add_argument("--severity-min", default="INFO",
                    choices=["INFO", "MEDIUM", "HIGH"],
                    help="Filtra findings bajo este nivel")
@@ -1435,7 +1435,7 @@ def main():
     p.add_argument("--root", default=".")
 
     # engagement · invoca Nemesis scaffold
-    p = sub.add_parser("engagement", help="Scaffold Nemesis engagement (AMX scope)")
+    p = sub.add_parser("engagement", help="Scaffold Nemesis engagement (ACME scope)")
     p.add_argument("--list", action="store_true", help="lista apps del catalogo")
     p.add_argument("--app", help="app_id del catalogo (ej. 02-arc)")
     p.add_argument("--all", action="store_true", help="genera todos los pending")
@@ -1447,7 +1447,7 @@ def main():
 
     # arena · adversarial self-play on-demand
     p = sub.add_parser("arena", help="Run Mythos vs Nemesis self-play (slow · manual)")
-    p.add_argument("--target", help="TUT id (ej. amx-mini-refund)")
+    p.add_argument("--target", help="TUT id (ej. acme-mini-refund)")
     p.add_argument("--target-url", dest="target_url",
                    help="URL HTTP del TUT live (activa nuclei)")
     p.add_argument("--max-rounds", dest="max_rounds", type=int, default=10)
@@ -1569,9 +1569,9 @@ def main():
     # version
     p = sub.add_parser("version", help="Show AIOS version")
 
-    # v3.5.0 sprint 4 · integraciones externas AMX
+    # v3.5.0 sprint 4 · integraciones externas ACME
     p = sub.add_parser("check-compliance",
-                       help="AMX F01 compliance badge + F07 JIRA traceability check")
+                       help="ACME F01 compliance badge + F07 JIRA traceability check")
     p.add_argument("--root", default=".")
 
     p = sub.add_parser("buildspec-validate",
@@ -1583,7 +1583,7 @@ def main():
                        help="Genera Discovery Package consolidado del plan v5 (Fase 1)")
     p.add_argument("--root", default=".")
     p.add_argument("--app", required=False,
-                   help="aplicativo del plan v5: sicofav · srg · robot · etc.")
+                   help="aplicativo del plan v5: fleet_ops_app · srg · robot · etc.")
     p.add_argument("--pdf", action="store_true",
                    help="Genera también PDF con weasyprint")
 
@@ -1593,7 +1593,7 @@ def main():
                        help="Genera los 9 docs estándar Fase 1 Discovery "
                             "(01_code_scan..09_risk_register) en fase-1-discovery/")
     p.add_argument("--app", required=True,
-                   help="aplicativo del plan v5: sicofav · arc · bsp · srg · robot · etc.")
+                   help="aplicativo del plan v5: fleet_ops_app · arc · bsp · srg · robot · etc.")
     p.add_argument("--root", default=".",
                    help="root del repo (default: cwd) · busca código para scan + stack detection")
     p.add_argument("--overwrite", action="store_true",
@@ -1603,9 +1603,9 @@ def main():
     p.add_argument("--format", choices=["human", "json"], default="human",
                    help="Formato salida (human tabla · json reporte completo)")
 
-    # v3.6.6 · AMX Knowledge Base · catalog + analog advisor
-    p = sub.add_parser("amx-catalog",
-                       help="AMX knowledge base · browse BO-AMX repos + SC products")
+    # v3.6.6 · ACME Knowledge Base · catalog + analog advisor
+    p = sub.add_parser("acme-catalog",
+                       help="ACME knowledge base · browse BO-ACME repos + SC products")
     p.add_argument("action", choices=["list", "search", "show",
                                        "sc-products", "mapping"],
                    help="list | search <q> | show <repo> | sc-products [cat] | mapping <app>")
@@ -1614,11 +1614,11 @@ def main():
     p.add_argument("--purpose", help="Filter por purpose (app|template|pipeline|sc-product|...)")
     p.add_argument("--language", help="Filter por lenguaje (C#|Python|VB.NET|Shell|...)")
     p.add_argument("--aplicativo",
-                   help="Filter por aplicativo (SICOFAV|SRG|Robot|NoShow|CFDIs|ARC|BSP|ASR)")
+                   help="Filter por aplicativo (FLEET_OPS_APP|SRG|Robot|NoShow|CFDIs|ARC|BSP|ASR)")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
-    p = sub.add_parser("amx-analog",
-                       help="Fingerprint repo actual · sugiere análogos BO-AMX")
+    p = sub.add_parser("acme-analog",
+                       help="Fingerprint repo actual · sugiere análogos BO-ACME")
     p.add_argument("--root", default=".", help="Path del repo a fingerprint")
     p.add_argument("--format", choices=["human", "json"], default="human")
 
@@ -1738,7 +1738,7 @@ def main():
         "dynamic-hooks": cmd_dynamic_hooks,
         # v3.2.0 · Iterative multi-strategy scanner
         "iterate": cmd_iterate,
-        # v3.5.0 · integraciones externas AMX (CS_Scripts + CS_CI_Artifacts)
+        # v3.5.0 · integraciones externas ACME (CS_Scripts + CS_CI_Artifacts)
         "check-compliance": cmd_check_compliance,
         "buildspec-validate": cmd_buildspec_validate,
         # v3.5.1 · plan v5 integration
@@ -1754,9 +1754,9 @@ def main():
         "trivy-scan": cmd_trivy_scan,
         "iac-scan": cmd_iac_scan,
         "sbom": cmd_sbom,
-        # v3.6.6 · AMX Knowledge Base · catalog + analog advisor
-        "amx-catalog": cmd_amx_catalog,
-        "amx-analog": cmd_amx_analog,
+        # v3.6.6 · ACME Knowledge Base · catalog + analog advisor
+        "acme-catalog": cmd_amx_catalog,
+        "acme-analog": cmd_amx_analog,
         # v3.8.0 · Governance Pack · check · request · audit · escalate
         "governance": cmd_governance_dispatch,
         "tier": cmd_tier_dispatch,
@@ -1809,7 +1809,7 @@ def cmd_version(args):
 
 
 def cmd_check_compliance(args):
-    """v3.5.0 · AMX Compliance Check (F01 + F07 traceability)."""
+    """v3.5.0 · ACME Compliance Check (F01 + F07 traceability)."""
     from aios.core.amx_compliance import check_compliance, format_report
     root = get_root(args)
     results = check_compliance(root)
@@ -2000,7 +2000,7 @@ def cmd_sbom(args):
 
 
 def cmd_amx_catalog(args):
-    """v3.6.6 · AMX Knowledge Base · browse BO-AMX catalog."""
+    """v3.6.6 · ACME Knowledge Base · browse BO-ACME catalog."""
     import json
     import sys
     from aios.core import amx_catalog as cat
@@ -2025,7 +2025,7 @@ def cmd_amx_catalog(args):
             print(json.dumps([_ser_repo(r) for r in repos], indent=2,
                              ensure_ascii=False))
         else:
-            print(f"\n  AMX Catalog · {len(repos)} repos "
+            print(f"\n  ACME Catalog · {len(repos)} repos "
                   f"(refreshed {cat.CATALOG_LAST_REFRESHED})")
             print("  " + "-" * 72)
             for r in repos:
@@ -2090,7 +2090,7 @@ def cmd_amx_catalog(args):
 
     elif args.action == "mapping":
         if not args.query:
-            print("\n  ERROR: mapping requiere aplicativo (SICOFAV|SRG|...)\n")
+            print("\n  ERROR: mapping requiere aplicativo (FLEET_OPS_APP|SRG|...)\n")
             sys.exit(2)
         m = cat.get_aplicativo_mapping(args.query)
         if m is None:
@@ -2149,14 +2149,14 @@ def cmd_amx_analog(args):
         }
         print(json.dumps(out, indent=2, ensure_ascii=False))
     else:
-        print(f"\n  AMX Analog Advisor · {root}")
+        print(f"\n  ACME Analog Advisor · {root}")
         print("  " + "-" * 72)
         print(f"  Languages    : {', '.join(fp['languages']) or '-'}")
         print(f"  Frameworks   : {', '.join(fp['frameworks']) or '-'}")
         print(f"  Signals      : {', '.join(fp['signals']) or '-'}")
         print()
         if analogs:
-            print(f"  Top {len(analogs)} análogos BO-AMX (ordenados por score):")
+            print(f"  Top {len(analogs)} análogos BO-ACME (ordenados por score):")
             for r in analogs:
                 local = " [LOCAL]" if r.local_path else ""
                 print(f"    · {r.name} ({r.language or '-'}) · "
@@ -2617,7 +2617,7 @@ def cmd_review(args):
                 pattern_override=args.pattern,
             )
             print(f"  ✓ Ontology proposal agregado a: {proposal_path}")
-            print(f"    Merge manual al catálogo canónico tras aprobación AMX.")
+            print(f"    Merge manual al catálogo canónico tras aprobación ACME.")
         print()
         print(f"  ✓ Decision logged · {args.action.upper()} · {args.id}")
         if args.reason:

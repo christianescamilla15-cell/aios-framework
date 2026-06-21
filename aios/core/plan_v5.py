@@ -1,4 +1,4 @@
-"""v3.5.1 · Plan de Trabajo v5 · Revenue Accounting Modernization AMX.
+"""v3.5.1 · Plan de Trabajo v5 · Finance Operations Modernization ACME.
 
 Integra el framework con el plan de trabajo v5 (Justificacion_Plan_v5_23abr.md).
 Expone metadata de los 10 aplicativos del scope eTrive: Tier · go-live · patrones
@@ -39,14 +39,14 @@ class AppMetadata:
 # Plan v5 § 9 · cronograma por aplicativo (fuente: Justificacion_Plan_v5)
 # ════════════════════════════════════════════════════════════════════
 APPS: Dict[str, AppMetadata] = {
-    "sicofav": AppMetadata(
+    "fleet_ops_app": AppMetadata(
         app_id=1, excel_id="1",
-        short="SICOFAV", long_name="Sistema de Conciliación de Facturas",
+        short="FLEET_OPS_APP", long_name="Sistema de Conciliación de Facturas",
         tier="T0", criticality="Mission Critical · SOX",
         stack_as_is="C# ASP.NET 4.6.1 + VB.NET 60% + PHP 24% + Aurora MySQL 8.0.39",
         go_live="2026-09-10", arranque_fase1="2026-04-06",
         duracion_weeks="20-25",
-        owner_funcional="Rocío Anaya (AMX)",
+        owner_funcional="Rocío Anaya (ACME)",
         owner_tecnico="Jacobo Ramirez + Nelson del Ángel (Miatech)",
         codigo_disponible=True,
         notas="Única app 100% AWS del ecosistema · V2 Miatech en paralelo (duplicidad a resolver)",
@@ -88,10 +88,10 @@ APPS: Dict[str, AppMetadata] = {
         stack_as_is=".NET 7 + Angular 15 + TinyMCE + SQL Server + Windows Server 2012 R2 EOL",
         go_live="2026-07-08", arranque_fase1="2026-05-04",
         duracion_weeks="8-10",
-        owner_funcional="Gabriela Vázquez + Karina Cedillo (AMX)",
+        owner_funcional="Gabriela Vázquez + Karina Cedillo (ACME)",
         owner_tecnico="Nelson + Cristian (Miatech)",
         codigo_disponible=True,
-        notas="Clientes Aeroméxico + Delta · única app con 112 tests unit · discrepancia T1 vs T3 vs matriz v3",
+        notas="Clientes AcmeAir + Delta · única app con 112 tests unit · discrepancia T1 vs T3 vs matriz v3",
     ),
     "asr": AppMetadata(
         app_id=6, excel_id="6",
@@ -110,7 +110,7 @@ APPS: Dict[str, AppMetadata] = {
         stack_as_is="VB.NET + SABRE SOAP · 954K LoC · CCNumber plaintext PCI violation · CVSS 9.8 command injection",
         go_live="2026-09-24", arranque_fase1="2026-04-06",
         duracion_weeks="20-25",
-        owner_funcional="Javier Toledo Tovar (AMX · Gerente Senior Ingresos)",
+        owner_funcional="Javier Toledo Tovar (ACME · Gerente Senior Ingresos)",
         owner_tecnico="Miatech",
         codigo_disponible=True,
         notas="Motor compartido BSP+ARC+ASR · cutover secuencial por canal · Globalizador sin código · PoC eTrive 43 tests Python mitigó CVSS 9.8",
@@ -122,7 +122,7 @@ APPS: Dict[str, AppMetadata] = {
         stack_as_is="COBOL ILE + Java + HTML · AS400 DB2 V7R4M0 · on-prem Perú ATOS-LIMA",
         go_live="2026-07-15", arranque_fase1="2026-05-18",
         duracion_weeks="8-10",
-        owner_funcional="Julio Yauri (ASI AMX)",
+        owner_funcional="Julio Yauri (ASI ACME)",
         owner_tecnico="TBD · Gustavo eTrive tiene expertise COBOL",
         codigo_disponible=True,
         notas="PoC local VB.NET genérico · legacy real COBOL pendiente entrega · Prod_FOB = app más severa (48 BLOCKER · 17 crítical)",
@@ -164,7 +164,7 @@ TIER_PATTERNS: Dict[str, Dict[str, List[str]]] = {
         "edge": ["Akamai WAF + CDN + DNS obligatorio endpoint público"],
         "secrets": [
             "KMS CMK DEDICADA POR SERVICIO",
-            "ej. sicofav-api · sicofav-db · sicofav-logs · sicofav-secrets",
+            "ej. fleet_ops_app-api · fleet_ops_app-db · fleet_ops_app-logs · fleet_ops_app-secrets",
         ],
         "refactor_pattern": [
             "Strangler Fig OBLIGATORIO",
@@ -238,7 +238,7 @@ CROSS_APP_BLOCKERS: List[CrossAppBlocker] = [
             "Ninguno de los 10 aplicativos cuenta con DEV/QA · sólo producción. "
             "Refactor seguro imposible con usuarios activos. Mitigación táctica: "
             "Visual Studio local (en descarga 23-abr) + self-hosted CI runner WDAC. "
-            "Greenfield AWS AMX es solución estructural."
+            "Greenfield AWS ACME es solución estructural."
         ),
         impact="TODAS · precede Fase 2",
         owner="Víctor + Antonio Oropeza + Christian",
@@ -247,7 +247,7 @@ CROSS_APP_BLOCKERS: List[CrossAppBlocker] = [
     ),
     CrossAppBlocker(
         blocker_id="B-AWS-ACCT",
-        title="Cuenta AWS Greenfield AMX (no Miatech)",
+        title="Cuenta AWS Greenfield ACME (no Miatech)",
         description=(
             "SLA 24h post visto-bueno líder. Precede VPC + KMS + IAM + pipelines."
         ),
@@ -258,12 +258,12 @@ CROSS_APP_BLOCKERS: List[CrossAppBlocker] = [
     ),
     CrossAppBlocker(
         blocker_id="B-KMS",
-        title="KMS AMX CMK · 1 POR SERVICIO",
+        title="KMS ACME CMK · 1 POR SERVICIO",
         description=(
-            "Retro 20-abr Antonio H. Oropeza. GateOne portal autoservicio o AMX chat."
+            "Retro 20-abr Antonio H. Oropeza. GateOne portal autoservicio o ACME chat."
         ),
         impact="T0 + T1",
-        owner="Antonio H. Oropeza · líder AMX",
+        owner="Antonio H. Oropeza · líder ACME",
         deadline="2026-05-05",
         status="open",
     ),

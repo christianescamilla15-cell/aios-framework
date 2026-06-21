@@ -39,7 +39,7 @@
         "use_mythos_cli": {
           "type": "boolean",
           "default": false,
-          "description": "Si true Y `mythos` esta en PATH, delega al CLI para scan profundo con catalogos AMX"
+          "description": "Si true Y `mythos` esta en PATH, delega al CLI para scan profundo con catalogos ACME"
         },
         "mythos_target_id": {
           "type": "string",

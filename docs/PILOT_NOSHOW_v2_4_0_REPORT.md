@@ -58,7 +58,7 @@ Escaneó configs + código buscando dominios no-corporativos.
 **ATOS-NOSHOW-ROBOT**:
 - Files scanned: 60
 - Findings: 20 MEDIUM (0 HIGH · env_hint no detectó prod en path source)
-  - `aeromexico.com` · 4 hits · **FP · fixeable en próximo bump**: el whitelist default solo tiene `aeromexico.com.mx`, necesita agregar `aeromexico.com`
+  - `acmeair.com` · 4 hits · **FP · fixeable en próximo bump**: el whitelist default solo tiene `acmeair.com.mx`, necesita agregar `acmeair.com`
   - `webservices.cert.platform.sabre.com` · 9 hits · vendor Sabre legítimo (CERT env)
   - `configurationmanager.appsettings` · regex FP · el pattern `ftp_host=` matchea el nombre de la API .NET, no un host real
 
@@ -88,14 +88,14 @@ D|178|07560685|UPNRAZ|2025-09-20 12:41:30|TKT|1397377206865|1|ANGEL*******SANCHE
 Esto es **PII productiva viviendo en build output**. Clasificación legal:
 - **LFPDPPP** · nombres + locators = datos personales identificables
 - **PCI-DSS** · tickets con número de boleto (no PAN pero cerca)
-- **Política AMX** · retención y borrado no están definidos en el scanner run
+- **Política ACME** · retención y borrado no están definidos en el scanner run
 
 ## 5. LLM Classifier (RFC-003 Nivel 2) · Ollama + gemma3
 
 Probado sobre 1 finding real (`Business/BO/SabreBO.cs:231`):
 
 ```
-  Ontology  · pause_for_review (unclear · sin match en catálogo de 21 patterns AMX)
+  Ontology  · pause_for_review (unclear · sin match en catálogo de 21 patterns ACME)
   LLM       · classification=unclear · confidence=0.6
   Reasoning : "catch (Exception ex) block is a general exception handler
                with no specific error handling or logging. Might represent
@@ -117,7 +117,7 @@ Probado sobre 1 finding real (`Business/BO/SabreBO.cs:231`):
 ## 6. Gaps identificados durante el pilot (v2.5.0 backlog)
 
 1. **Scanner visita `.vs/Noshow/copilot-chat/`**: debe excluirse por default (conoce metadata IDE · no código). 4 FPs en baseline.
-2. **Exfil whitelist default**: falta `aeromexico.com` (solo tiene `.com.mx`). Generó 4 FPs · one-line fix.
+2. **Exfil whitelist default**: falta `acmeair.com` (solo tiene `.com.mx`). Generó 4 FPs · one-line fix.
 3. **Exfil `_SMTP_HOST_RE` / `_FTP_HOST_RE`**: matchean `ConfigurationManager.AppSettings` como si fuera un host. Ajustar para exigir `://` o `smtp\.`/`ftp\.` prefix.
 4. **Runtime-data severity**: PNRs en log productivo deberían escalar a HIGH (no MEDIUM) cuando el path contiene `prod/` · `logs/` · `reports/` o cuando hay >100 hits concentrados en un archivo.
 5. **Ollama provider cold-start timeout**: subir default de 30s a 180s · o hacer warmup pre-scan.

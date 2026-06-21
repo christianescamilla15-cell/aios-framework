@@ -13,15 +13,15 @@ Diseño intencional:
 - Default policy configurable (strict · bug · unclear) para backwards compat.
 
 Uso canónico:
-    ontology = load_ontology(Path("aios/policies/amx-revenue-accounting/ontology.yaml"))
+    ontology = load_ontology(Path("aios/policies/acme-finance_operations/ontology.yaml"))
     result = classify_finding(finding, ontology)
     if result.action == "pause_for_review":
         print(f"REQUIERE REVIEW · {result.message}")
     elif result.action == "auto_fix":
         apply_fix(finding, result.fix_template)
 
-Catálogo canónico AMX en:
-    aios/policies/amx-revenue-accounting/ontology.yaml
+Catálogo canónico ACME en:
+    aios/policies/acme-finance_operations/ontology.yaml
 
 Deriva de RFC-003 del BACKLOG · feedback LM-FRK70K 2026-04-22.
 """

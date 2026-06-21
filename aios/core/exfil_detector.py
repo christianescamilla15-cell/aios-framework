@@ -6,7 +6,7 @@ ningún SAST comercial automatiza sin reglas custom.
 
 Ejemplo canónico NoShow real (2026-04-22):
 - `distributionList` en config de producción con `@miatech.net`
-  (dominio vendor · no AMX) → data siendo enviada fuera del perímetro
+  (dominio vendor · no ACME) → data siendo enviada fuera del perímetro
 
 Heurística · NO confirmación:
 - HIGH cuando el archivo parece config de producción y el recipient
@@ -17,13 +17,13 @@ Heurística · NO confirmación:
 Uso canónico:
     detector = ExfilDetector(
         root=Path("."),
-        corporate_domains=["aeromexico.com.mx", "am.com.mx"],
+        corporate_domains=["acmeair.com.mx", "am.com.mx"],
     )
     report = detector.detect()
 
 CLI:
     aios exfil --root . \
-        --corporate "aeromexico.com.mx,am.com.mx" \
+        --corporate "acmeair.com.mx,am.com.mx" \
         --format json
 
 Severity:
@@ -39,11 +39,11 @@ from pathlib import Path
 from typing import Optional
 
 
-# Default AMX corporate whitelist · sobrescribible por CLI
+# Default ACME corporate whitelist · sobrescribible por CLI
 _DEFAULT_CORPORATE_DOMAINS = (
-    "aeromexico.com.mx",
+    "acmeair.com.mx",
     "am.com.mx",
-    "aeromexicocargo.com",
+    "acmeaircargo.com",
 )
 
 # Dominios que siempre deberían ignorarse aun cuando no estén en whitelist
@@ -54,7 +54,7 @@ _BENIGN_DOMAINS = (
     "microsoft.com", "amazonaws.com", "amazon.com",
     "nuget.org", "pypi.org", "npmjs.com",
     "openssl.org", "ibm.com", "oracle.com",
-    "aeromexico.com", "aeromexico.com.mx",  # variantes corporativas default
+    "acmeair.com", "acmeair.com.mx",  # variantes corporativas default
 )
 
 # v3.1 fix · code-refs que el regex SMTP/FTP host matchea como si fueran

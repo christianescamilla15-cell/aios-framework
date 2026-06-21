@@ -74,7 +74,7 @@ def test_arena_run_missing_binary_returns_not_ok(monkeypatch):
     from aios.mcp_server import arena_run
     from aios.core import arena_runner
     monkeypatch.setattr(arena_runner.shutil, "which", lambda x: None)
-    result = arena_run(target="amx-mini-refund", max_rounds=1)
+    result = arena_run(target="acme-mini-refund", max_rounds=1)
     assert result["ok"] is False
     assert "no encontrado" in result["detail"]
 

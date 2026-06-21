@@ -7,7 +7,7 @@ Uso:
     aios coverage --root <path> --min-line 80 --sox-threshold 100
     aios coverage --cobertura-file TestResults/xxx/coverage.cobertura.xml
 
-Diseñado para pipelines AMX T0:
+Diseñado para pipelines ACME T0:
 - coverage ≥ 80 % lines · 80 % branches (baseline T0)
 - coverage = 100 % en paquetes SOX-critical (via --sox-pattern regex)
 """

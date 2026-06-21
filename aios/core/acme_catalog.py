@@ -1,6 +1,6 @@
-"""v3.6.6 · AMX Knowledge Base · BO-AMX org catalog + Service Catalog products.
+"""v3.6.6 · ACME Knowledge Base · BO-ACME org catalog + Service Catalog products.
 
-Registry estructurado de los 95 repos accesibles en BO-AMX (via chernandeze_amx
+Registry estructurado de los 95 repos accesibles en BO-ACME (via acme-team
 SSO) + 20+ productos del Service Catalog (`dyn-devops-service-catalog`) + 6
 templates canónicos CS-* · para que AIOS pueda:
 
@@ -9,11 +9,11 @@ templates canónicos CS-* · para que AIOS pueda:
 3. Identificar templates que se deben consumir en vez de reinventar
 
 Fuente de verdad:
-- Inventario 2026-04-24 · `gh repo list BO-AMX --limit 500 --json`
+- Inventario 2026-04-24 · `gh repo list BO-ACME --limit 500 --json`
 - Clones locales en `_analogos/` + `_templates/` + `_references/`
 - Documento `ANALOGOS_BO-AMX_vs_10APPS_24abr.md` (reporte ejecutivo)
 
-Refresh: manual via `aios amx-catalog refresh` (v3.6.7 · pending) o
+Refresh: manual via `aios acme-catalog refresh` (v3.6.7 · pending) o
 actualizando las constantes en este archivo cuando se cumple TTL de 90 días.
 """
 from __future__ import annotations
@@ -32,15 +32,15 @@ CATALOG_TTL_DAYS = 90
 
 @dataclass(frozen=True)
 class AmxRepo:
-    """Un repo de BO-AMX con metadata relevante."""
+    """Un repo de BO-ACME con metadata relevante."""
     name: str
     language: Optional[str]   # C#, VB.NET, Python, Shell, Java, JS, None
     description: str
     # app | template | pipeline | sc-product | lambda-pipeline | monitoring | governance
     purpose: str
     size_kb: int
-    applies_to_aplicativos: tuple[str, ...] = ()  # SICOFAV · SRG · Robot · etc.
-    local_path: Optional[str] = None  # relative to AMX Apps Satelites/ si clonado
+    applies_to_aplicativos: tuple[str, ...] = ()  # FLEET_OPS_APP · SRG · Robot · etc.
+    local_path: Optional[str] = None  # relative to ACME Apps Satelites/ si clonado
 
 
 @dataclass(frozen=True)
@@ -54,37 +54,37 @@ class ScProduct:
 
 @dataclass(frozen=True)
 class AplicativoMapping:
-    """Mapping de un aplicativo del scope eTribe a sus análogos BO-AMX."""
-    aplicativo: str         # SICOFAV · SRG · etc.
+    """Mapping de un aplicativo del scope eTribe a sus análogos BO-ACME."""
+    aplicativo: str         # FLEET_OPS_APP · SRG · etc.
     stack_actual: str
     stack_target: str
     best_analogs: tuple[str, ...]      # repo names
     sc_products_recommended: tuple[str, ...]
-    gaps: tuple[str, ...] = ()  # patterns NO existen en BO-AMX · pionero
+    gaps: tuple[str, ...] = ()  # patterns NO existen en BO-ACME · pionero
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 95 repos BO-AMX · inventariados 2026-04-24 (subset documented · rest meta)
+# 95 repos BO-ACME · inventariados 2026-04-24 (subset documented · rest meta)
 # ═══════════════════════════════════════════════════════════════════════════
 
 AMX_REPOS: tuple[AmxRepo, ...] = (
     # === Templates canónicos Corporate Solutions (CS-*) · 6 ===
     AmxRepo("CS-App-Template", None, "Template for App Repositories (GitLab Flow)",
             "template", 14,
-            applies_to_aplicativos=("SICOFAV", "SRG", "Robot", "NoShow", "CFDIs",
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "Robot", "NoShow", "CFDIs",
                                     "ARC", "BSP", "ASR"),
             local_path="_templates/CS-App-Template"),
     AmxRepo("CS-CICD-Template", None, "Template for App CICD Repositories (GitHub Flow)",
             "template", 14,
-            applies_to_aplicativos=("SICOFAV", "SRG", "Robot", "NoShow", "CFDIs"),
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "Robot", "NoShow", "CFDIs"),
             local_path="_templates/CS-CICD-Template"),
     AmxRepo("CS-IaC-Template", None, "Template for IaC Repositories (GitLab Flow)",
             "template", 0,
-            applies_to_aplicativos=("SICOFAV", "SRG", "NoShow"),
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "NoShow"),
             local_path=None),
     AmxRepo("CS-IaC-CICD-Template", "Shell", "IaC Pipeline Template",
             "template", 500,
-            applies_to_aplicativos=("SICOFAV", "SRG", "NoShow", "Robot"),
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "NoShow", "Robot"),
             local_path="_templates/CS-IaC-CICD-Template"),
     AmxRepo("CS_CI_Artifacts", "Shell", "Artefactos para pipelines de CS",
             "template", 2000,
@@ -95,12 +95,12 @@ AMX_REPOS: tuple[AmxRepo, ...] = (
     AmxRepo("CS-Mon-Template", "Python",
             "Monitoring Base Repository for CloudWatch Existant Metrics",
             "monitoring", 166,
-            applies_to_aplicativos=("SICOFAV", "SRG", "NoShow", "Robot", "CFDIs"),
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "NoShow", "Robot", "CFDIs"),
             local_path="_templates/CS-Mon-Template"),
     AmxRepo("CS_Lambda_AuthZ_Template", "Java",
             "Corporate Solutions Lambda Authorizer (AuthZ) Repository Template",
             "template", 2275,
-            applies_to_aplicativos=("SICOFAV", "SRG", "CFDIs"),
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "CFDIs"),
             local_path="_references/CS_Lambda_AuthZ_Template"),
 
     # === Service Catalog frameworks ===
@@ -122,23 +122,23 @@ AMX_REPOS: tuple[AmxRepo, ...] = (
             "sc-product", 104),
 
     # === Apps con código funcional (inspirarse arquitectura) ===
-    AmxRepo("RevAcc_Praxis_ASIS_SICOFAV", "C#", "Revenue Accounting SICOFAV",
+    AmxRepo("RevAcc_Praxis_ASIS_SICOFAV", "C#", "Finance Operations FLEET_OPS_APP",
             "app", 11313,
-            applies_to_aplicativos=("SICOFAV",)),
-    AmxRepo("RevAcc_Praxis_ASIS_SRG", "C#", "Revenue Accounting SRG",
+            applies_to_aplicativos=("FLEET_OPS_APP",)),
+    AmxRepo("RevAcc_Praxis_ASIS_SRG", "C#", "Finance Operations SRG",
             "app", 13414,
             applies_to_aplicativos=("SRG",)),
     AmxRepo("RevAcc_Praxis_ASIS_Rob_analisis_VCRS_PNRs_asoc_PLM", "Visual Basic .NET",
-            "Revenue Accounting VCRs PNRs · Robot +11", "app", 11408,
+            "Finance Operations VCRs PNRs · Robot +11", "app", 11408,
             applies_to_aplicativos=("Robot",)),
     AmxRepo("RevAcc_Praxis_ASIS_Rob_cal_reemb_ven_indi", "Visual Basic .NET",
-            "Revenue Accounting Rob Reembolso Ven · Robot principal", "app", 12083,
+            "Finance Operations Rob Reembolso Ven · Robot principal", "app", 12083,
             applies_to_aplicativos=("Robot",)),
     AmxRepo("RevAcc_Praxis_ASIS_Rob_cambio_status", "Visual Basic .NET",
-            "Revenue Accounting Cambios Status · Robot +13", "app", 11531,
+            "Finance Operations Cambios Status · Robot +13", "app", 11531,
             applies_to_aplicativos=("Robot",)),
     AmxRepo("RevAcc_Praxis_ASIS_Serv_de_cons_PNRs_VCRs", "Visual Basic .NET",
-            "Revenue Accounting Cons PNRs · Robot +12", "app", 11394,
+            "Finance Operations Cons PNRs · Robot +12", "app", 11394,
             applies_to_aplicativos=("Robot",)),
     AmxRepo("FEBOL_MX_DescargaMasivaSAT", "JavaScript",
             "Portal Web Descarga Masiva SAT · poliglota (.NET + Java + Node + Python)",
@@ -153,22 +153,22 @@ AMX_REPOS: tuple[AmxRepo, ...] = (
             "Repo clonado de Dynamics/Ciberseguridad (readonly)", "app", 2015),
 
     # === Per-aplicativo pipelines (muestra · no exhaustivo) ===
-    AmxRepo("RevAcc_Praxis_ASIS_CI", "Shell", "Revenue Accounting CI pipeline",
+    AmxRepo("RevAcc_Praxis_ASIS_CI", "Shell", "Finance Operations CI pipeline",
             "pipeline", 5000,
-            applies_to_aplicativos=("SICOFAV", "SRG", "Robot", "NoShow", "CFDIs",
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "Robot", "NoShow", "CFDIs",
                                     "ARC", "BSP", "ASR"),
             local_path="_analogos/RevAcc_Praxis_ASIS_CI"),
-    AmxRepo("RevAcc_Praxis_ASIS_CD", "Shell", "Revenue Accounting CD pipeline",
+    AmxRepo("RevAcc_Praxis_ASIS_CD", "Shell", "Finance Operations CD pipeline",
             "pipeline", 6000,
-            applies_to_aplicativos=("SICOFAV", "SRG", "Robot", "NoShow", "CFDIs"),
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "Robot", "NoShow", "CFDIs"),
             local_path="_analogos/RevAcc_Praxis_ASIS_CD"),
-    AmxRepo("Miaeromexico_EKS_CICD", "Shell",
-            "EKS IaC Pipeline for Miaeromexico · pattern para apps EKS",
+    AmxRepo("Miacmeair_EKS_CICD", "Shell",
+            "EKS IaC Pipeline for Miacmeair · pattern para apps EKS",
             "pipeline", 4000,
-            applies_to_aplicativos=("SICOFAV",),
-            local_path="_analogos/Miaeromexico_EKS_CICD"),
-    AmxRepo("miaeromexico_IaC_CICD", "Shell",
-            "IaC Pipeline for Miaeromexico Application", "pipeline", 3000),
+            applies_to_aplicativos=("FLEET_OPS_APP",),
+            local_path="_analogos/Miacmeair_EKS_CICD"),
+    AmxRepo("miacmeair_IaC_CICD", "Shell",
+            "IaC Pipeline for Miacmeair Application", "pipeline", 3000),
 
     # === Lambda-per-feature pipelines (SIAC · Nomibox · SAC) ===
     # Muestra representativa · total SIAC=28, SAC=5, Nomibox=4
@@ -176,13 +176,13 @@ AMX_REPOS: tuple[AmxRepo, ...] = (
             "lambda-pipeline", 3000),
     AmxRepo("SIAC_LambdaAuth_CI", "Shell", "CI Pipeline LambdaAuth",
             "lambda-pipeline", 1000,
-            applies_to_aplicativos=("SICOFAV", "SRG", "CFDIs")),
+            applies_to_aplicativos=("FLEET_OPS_APP", "SRG", "CFDIs")),
     AmxRepo("Nomibox_IaC_CICD", "Shell", "Nomibox IaC Pipeline",
             "lambda-pipeline", 3000),
 
     # === Governance / rules ===
     AmxRepo("amazon-q-rules", "Shell",
-            "Project rules for Amazon Q chat · 35 reglas canónicas AMX",
+            "Project rules for Amazon Q chat · 35 reglas canónicas ACME",
             "governance", 500,
             applies_to_aplicativos=("*",),
             local_path="_templates/amazon-q-rules"),
@@ -215,11 +215,11 @@ AMX_REPOS: tuple[AmxRepo, ...] = (
 SC_PRODUCTS: tuple[ScProduct, ...] = (
     # Infraestructura
     ScProduct("eks_cluster_product", "infra",
-              "EKS cluster con amx-cdk-wrapper · soporta multi-region T0",
-              use_for=("Block 8 SICOFAV", "Block 8 Com-Indirectas")),
+              "EKS cluster con acme-cdk-wrapper · soporta multi-region T0",
+              use_for=("Block 8 FLEET_OPS_APP", "Block 8 Com-Indirectas")),
     ScProduct("eks_access_product", "infra",
               "IRSA roles + aws-auth configmap",
-              use_for=("Block 8 SICOFAV",)),
+              use_for=("Block 8 FLEET_OPS_APP",)),
     ScProduct("eks_addon_product", "infra",
               "CloudWatch agent · metrics server · cluster addons",
               use_for=("Block 3 Observability",)),
@@ -231,21 +231,21 @@ SC_PRODUCTS: tuple[ScProduct, ...] = (
               use_for=("Block 8 futuro",)),
     ScProduct("ecr_product", "infra",
               "ECR repo con scan on push + lifecycle policy",
-              use_for=("Block 8 SICOFAV", "SRG", "Robot")),
+              use_for=("Block 8 FLEET_OPS_APP", "SRG", "Robot")),
     ScProduct("cloudfront_s3_website_product", "infra",
               "CloudFront + S3 website con OAC (no OAI deprecated)",
               use_for=("SRG frontend", "CFDIs portal")),
     ScProduct("database_migration_product", "infra",
               "DMS para migración MySQL 5.7 → Aurora MySQL 8",
-              use_for=("SICOFAV cutover", "Com-Indirectas")),
+              use_for=("FLEET_OPS_APP cutover", "Com-Indirectas")),
     ScProduct("cross_resources_product", "infra",
               "Cross-account role assumption",
-              use_for=("Block 8 SICOFAV multi-region",)),
+              use_for=("Block 8 FLEET_OPS_APP multi-region",)),
 
     # Pipelines
     ScProduct("pipeline_api_gateway_rest_sam_product", "pipeline",
               "API Gateway REST + SAM CI/CD",
-              use_for=("Block 5 API SICOFAV", "SRG API refactor")),
+              use_for=("Block 5 API FLEET_OPS_APP", "SRG API refactor")),
     ScProduct("pipeline_api_gateway_http_sam_product", "pipeline",
               "API Gateway HTTP + SAM · más barato · menos features",
               use_for=("APIs internas ligeras",)),
@@ -261,9 +261,9 @@ SC_PRODUCTS: tuple[ScProduct, ...] = (
               "Microservicio on-prem JDK 17"),
     ScProduct("pipeline_base_product_on_premise_monolith", "pipeline",
               "Monolito on-prem · útil cutover gradual",
-              use_for=("SICOFAV cutover fase intermedia",)),
+              use_for=("FLEET_OPS_APP cutover fase intermedia",)),
     ScProduct("pipeline_csby_middleware_product", "pipeline",
-              "Middleware Corp Service Bus AMX",
+              "Middleware Corp Service Bus ACME",
               use_for=("Integración Praxis",)),
 
     # Notification / Other
@@ -282,12 +282,12 @@ SC_PRODUCTS: tuple[ScProduct, ...] = (
 
 APLICATIVO_ANALOGS: tuple[AplicativoMapping, ...] = (
     AplicativoMapping(
-        aplicativo="SICOFAV",
+        aplicativo="FLEET_OPS_APP",
         stack_actual=".NET Framework 4.7 + MySQL 5.7",
         stack_target=".NET 8 + EKS multi-región + Aurora Global",
         best_analogs=("dyn-devops-service-catalog", "CS_Lambda_AuthZ_Template",
                       "RevAcc_Praxis_ASIS_CI", "RevAcc_Praxis_ASIS_CD",
-                      "CS-Mon-Template", "Miaeromexico_EKS_CICD"),
+                      "CS-Mon-Template", "Miacmeair_EKS_CICD"),
         sc_products_recommended=("eks_cluster_product", "eks_access_product",
                                  "eks_addon_product", "ecr_product",
                                  "pipeline_api_gateway_rest_sam_product",
@@ -323,7 +323,7 @@ APLICATIVO_ANALOGS: tuple[AplicativoMapping, ...] = (
     ),
     AplicativoMapping(
         aplicativo="CFDIs",
-        stack_actual="skeleton (DxC vs BO-AMX inconsistencia)",
+        stack_actual="skeleton (DxC vs BO-ACME inconsistencia)",
         stack_target="descarga + procesamiento CFDIs SAT Mexico",
         best_analogs=("FEBOL_MX_DescargaMasivaSAT", "FEI_Extraccion_SFTP_ARCHIVO_BI",
                       "CS_Lambda_AuthZ_Template"),
@@ -359,7 +359,7 @@ APLICATIVO_ANALOGS: tuple[AplicativoMapping, ...] = (
         stack_target="pending governance desbloqueo",
         best_analogs=(),
         sc_products_recommended=(),
-        gaps=("No hay análogos AS400/RPG en BO-AMX accesibles",),
+        gaps=("No hay análogos AS400/RPG en BO-ACME accesibles",),
     ),
     AplicativoMapping(
         aplicativo="Com-Indirectas",
@@ -536,7 +536,7 @@ def fingerprint_repo(root: Path) -> dict:
 
 
 def suggest_analogs(fingerprint: dict) -> list[AmxRepo]:
-    """Dado un fingerprint · retorna repos AMX candidatos."""
+    """Dado un fingerprint · retorna repos ACME candidatos."""
     langs = [l.lower() for l in fingerprint.get("languages", [])]
     frameworks = [f.lower() for f in fingerprint.get("frameworks", [])]
     signals = [s.lower() for s in fingerprint.get("signals", [])]

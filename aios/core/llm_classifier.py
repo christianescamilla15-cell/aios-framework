@@ -18,7 +18,7 @@ Providers soportados:
 - mock · para tests · no llama API (retorna respuesta determinista)
 - anthropic · Claude API (default · mejor reasoning)
 - openai · GPT-4 family
-- azure · Azure OpenAI (enterprise AMX)
+- azure · Azure OpenAI (enterprise ACME)
 - ollama · local models · zero-cost · privacidad
 
 Uso canónico:
@@ -274,7 +274,7 @@ def _extract_variable_names(snippet: str) -> list[str]:
 # Prompt builder
 # ---------------------------------------------------------------------------
 
-_PROMPT_TEMPLATE = """Eres un security auditor senior revisando hallazgos de un escáner automatizado sobre el codebase de Aeroméxico (AMX) · sistema revenue accounting.
+_PROMPT_TEMPLATE = """Eres un security auditor senior revisando hallazgos de un escáner automatizado sobre el codebase de AcmeAir (ACME) · sistema finance_operations.
 
 Un detector encontró este posible issue:
 - Rule: {rule_id}
@@ -302,14 +302,14 @@ Variables relevantes detectadas: {variable_names}
 Behavior fingerprint (characterization · API pública del archivo):
 {behavior_fingerprint}
 
-Ontology hint (clasificación tentativa previa por catálogo AMX):
+Ontology hint (clasificación tentativa previa por catálogo ACME):
 {ontology_hint}
 
 Clasifica este finding en UNA de estas 4 categorías:
 
 1. **bug** · vulnerabilidad clara de seguridad (CWE-798 credencial hardcoded · CWE-89 SQL injection · CWE-78 command injection · CWE-664 runtime exception como remove-in-iteration · CWE-362 race condition · etc). El auto-refactor es seguro aplicándolo.
 
-2. **business_rule** · el valor es lógica de negocio intencional del dominio AMX (número de vuelo con acuerdo específico · SKU pinned por regulación · ID a sistema externo · threshold operativo). Auto-refactor rompería el dominio.
+2. **business_rule** · el valor es lógica de negocio intencional del dominio ACME (número de vuelo con acuerdo específico · SKU pinned por regulación · ID a sistema externo · threshold operativo). Auto-refactor rompería el dominio.
 
 3. **migration_candidate** · pattern conocido con template de migración disponible (Secrets Manager · Route53 PHZ · KMS · Polly retry). Auto-fix aplicable con cuidado.
 

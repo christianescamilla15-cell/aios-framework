@@ -1,4 +1,4 @@
-"""TierChecker · valida assignment TIER vs criterios oficiales AMX.
+"""TierChecker · valida assignment TIER vs criterios oficiales ACME.
 
 Detecta:
   - TIER_T3_FORBIDS_PII (caso SRG)
@@ -62,7 +62,7 @@ class TierChecker:
                         category="tier",
                         message=(
                             f"App '{app}' declared T3 pero rationale incluye PII Sí. "
-                            "Tabla AMX dice T3 = PCI/PII NO."
+                            "Tabla ACME dice T3 = PCI/PII NO."
                         ),
                         suggestion="Promover a T2 mínimo (caso SRG · firma Borde Arq Israel)",
                     ))
@@ -158,7 +158,7 @@ class TierChecker:
                 rule_id="TIER_ASSIGNMENT_OK",
                 severity=CheckSeverity.PASS,
                 category="tier",
-                message=f"App '{app}' tier '{declared_tier}' coincide con criterios oficiales AMX",
+                message=f"App '{app}' tier '{declared_tier}' coincide con criterios oficiales ACME",
             ))
 
         return findings

@@ -101,7 +101,7 @@ def find_app_memory(root: Path, task: str) -> str:
         return ""
 
     # v1.6.0 fix · use [a-z0-9]+ (NOT \w+) so underscore separates tokens
-    # ("01_sicofav" → {01, sicofav}, not {01_sicofav})
+    # ("01_sicofav" → {01, fleet_ops_app}, not {01_sicofav})
     task_tokens = set(re.findall(r"[a-z0-9]+", task.lower()))
     if not task_tokens:
         return ""
@@ -110,7 +110,7 @@ def find_app_memory(root: Path, task: str) -> str:
     for app_dir in apps_root.iterdir():
         if not app_dir.is_dir() or app_dir.name.startswith("."):
             continue
-        # Match app folder name to task tokens (e.g. "01_sicofav" matches task "sicofav refactor")
+        # Match app folder name to task tokens (e.g. "01_sicofav" matches task "fleet_ops_app refactor")
         app_tokens = set(re.findall(r"[a-z0-9]+", app_dir.name.lower()))
         score = len(task_tokens & app_tokens) / len(task_tokens) if task_tokens else 0
         if score < 0.1:
@@ -162,9 +162,9 @@ def file_template_with_memory(filename: str, mode: str, task: str,
         identity = autofill_section(memory, "Identidad") or autofill_section(memory, "Stack")
         if identity:
             objective = (
-                f"Estabilizar y modernizar este aplicativo según el plan AMX. "
+                f"Estabilizar y modernizar este aplicativo según el plan ACME. "
                 f"Cerrar hallazgos del assessment + scan deep. "
-                f"Cumplir constraints AMX (ECS prohibido · Akamai mandatorio · 4 escaneos pre-prod · KMS AMX · "
+                f"Cumplir constraints ACME (ECS prohibido · Akamai mandatorio · 4 escaneos pre-prod · KMS ACME · "
                 f"Vault para credenciales). Migrar a stack target moderno preservando funcionalidad operativa.\n\n"
                 f"Contexto AS-IS:\n{identity[:600]}"
             )

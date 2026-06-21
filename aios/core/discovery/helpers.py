@@ -72,7 +72,7 @@ def humanize_stack(stack: str) -> str:
 # ───────── PDF helpers (v3.7.1 · reutilizable entre subcomandos) ──────
 
 def minimal_md_to_html(md: str, title: str) -> str:
-    """Conversión minimalista MD → HTML con CSS AMX-style para PDF weasyprint.
+    """Conversión minimalista MD → HTML con CSS ACME-style para PDF weasyprint.
 
     Soporta: headers H1-H3 · bold · italic · code inline · listas · tablas
     pipe-separated · blockquotes · hr. Suficiente para docs Discovery.

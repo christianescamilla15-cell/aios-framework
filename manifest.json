@@ -1,5 +1,5 @@
 {
-  "$schema": "https://github.com/OYN-AMX/am-kiro/schema/pack.schema.json",
+  "$schema": "https://github.com/OYN-ACME/am-kiro/schema/pack.schema.json",
   "name": "aios",
   "version": "2.2.0",
   "description": "AIOS · spec-driven development framework + session management + 72 detectores de seguridad · Sprint 5.3 · AM-KIRO compatible pack",
@@ -17,7 +17,7 @@
       "aios-overview.md",
       "aios-stacks-auto-detection.md",
       "aios-modes.md",
-      "amx-constraints-retro-20abr.md"
+      "acme-constraints-retro-20abr.md"
     ],
     "hooks": [
       "aios-pre-task.kiro.hook",
@@ -45,7 +45,7 @@
     "security_detectors": 72,
     "cwe_coverage": "21/28 (75%)",
     "stacks_supported": ["aws", "cicd", "cobol", "docker", "dotnet", "java", "multiagent", "php", "python"],
-    "policies": ["default", "enterprise", "amx-revenue-accounting"],
+    "policies": ["default", "enterprise", "acme-finance_operations"],
     "modes": ["BUGFIX", "FEATURE", "MIGRATION", "LEGACY_MODERNIZATION"]
   },
   "metadata": {

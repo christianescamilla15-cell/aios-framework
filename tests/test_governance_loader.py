@@ -51,7 +51,7 @@ def test_supported_apps_excludes_out_of_scope_cfdis():
     rules = load_rules()
     apps = rules.supported_apps
     assert len(apps) == 7
-    expected_in_scope = {"sicofav", "arc", "bsp", "srg", "asr", "robot", "noshow"}
+    expected_in_scope = {"fleet_ops_app", "arc", "bsp", "srg", "asr", "robot", "noshow"}
     assert set(apps) == expected_in_scope
     assert "cfdis" not in apps
 
@@ -66,8 +66,8 @@ def test_all_apps_includes_out_of_scope_for_history():
 
 def test_get_app_metadata_returns_full_record():
     rules = load_rules()
-    meta = rules.get_app_metadata("sicofav")
-    assert meta["name"] == "SICOFAV"
+    meta = rules.get_app_metadata("fleet_ops_app")
+    assert meta["name"] == "FLEET_OPS_APP"
     assert meta["tier"] == "T0"
     assert meta["app_id"] == "01"
     assert "rationale" in meta

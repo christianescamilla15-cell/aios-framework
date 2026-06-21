@@ -50,19 +50,19 @@ class EscalationEngine:
     SEVERITY_ROUTING = {
         "warn": {
             "name": "Luis Ertuche",
-            "email": "luisertuche@aeromexico.com",
-            "role": "PM intermediación · Revenue Accounting",
+            "email": "luisertuche@acmeair.com",
+            "role": "PM intermediación · Finance Operations",
             "key": "luis",
         },
         "escalate": {
             "name": "Elías Tapia",
-            "email": "etapia@aeromexico.com",
-            "role": "Sponsor único interno AMX · Revenue Accounting",
+            "email": "etapia@acmeair.com",
+            "role": "Sponsor único interno ACME · Finance Operations",
             "key": "elias",
         },
         "emergency": {
             "name": "Víctor Araiza · Eloisa Sánchez · J.T.",
-            "email": "varaiza@aeromexico.com",
+            "email": "varaiza@acmeair.com",
             "role": "Sponsor business · CC Cumplimiento + Negocio",
             "key": "sponsor",
         },
@@ -76,12 +76,12 @@ class EscalationEngine:
         "miguel-rachid": {
             "name": "Miguel Rachid",
             "email": "[pending confirmar]",
-            "role": "Gerente Ciberseguridad AMX",
+            "role": "Gerente Ciberseguridad ACME",
             "key": "miguel-rachid",
         },
         "victor": {
             "name": "Víctor Araiza",
-            "email": "varaiza@aeromexico.com",
+            "email": "varaiza@acmeair.com",
             "role": "Sponsor IT · eTribe",
             "key": "victor",
         },
@@ -136,7 +136,7 @@ class EscalationEngine:
         days_threshold: int | None = None,
         write_pdf: bool = True,
         record_audit: bool = True,
-        requester_email: str = "chernandeze@aeromexico.com",
+        requester_email: str = "engineer@acmeair.com",
     ) -> EscalationArtifacts | None:
         """Detecta slippages + genera correo + registra audit entry.
 
@@ -269,7 +269,7 @@ class EscalationEngine:
         admin = next(
             (m for m in team if m.get("iam_profile") == "A"),
             {"name": "Christian Hernández Escamilla",
-             "email": "chernandeze@aeromexico.com",
+             "email": "engineer@acmeair.com",
              "role_etribe": "Líder técnico · Admin programa"},
         )
         return {

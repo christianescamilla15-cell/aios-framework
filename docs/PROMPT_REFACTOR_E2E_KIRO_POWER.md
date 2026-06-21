@@ -1,6 +1,6 @@
-# Prompt · Refactorización end-to-end en Kiro con Power amx-aios-unified v3.3.1
+# Prompt · Refactorización end-to-end en Kiro con Power acme-aios-unified v3.3.1
 
-Prompt self-contained para Kiro · LEGACY_MODERNIZATION mode · cubre desde discovery hasta pre-deploy. Basado en NoShow como ejemplo concreto · adaptable a cualquiera de las 10 apps AMX.
+Prompt self-contained para Kiro · LEGACY_MODERNIZATION mode · cubre desde discovery hasta pre-deploy. Basado en NoShow como ejemplo concreto · adaptable a cualquiera de las 10 apps ACME.
 
 ---
 
@@ -9,12 +9,12 @@ Prompt self-contained para Kiro · LEGACY_MODERNIZATION mode · cubre desde disc
 ```
 Modo: LEGACY_MODERNIZATION · refactor end-to-end
 
-Power activo: amx-aios-unified v3.3.1 (lo tengo instalado · pip aios-framework v3.3.1 también)
+Power activo: acme-aios-unified v3.3.1 (lo tengo instalado · pip aios-framework v3.3.1 también)
 
 Proyecto target: ATOS-NOSHOW-ROBOT
 Ubicación source (decompilado): C:\Users\eTriber\Downloads\ATOS-NOSHOW-ROBOT\ATOS-NOSHOW-ROBOT
 Ubicación build (binarios prod): C:\Users\eTriber\Downloads\NoshowReport\NoshowReport
-Spec humano baseline: C:\Users\eTriber\Desktop\amx-hallazgos-audit\apps\10-noshow\Analisis_NoShow_para_sesion_23abr.md (28 findings audit humano v2)
+Spec humano baseline: C:\Users\eTriber\Desktop\acme-hallazgos-audit\apps\10-noshow\Analisis_NoShow_para_sesion_23abr.md (28 findings audit humano v2)
 
 Stack objetivo (confirmado con Antonio H. Oropeza + retro 20-abr):
 - .NET Framework 4.7.2 → **.NET 8 LTS** (EOL ene-2026 bloqueador)
@@ -25,7 +25,7 @@ Stack objetivo (confirmado con Antonio H. Oropeza + retro 20-abr):
 - log4net + texto plano → **Serilog + CloudWatch Logs** (structured + PII redaction)
 - 6 creds plaintext → **AWS Secrets Manager + KMS CMK dedicada**
 - 0% test coverage → **xUnit ≥ 60% business-critical**
-- Deploy manual → **CodePipeline CDK Corp Solutions AMX estándar**
+- Deploy manual → **CodePipeline CDK Corp Solutions ACME estándar**
 - Route53 PHZ interno para endpoints SABRE · SMTP relay · SFTP
 
 Features nuevos (pedidos Javi Toledo sesión 22-abr):
@@ -51,13 +51,13 @@ Entregable Fase 0: reporte markdown con baseline · no escribir código aún
 
 ─── FASE 1 · Spec Generation (EARS) ───
 
-Usa el mode spec-driven del Power amx-aios-unified:
+Usa el mode spec-driven del Power acme-aios-unified:
 
 1. Requirements en formato EARS · incluye:
    - Requirements funcionales derivados del binario actual (preserve behavior)
    - Requirements nuevos: pantalla admin · modo ad-hoc · dashboard
    - Requirements no-funcionales: .NET 8 · Fargate · Secrets Manager · Serilog · xUnit 60%+
-   - Compliance requirements: LFPDPPP redaction PII · SOX audit trail (si confirma Elías) · 4 gates AMX scan (Veracode · Tenable · WIZ · Prisma) target 0 HIGH/CRITICAL
+   - Compliance requirements: LFPDPPP redaction PII · SOX audit trail (si confirma Elías) · 4 gates ACME scan (Veracode · Tenable · WIZ · Prisma) target 0 HIGH/CRITICAL
 
 2. Design.md · incluye:
    - Arquitectura target con diagrama componentes AWS
@@ -66,7 +66,7 @@ Usa el mode spec-driven del Power amx-aios-unified:
    - Paridad funcional: cron 06:50 · SFTP /CADUCOS · TXT pipe-delimited 24-col · SABRE XON · filtros USED/VOID/EXCH/RFND · OUTOFSCOPE prefixes
 
 3. Tasks.md · incluye:
-   - ≥10 tasks con BLOCKERS marcados para gates AMX críticos
+   - ≥10 tasks con BLOCKERS marcados para gates ACME críticos
    - Owner por task · estimate en días · dependencies
    - Pre-deploy gates como tasks bloqueantes
 
@@ -91,7 +91,7 @@ C. Tests con xUnit:
 
 D. Commit por micro-feature · convencional commits · referencia finding humano cerrado
 
-─── FASE 3 · Gates AMX pre-deploy ───
+─── FASE 3 · Gates ACME pre-deploy ───
 
 Ejecuta en orden · BLOCKERS:
 
@@ -104,7 +104,7 @@ Ejecuta en orden · BLOCKERS:
 
 2. `drift --source <refactored> --compare <last-prod-build>` · documenta drifts INTENCIONALES (target framework .NET 8 · endpoints RDS · Secrets Manager refs) · marcar en risks.md
 
-3. `exfil --root <refactored> --corporate "aeromexico.com.mx,am.com.mx,aeromexico.com"` · verifica que:
+3. `exfil --root <refactored> --corporate "acmeair.com.mx,am.com.mx,acmeair.com"` · verifica que:
    - NO hay emails nuevos a dominios no-corporativos
    - Miatech.net removido del dist list (o documentado como partner autorizado)
 
@@ -113,7 +113,7 @@ Ejecuta en orden · BLOCKERS:
    - Nombres pasajero · ticketNumber · CURP redactados
    - 0 HIGH (tokens · PAN · JWT) · 0 MEDIUM PII en logs staging
 
-5. Gates corporativos AMX (externos · 4 escaneos · cada uno blocker):
+5. Gates corporativos ACME (externos · 4 escaneos · cada uno blocker):
    - **Veracode**: submit SAST · target 0 CRITICAL/HIGH
    - **Tenable**: scan infra · target 0 CRITICAL
    - **WIZ**: cloud posture scan · target ≤1 MEDIUM
@@ -130,14 +130,14 @@ Ejecuta en orden · BLOCKERS:
 1. Correlation-id funcional end-to-end (retro 20-abr requirement)
 2. Health endpoint HTTP (.NET 8 built-in) + métricas CloudWatch custom
 3. Secrets rotation trimestral configurado · KMS CMK dedicada por servicio · no compartir
-4. IAM roles con prefijo `amx-r-*` · GateOne portal provisioning OR AMX Chat Service Desk
+4. IAM roles con prefijo `acme-r-*` · GateOne portal provisioning OR ACME Chat Service Desk
 5. Akamai WAF enfrente si hay entry point HTTP (admin UI)
 6. Backup + rollback plan documentado en runbook.md
 7. Smoke test en staging con datos sintéticos · valida paridad vs binario legacy
 8. Load test mínimo · confirma no hay race en singletons refactorizados (DR-04 · DR-08 · DR-15 del clean session pilot)
 
 Entregable Fase 4: evidence bundle con:
-- Reporte de los 4 gates AMX (Veracode · Tenable · WIZ · Prisma)
+- Reporte de los 4 gates ACME (Veracode · Tenable · WIZ · Prisma)
 - Release gate final passing (0 CRITICAL · 0 HIGH)
 - Test coverage report (≥60%)
 - Runbook
@@ -155,12 +155,12 @@ Solo si Fase 4 pasa sin rojos:
 ─── Constraints operativos durante toda la sesión ───
 
 - NO usar ECS · usar Fargate (retro 20-abr)
-- NO usar SES · usar relay interno AMX con TLS + STARTTLS 587
+- NO usar SES · usar relay interno ACME con TLS + STARTTLS 587
 - NO usar SNS para email · EventBridge o SQS si pub/sub
 - KMS CMK separada por servicio · NO compartir
 - Observabilidad con correlation-id · CloudWatch + Akamai logs
 - GitHub Enterprise única SoT (no GitLab · no Miatech on-prem)
-- Pre-confirmar con líder AMX (Víctor Araiza) antes de escalar tickets GateOne
+- Pre-confirmar con líder ACME (Víctor Araiza) antes de escalar tickets GateOne
 - Respeta el flujo aprobación v2.0 del 21-abr
 
 ─── Honestidad metodológica ───
@@ -176,7 +176,7 @@ Antes de declarar Fase 4 completa, responde (1 línea cada una):
 - ¿Qué findings humanos v2 del audit 23-abr quedaron sin resolver? (lista IDs)
 - ¿Qué deltas entre source decompilado y nueva implementación son intencionales vs no?
 - ¿El behavior preservation tiene 0 CRITICAL characterization delta?
-- ¿Los 4 gates AMX externos (Veracode · Tenable · WIZ · Prisma) pasaron todos?
+- ¿Los 4 gates ACME externos (Veracode · Tenable · WIZ · Prisma) pasaron todos?
 - ¿Elías Tapia aprobó explícitamente vía email + ticket GateOne?
 
 Si alguno es NO → iterar · NO deployar.
@@ -187,17 +187,17 @@ Si alguno es NO → iterar · NO deployar.
 ## Cómo usarlo
 
 1. Abre Kiro con el workspace del proyecto target
-2. Verifica que el Power `amx-aios-unified v3.3.1` está activo (Command Palette → `Developer: Reload Window` si es la primera vez post-install)
+2. Verifica que el Power `acme-aios-unified v3.3.1` está activo (Command Palette → `Developer: Reload Window` si es la primera vez post-install)
 3. Pega el prompt completo en el chat de Kiro
 4. El agente va a pedir confirmaciones en puntos clave (MCP trust list · ejecución de scans · commits). Responde según tu criterio.
 5. Cada fase entrega un artefacto medible · si algo falla o se desvía, interrumpe y pide al agente revisar vs el design.md
 
-## Adaptación para otras 9 apps AMX
+## Adaptación para otras 9 apps ACME
 
 Cambia estas variables al inicio del prompt:
 
 Variable	NoShow (ejemplo)	Para otras apps
-`Proyecto target`	ATOS-NOSHOW-ROBOT	01-sicofav · 02-arc · 03-bsp · etc
+`Proyecto target`	ATOS-NOSHOW-ROBOT	01-fleet_ops_app · 02-arc · 03-bsp · etc
 `Spec humano baseline`	Analisis_NoShow_para_sesion_23abr.md	`apps/<NN-name>/*.md` del audit
 `Stack objetivo`	.NET 4.7 → .NET 8 · Fargate	adaptar según stack origen
 `Owner funcional`	Elías Tapia + Braulio	según app (ver catálogo Nemesis `engagement_list()`)
@@ -210,11 +210,11 @@ Fase	Duración estimada
 0 · Discovery	0.5-1 día
 1 · Spec	1-1.5 día
 2 · Iterative refactor	5-10 días (depende complejidad app)
-3 · Gates AMX pre-deploy	2-3 días (4 scanners externos pueden tardar)
+3 · Gates ACME pre-deploy	2-3 días (4 scanners externos pueden tardar)
 4 · Pre-deploy validation	1-2 días
 **Total por app**	**10-17 días laborables**
 
-Para NoShow (1.5 KLoC) · techo inferior ~8-10 días. Para SICOFAV/ARC (20-40 KLoC) · techo superior ~15-20 días.
+Para NoShow (1.5 KLoC) · techo inferior ~8-10 días. Para FLEET_OPS_APP/ARC (20-40 KLoC) · techo superior ~15-20 días.
 
 ## Output esperado de Kiro
 
@@ -225,7 +225,7 @@ noshow-modernization/
 ├── specs/
 │   ├── requirements.md    · EARS format · trazable a 28 findings
 │   ├── design.md          · ADRs + arquitectura target AWS
-│   ├── tasks.md           · 109+ tasks con BLOCKERS gates AMX
+│   ├── tasks.md           · 109+ tasks con BLOCKERS gates ACME
 │   └── risks.md
 ├── src/                   · .NET 8 refactorizado
 ├── tests/                 · xUnit ≥60%

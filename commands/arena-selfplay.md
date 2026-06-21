@@ -21,20 +21,20 @@ STALEMATE · DRAW · USER_STOPPED) + timeline + findings.sarif.
    ```bash
    aios arena --list
    ```
-2. Escoger TUT del output (ej. `amx-mini-refund` o
-   `amx-mini-sicofav-cs`).
+2. Escoger TUT del output (ej. `acme-mini-refund` o
+   `acme-mini-fleet_ops_app-cs`).
 3. Ejecutar static mode (sin HTTP · rapido):
    ```bash
-   aios arena --target amx-mini-refund --max-rounds 10
+   aios arena --target acme-mini-refund --max-rounds 10
    ```
 4. (Opcional) Fase 4 live mode · requiere Docker + nuclei:
    ```bash
    # Levantar TUT container
-   cd arena-targets/amx-mini-refund
+   cd arena-targets/acme-mini-refund
    docker compose -p arena-tut up -d --build
 
    # Lanzar con nuclei real contra HTTP live
-   aios arena --target amx-mini-refund \
+   aios arena --target acme-mini-refund \
      --target-url http://localhost:8888 \
      --max-rounds 10
 

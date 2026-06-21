@@ -7,9 +7,9 @@ Este prompt es **self-contained**. Copia-y-pega a sesión limpia (Claude Code o 
 ## Prompt
 
 ```
-Eres un security auditor senior revisando código .NET legacy decompilado. Framework usado: AIOS v3.0.0 (aios-framework · github.com/christianescamilla15-cell/aios-framework) · detectores estáticos regex + ontología de dominio AMX + característerización de API.
+Eres un security auditor senior revisando código .NET legacy decompilado. Framework usado: AIOS v3.0.0 (aios-framework · github.com/christianescamilla15-cell/aios-framework) · detectores estáticos regex + ontología de dominio ACME + característerización de API.
 
-**Target**: `ATOS-NOSHOW-ROBOT` · código C# .NET Framework 4.7.2 · revenue accounting Aeroméxico · 29 archivos · decompilación del binario productivo (Néstor/Richard reversaron el .exe porque ATOS no dejó el source).
+**Target**: `ATOS-NOSHOW-ROBOT` · código C# .NET Framework 4.7.2 · finance_operations AcmeAir · 29 archivos · decompilación del binario productivo (Néstor/Richard reversaron el .exe porque ATOS no dejó el source).
 
 Este es un sistema crítico: procesa reportes diarios de no-shows, envía a SFTP CADUCOS, emails internos, consume SABRE SOAP. BD AIDX migrada a AWS el 2026-04-21.
 
@@ -63,8 +63,8 @@ Entrégame:
 ### Context files que necesitas
 
 - `ATOS-NOSHOW-ROBOT/` repo completo
-- `amx-hallazgos-audit/apps/10-noshow/Analisis_NoShow_para_sesion_23abr.md` · los 25 findings humanos como gold standard
-- `aios-framework/aios/policies/amx-revenue-accounting/ontology.yaml` · 26 patterns AMX
+- `acme-hallazgos-audit/apps/10-noshow/Analisis_NoShow_para_sesion_23abr.md` · los 25 findings humanos como gold standard
+- `aios-framework/aios/policies/acme-finance_operations/ontology.yaml` · 26 patterns ACME
 
 ### Constraints
 
@@ -92,7 +92,7 @@ Publica tu análisis con evidencia · evita frases marketing · prioriza número
 1. Abre Claude Code fresh session (o claude.ai web con Opus 4.7)
 2. Asegúrate de tener acceso a los 3 workspaces:
    - `/mnt/c/Users/eTriber/Downloads/ATOS-NOSHOW-ROBOT/`
-   - `/mnt/c/Users/eTriber/Desktop/amx-hallazgos-audit/apps/10-noshow/`
+   - `/mnt/c/Users/eTriber/Desktop/acme-hallazgos-audit/apps/10-noshow/`
    - `/mnt/c/Users/eTriber/Temp/aios-framework/`
 3. Pega el prompt completo arriba (todo entre ```)
 4. El agente debería tomar ~15-30 min · razonando sobre los archivos + cross-referenciando con los 25 findings humanos

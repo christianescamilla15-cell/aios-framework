@@ -20,7 +20,7 @@ Tools expuestos:
   via subprocess · retorna verdict.
 - `arena_list_targets()` · lista TUTs.
 - `engagement_scaffold(app_id, quarter?)` · invoca scaffold.py.
-- `engagement_list()` · lista catalogo 10 apps AMX.
+- `engagement_list()` · lista catalogo 10 apps ACME.
 - `aggregate_report(project_path)` · retorna markdown consolidado.
 """
 
@@ -357,9 +357,9 @@ def forbidden_literals_suggest(project_path: str = ".") -> dict:
         "example_categories": example_categories,
         "config_template": template,
         "canonical_amx_catalog_hint": (
-            "El catalogo AMX canonico esta versionado en el repo privado "
-            "amx-hallazgos-audit (06_amx_policy.md + policy.py). Usarlo "
-            "como fuente de verdad para proyectos AMX · copiar al "
+            "El catalogo ACME canonico esta versionado en el repo privado "
+            "acme-hallazgos-audit (06_amx_policy.md + policy.py). Usarlo "
+            "como fuente de verdad para proyectos ACME · copiar al "
             "aios-config.json local del proyecto auditado."
         ),
     }

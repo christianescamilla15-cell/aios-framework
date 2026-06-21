@@ -13,8 +13,8 @@ Produce los 9 entregables estándar del plan v5 Fase 1 Discovery:
   09_risk_register.md      · riesgos probabilidad × impacto por tier
 
 Uso:
-    aios discovery-generate --app sicofav --root <root>
-    aios discovery-generate --app sicofav --root <root> --overwrite
+    aios discovery-generate --app fleet_ops_app --root <root>
+    aios discovery-generate --app fleet_ops_app --root <root> --overwrite
 """
 from __future__ import annotations
 
@@ -201,7 +201,7 @@ def build_doc_03_arq_as_is(app, stack: Dict[str, List[str]]) -> str:
     md.append("\n## Topología (alto nivel)\n\n"
               "**TODO humano** · diagrama AS-IS. Referencia:\n"
               "- Usar `aios analyze` para C4 Context L1 auto-generado\n"
-              "- Drawio manual con constraints AMX (ver `feedback_diagram_constraints_checklist`)\n\n"
+              "- Drawio manual con constraints ACME (ver `feedback_diagram_constraints_checklist`)\n\n"
               "```mermaid\nflowchart TB\n"
               "    U[Usuario] --> Front[Frontend]\n"
               "    Front --> API[API Layer]\n"
@@ -226,17 +226,17 @@ def build_doc_04_stakeholders(app) -> str:
 
     md.append("## Owners directos\n\n"
               f"| Rol | Nombre | Organización |\n|---|---|---|\n"
-              f"| Owner funcional | {app.owner_funcional} | AMX |\n"
+              f"| Owner funcional | {app.owner_funcional} | ACME |\n"
               f"| Owner técnico | {app.owner_tecnico} | Miatech/eTribe |\n\n"
-              "## Governance transversal AMX\n\n"
+              "## Governance transversal ACME\n\n"
               "| Rol | Nombre | Área |\n|---|---|---|\n"
-              "| Arquitecto principal | Antonio Hernández Oropeza | AMX Arquitectura |\n"
-              "| Arquitecto soporte | Pedro Emmanuel Abaonza | AMX Arquitectura |\n"
-              "| Borde Arquitectura | Israel Miguel González Sandoval | AMX (aprueba ADRs) |\n"
-              "| Ciber · salida prod | Miguel Rachid | AMX Ciberseguridad |\n"
-              "| Red / AWS | Diego Zarate | AMX IT Drive |\n"
-              "| óptimo (proyecto) | Carina | AMX PMO |\n"
-              "| Continuidad Negocio | (TBD) | AMX |\n\n"
+              "| Arquitecto principal | Antonio Hernández Oropeza | ACME Arquitectura |\n"
+              "| Arquitecto soporte | Pedro Emmanuel Abaonza | ACME Arquitectura |\n"
+              "| Borde Arquitectura | Israel Miguel González Sandoval | ACME (aprueba ADRs) |\n"
+              "| Ciber · salida prod | Miguel Rachid | ACME Ciberseguridad |\n"
+              "| Red / AWS | Diego Zarate | ACME IT Drive |\n"
+              "| óptimo (proyecto) | Carina | ACME PMO |\n"
+              "| Continuidad Negocio | (TBD) | ACME |\n\n"
               "## Stakeholders Fase 1 Discovery\n\n"
               "**TODO humano** · completar:\n\n"
               "| Fase | Responsable | Entrega |\n|---|---|---|\n"
@@ -275,8 +275,8 @@ def build_doc_05_vulns(app, scan: Dict[str, Any]) -> str:
     for r in comp_rows:
         md.append(f"| {r[0]} | {r[1]} | {r[2]} |\n")
 
-    md.append("\n## Baseline CYBER AMX\n\n"
-              "Escaneos requeridos pre-prod (ver flujo aprobación AMX):\n\n"
+    md.append("\n## Baseline CYBER ACME\n\n"
+              "Escaneos requeridos pre-prod (ver flujo aprobación ACME):\n\n"
               "1. **WIZ** · cloud posture\n"
               "2. **Veracode** · SAST\n"
               "3. **Prisma** · container scan\n"
@@ -317,9 +317,9 @@ def build_doc_06_deps(app, stack: Dict[str, List[str]]) -> str:
     md.append("\n## Upgrade targets (plan v5)\n\n"
               "| Capa | AS-IS | TO-BE | Justificación |\n|---|---|---|---|\n"
               "| Runtime | (ver stack) | LTS vigente | soporte + seguridad |\n"
-              "| Base de datos | (ver stack) | Aurora MySQL 8 | patrón AMX |\n"
-              "| Auth | (ver stack) | OIDC AMX | SSO corporativo |\n"
-              "| Observability | (ver stack) | OTel + CloudWatch | patrón AMX |\n\n"
+              "| Base de datos | (ver stack) | Aurora MySQL 8 | patrón ACME |\n"
+              "| Auth | (ver stack) | OIDC ACME | SSO corporativo |\n"
+              "| Observability | (ver stack) | OTel + CloudWatch | patrón ACME |\n\n"
               "**TODO humano** · completar upgrade target por cada "
               "dependencia crítica con EOL < 12 meses.\n\n"
               "## Dependencias externas (integraciones)\n\n"
@@ -343,7 +343,7 @@ def build_doc_07_preguntas_nuevas(app) -> str:
     categorias = [
         ("Arquitectura", ["Stack target · confirmar tecnologías con Borde Arq",
                           "Topología TO-BE · opción A vs B (ver ADR)",
-                          "Patrones AMX aplicables · LeanIX mapping"]),
+                          "Patrones ACME aplicables · LeanIX mapping"]),
         ("Datos", ["Schema real · volumen · ventanas batch",
                    "Migración · cutover vs parallel run",
                    "PII inventory · cumplimiento LFPDPPP"]),
@@ -396,9 +396,9 @@ def build_doc_08_bloqueadores(app) -> str:
               "| # | Blocker | Impacto | Owner | Deadline | Status |\n"
               "|---|---|---|---|---|---|\n"
               "| B-01 | Acceso repositorio legacy | Bloquea scan AIOS | ... | YYYY-MM-DD | ⏸ |\n"
-              "| B-02 | VPN red Miatech | Bloquea integración real | IT AMX | ... | ⏸ |\n"
+              "| B-02 | VPN red Miatech | Bloquea integración real | IT ACME | ... | ⏸ |\n"
               "| B-03 | Schema BD real | Bloquea EF migrations reales | DBA Miatech | D5 | ⏸ |\n"
-              "| B-04 | KMS real AMX | Bloquea cifrado prod | Toño/Arturo IT Drive | 28-abr | 🔴 |\n"
+              "| B-04 | KMS real ACME | Bloquea cifrado prod | Toño/Arturo IT Drive | 28-abr | 🔴 |\n"
               "| B-05 | IDP corporativo SSO | Bloquea auth real | Diego Zarate | ... | ⏸ |\n\n"
               "## Matriz mitigación local\n\n"
               "| Blocker | ¿Mitigable con pruebas locales? | Mecanismo |\n|---|---|---|\n"

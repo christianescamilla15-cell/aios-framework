@@ -108,7 +108,7 @@ DEFAULT_CONFIG = {
                      "packages",
                      # v3.5.0 · SABRE SOAP auto-generated proxies
                      # (Reference.vb/.cs de 1-3 MB cada uno en las apps
-                     # VB.NET de Revenue Accounting · ruido sin accionable)
+                     # VB.NET de Finance Operations · ruido sin accionable)
                      "Service References"],
     "exclude_exts": [".pyc", ".pyo", ".so", ".exe", ".dll", ".bin",
                      ".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip", ".min.js",
@@ -280,7 +280,7 @@ _COBOL = frozenset({".cob", ".cbl", ".cpy"})
 _PHP = frozenset({".php", ".phtml", ".php3", ".php4", ".php5"})
 _JSTS = frozenset({".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"})
 _NETCFG = frozenset({".config"})  # web.config / app.config de ASP.NET
-# v3.5.0 · extension groups añadidos para refinamientos AMX
+# v3.5.0 · extension groups añadidos para refinamientos ACME
 _VB = frozenset({".vb"})
 _PROJ = frozenset({".csproj", ".vbproj"})
 _APPSETTINGS = frozenset({".json"})  # filtrado adicional por regex
@@ -337,7 +337,7 @@ def _class_has_apicontroller_attr(content: str, class_match_start: int,
     """v3.6.3 · True si hay `[ApiController]` en las N líneas previas
     a la declaración de class (incluyendo attribute stacks separados
     por blank lines). Evita FPs del detector
-    `AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER` cuando el atributo sí
+    `ACME-ASPNET-CONTROLLER-MISSING-APICONTROLLER` cuando el atributo sí
     está presente pero 2-4 líneas arriba de la clase.
     """
     prefix = content[:class_match_start]
@@ -777,7 +777,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     ),
     # ── CWE-489 · Active Debug Code (Sprint 5.1 · #1) ────────────────
     # Referencias audit: BSP VULN-01 (Flask debug=True · 9.8 CRITICAL ·
-    # Werkzeug RCE), Sicofav V-HI-01 (customErrors mode="Off" · HIGH
+    # Werkzeug RCE), FleetOpsApp V-HI-01 (customErrors mode="Off" · HIGH
     # info disclosure).
     (
         "CWE-489",
@@ -966,7 +966,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         _JSTS,
     ),
     # ── CWE-209 · Verbose Error Disclosure (Sprint 5.1 · #4) ─────────
-    # Referencias audit · Sicofav V-HI-01 (customErrors mode=Off · ya
+    # Referencias audit · FleetOpsApp V-HI-01 (customErrors mode=Off · ya
     # cubierto por CWE-489) · cfdis V-HI-02 (info sensible en errores).
     # Foco de este detector · stack traces / exception full detail
     # propagados al response/client.
@@ -1087,13 +1087,13 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         "CWE-547",
         re.compile(
             # v1.7.3 · negative lookahead · NO detectar dominios internos
-            # canonicos AMX (Route53 PHZ) · son la solucion post-refactor
-            # correcta · no un leak. Formato: *.amx.internal · *.amx.com.mx
-            r"""(?!["'][a-zA-Z0-9_.-]+\.amx\.(?:internal|com\.mx)["'])"""
+            # canonicos ACME (Route53 PHZ) · son la solucion post-refactor
+            # correcta · no un leak. Formato: *.acme.internal · *.acme.com.mx
+            r"""(?!["'][a-zA-Z0-9_.-]+\.acme\.(?:internal|com\.mx)["'])"""
             r"""["'][a-zA-Z0-9_-]+"""
             r"""(?:\.[a-zA-Z0-9_-]+)*"""
             r"""\.(?:corp|internal|local|intranet|lan|"""
-            r"""miatech|aeromexico|amx|praxis|sabre)"""
+            r"""miatech|acmeair|acme|praxis|sabre)"""
             r"""(?:\.[a-zA-Z]{2,})?"""
             r"""(?::\d+)?["']"""
         ),
@@ -1117,7 +1117,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         _ANY,
     ),
     # ── CWE-256/522 · Credentials Plaintext Storage (5.2 · #7) ───────
-    # Referencias audit · Sicofav V-CR-01 (CWE-522 · credenciales en
+    # Referencias audit · FleetOpsApp V-CR-01 (CWE-522 · credenciales en
     # web.config) · cfdis V-CR-02 (CWE-256 · secrets en filesystem).
     # Complementa CWE-798 (que cubre credenciales hardcoded en
     # literales de source code) · este foco es STORAGE persistente
@@ -1523,8 +1523,8 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         _CS,
     ),
     # ═════════════════════════════════════════════════════════════════
-    # v3.4.0 · Detectores derivados de BO-AMX/amazon-q-rules (35 reglas)
-    # Alineación AIOS ↔ AMX oficial · bloqueantes pre-deploy retro 20-abr
+    # v3.4.0 · Detectores derivados de BO-ACME/amazon-q-rules (35 reglas)
+    # Alineación AIOS ↔ ACME oficial · bloqueantes pre-deploy retro 20-abr
     # ═════════════════════════════════════════════════════════════════
     (
         "CWE-311",
@@ -1533,7 +1533,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""ebs|ssm|cloudwatch|cloudtrail|backup|xray)|"""
             r"""kms\.Alias\.from_alias_name\s*\([^)]*["']alias/aws/"""
         ),
-        "AMX-CDK-KMS-AWS-MANAGED-FORBIDDEN",
+        "ACME-CDK-KMS-AWS-MANAGED-FORBIDDEN",
         "CRITICAL",
         "KMS aws-managed key · prohibido por retro 20-abr y amazon-q-rules G01 "
         "· usar CMK dedicada CSOC · CWE-311",
@@ -1544,10 +1544,10 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         re.compile(
             r"""class\s+\w+\s*\(\s*Stack\s*\)"""
         ),
-        "AMX-CDK-STACK-REQUIRES-MANDATORY-TAGS",
+        "ACME-CDK-STACK-REQUIRES-MANDATORY-TAGS",
         "MEDIUM",
         "Stack CDK detectado · verificar que incluye los 8 tags obligatorios "
-        "AMX (CentroDeCosto · DuenoDeLaCuenta · Proyecto · Ambiente · "
+        "ACME (CentroDeCosto · DuenoDeLaCuenta · Proyecto · Ambiente · "
         "ImpactoANegocio · Aplicacion · GrupoDeParcheo · SistemaOperativo) "
         "· amazon-q-rules G02",
         frozenset({".py"}),
@@ -1561,15 +1561,15 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""encryption\s*=\s*(?:s3\.)?BucketEncryption\.S3_MANAGED|"""
             r"""encryption\s*=\s*(?:s3\.)?BucketEncryption\.UNENCRYPTED"""
         ),
-        "AMX-S3-MISSING-KMS-ENCRYPTION",
+        "ACME-S3-MISSING-KMS-ENCRYPTION",
         "HIGH",
         "S3 bucket con encryption S3_MANAGED o UNENCRYPTED · amazon-q-rules G03 "
         "requiere KMS CMK (BucketEncryption.KMS + encryption_key=cmk) · CWE-311",
         frozenset({".py"}),
     ),
     (
-        # v3.7.2 · regla AMX kms-aws-managed-keys-prohibition.md confirmada en
-        # investigación BO-AMX/CS-IaC-Template/.amazonq/rules/ (24-abr)
+        # v3.7.2 · regla ACME kms-aws-managed-keys-prohibition.md confirmada en
+        # investigación BO-ACME/CS-IaC-Template/.amazonq/rules/ (24-abr)
         # Uso de aws-managed KMS (alias/aws/*) · customer-managed only except ACM
         "CWE-1277",
         re.compile(
@@ -1577,16 +1577,16 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""kms\.Alias\.from_alias_name\s*\([^)]*["']alias/aws/(?!acm\b)[^"']+["']|"""
             r"""key_id\s*=\s*["']alias/aws/(?!acm\b)[^"']+["']"""
         ),
-        "AMX-KMS-AWS-MANAGED-PROHIBITED",
+        "ACME-KMS-AWS-MANAGED-PROHIBITED",
         "HIGH",
-        "Uso de AWS-managed KMS (alias/aws/*) prohibido por regla AMX · customer-managed "
-        "only excepto ACM · ver BO-AMX/CS-IaC-Template/.amazonq/rules/kms-aws-managed-keys-prohibition.md",
+        "Uso de AWS-managed KMS (alias/aws/*) prohibido por regla ACME · customer-managed "
+        "only excepto ACM · ver BO-ACME/CS-IaC-Template/.amazonq/rules/kms-aws-managed-keys-prohibition.md",
         frozenset({".py", ".ts", ".js", ".json", ".yaml", ".yml", ".tf"}),
     ),
     (
-        # v3.7.3 · checklist arq AMX 20-abr (retro Antonio + Pedro)
+        # v3.7.3 · checklist arq ACME 20-abr (retro Antonio + Pedro)
         # Servicios prohibidos: ECS · SES · SNS
-        # Reemplazos: EKS (containers) · Relay interno AMX (correo)
+        # Reemplazos: EKS (containers) · Relay interno ACME (correo)
         "CWE-710",
         re.compile(
             r"""from\s+aws_cdk\s+import\s+aws_ecs\b|"""
@@ -1598,20 +1598,20 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""ses\.EmailIdentity\s*\(|"""
             r"""sns\.Topic\s*\("""
         ),
-        "AMX-SERVICE-PROHIBITED",
+        "ACME-SERVICE-PROHIBITED",
         "HIGH",
-        "Uso de servicio AMX-prohibido · ECS (usar EKS Fargate) · SES/SNS "
-        "(usar Relay interno AMX para correo) · retro arquitectos 20-abr-2026",
+        "Uso de servicio ACME-prohibido · ECS (usar EKS Fargate) · SES/SNS "
+        "(usar Relay interno ACME para correo) · retro arquitectos 20-abr-2026",
         frozenset({".py", ".ts", ".js", ".yaml", ".yml", ".tf"}),
     ),
     (
         "CWE-272",
         re.compile(
-            r"""iam\.Role\s*\([^)]*role_name\s*=\s*["'](?!amx-r-|AMX-R-)[^"']+["']"""
+            r"""iam\.Role\s*\([^)]*role_name\s*=\s*["'](?!acme-r-|ACME-R-)[^"']+["']"""
         ),
-        "AMX-IAM-ROLE-WRONG-PREFIX",
+        "ACME-IAM-ROLE-WRONG-PREFIX",
         "HIGH",
-        "IAM role sin prefijo amx-r-* / AMX-R-* · amazon-q-rules G05 "
+        "IAM role sin prefijo acme-r-* / ACME-R-* · amazon-q-rules G05 "
         "requirement duro · CWE-272",
         frozenset({".py"}),
     ),
@@ -1621,7 +1621,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""^\s*(?:cdk|npx\s+cdk)\s+(?:deploy|bootstrap|synth|destroy|diff)""",
             re.MULTILINE,
         ),
-        "AMX-CDK-DIRECT-COMMAND",
+        "ACME-CDK-DIRECT-COMMAND",
         "MEDIUM",
         "Script invoca 'cdk' directo · amazon-q-rules CS03 requiere "
         "'cdk-admin.py --env {de|q|pd}' como wrapper estándar",
@@ -1635,15 +1635,15 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""iam\.PolicyStatement\s*\([^)]*resources\s*=\s*\[\s*["']\*["']\s*\]|"""
             r"""iam\.PolicyStatement\s*\([^)]*actions\s*=\s*\[\s*["']\*["']\s*\]"""
         ),
-        "AMX-IAM-WILDCARD-POLICY",
+        "ACME-IAM-WILDCARD-POLICY",
         "HIGH",
         "IAM policy con Resource:* o Action:* · viola least-privilege · "
         "amazon-q-rules G07 · CWE-269",
         frozenset({".py", ".json", ".yaml", ".yml", ".ts"}),
     ),
     # ═════════════════════════════════════════════════════════════════
-    # v3.5.0 sprint 2 · 4 detectores refinados AMX · patrones observados
-    # en baseline 6 apps Revenue Accounting (23-abr-2026)
+    # v3.5.0 sprint 2 · 4 detectores refinados ACME · patrones observados
+    # en baseline 6 apps Finance Operations (23-abr-2026)
     # ═════════════════════════════════════════════════════════════════
     (
         "CWE-319",
@@ -1653,7 +1653,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""["']https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""
             r"""(?::\d{1,5})?/[^"'\s]*["']"""
         ),
-        "AMX-VBNET-HARDCODED-IP-IN-URL",
+        "ACME-VBNET-HARDCODED-IP-IN-URL",
         "HIGH",
         "URL literal con IP hardcoded en VB.NET · endpoint interno "
         "cableado (SABRE/notify) · rotar a config + DNS · CWE-319",
@@ -1669,7 +1669,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""["'](?:[^"'\n]*?\b(?:Server|Data\s+Source|Host)\s*=\s*"""
             r"""[^;"']+;[^"'\n]*?\bPassword\s*=\s*[^"';\s]+)[^"'\n]*["']"""
         ),
-        "AMX-DBCNX-VB-HARDCODED-CONNSTR",
+        "ACME-DBCNX-VB-HARDCODED-CONNSTR",
         "HIGH",
         "Connection string literal con Password inline en VB.NET · "
         "mover a AWS Secrets Manager · amazon-q-rules security · "
@@ -1690,7 +1690,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r""""[^}]*\}""",
             re.DOTALL,
         ),
-        "AMX-APPSETTINGS-CONNSTR-NO-SECRETS-MANAGER",
+        "ACME-APPSETTINGS-CONNSTR-NO-SECRETS-MANAGER",
         "HIGH",
         "appsettings.json con ConnectionStrings literal · sin token "
         "Secrets Manager ($SECRETSMANAGER-...) · riesgo commit de "
@@ -1706,7 +1706,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""(?:1\.\d|2\.\d|3\.\d|4\.0|4\.5(?:\.\d)?|4\.6(?:\.\d)?|"""
             r"""4\.7(?:\.\d)?)\s*</TargetFramework(?:Version)?>"""
         ),
-        "AMX-NETFX-EOL-HIGH",
+        "ACME-NETFX-EOL-HIGH",
         "HIGH",
         ".NET Framework EOL (≤ v4.7) · Microsoft no soporta · "
         "migrar a .NET 8 LTS (o mínimo 4.8.1) · CWE-1104",
@@ -1714,7 +1714,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     ),
     # ═════════════════════════════════════════════════════════════════
     # v3.5.0 sprint 3 · 2 detectores amazon-q-rules gaps (23-abr-2026)
-    # (AMX-CDK-WRAPPER-MISSING se implementa como check en stacks/aws)
+    # (ACME-CDK-WRAPPER-MISSING se implementa como check en stacks/aws)
     # ═════════════════════════════════════════════════════════════════
     (
         "CWE-1357",
@@ -1727,7 +1727,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""user_pool_name|stream_name|cluster_name|service_name|"""
             r"""log_group_name)\s*=\s*["'][A-Za-z0-9_\-]+["']"""
         ),
-        "AMX-RESOURCE-SUFFIX-MISSING",
+        "ACME-RESOURCE-SUFFIX-MISSING",
         "MEDIUM",
         "Recurso CDK con naming literal sin sufijo dinámico "
         "'-{env}' (de/q/pd) · amazon-q-rules G04 · "
@@ -1744,7 +1744,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""origin_access_identity\s*=|"""
             r"""origin_access_identities\s*="""
         ),
-        "AMX-CLOUDFRONT-OAI-DEPRECATED",
+        "ACME-CLOUDFRONT-OAI-DEPRECATED",
         "MEDIUM",
         "CloudFront Origin Access Identity (OAI) deprecated · "
         "migrar a Origin Access Control (OAC) · amazon-q-rules G09 · "
@@ -1756,7 +1756,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     # G-11 · master password hardcoded used for decryption
     # G-NEW-1 · api-standars.md OpenAPI 3.0 + camelCase
     # (G-06 coverage gate se implementa como subcomando CLI separado)
-    # Evidencia: SIC-NEW-01 M14t3ch@01 en SICOFAV/Decrypt/cDecrypt.cs:14
+    # Evidencia: SIC-NEW-01 M14t3ch@01 en FLEET_OPS_APP/Decrypt/cDecrypt.cs:14
     # no detectado por AIOS v3.5.1 "Hardcoded credentials (0)" falso
     # negativo · cross-check 23-abr tarde user-driven.
     # ═════════════════════════════════════════════════════════════════
@@ -1776,7 +1776,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""\s*=\s*["'][^"'\s]{4,}["']\s*;""",
             re.IGNORECASE,
         ),
-        "AMX-DOTNET-HARDCODED-DECRYPT-KEY",
+        "ACME-DOTNET-HARDCODED-DECRYPT-KEY",
         "CRITICAL",
         "Master password/key hardcoded en .cs · típicamente usado por "
         "módulo Decrypt custom para descifrar connection strings · "
@@ -1795,7 +1795,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""new\s+byte\s*\[\s*\]\s*\{\s*(?:0x[0-9A-Fa-f]+|\d+)"""
             r"""\s*(?:,\s*(?:0x[0-9A-Fa-f]+|\d+)\s*){2,31}\}"""
         ),
-        "AMX-DOTNET-PREDICTABLE-SALT",
+        "ACME-DOTNET-PREDICTABLE-SALT",
         "HIGH",
         "Salt predecible (byte[] literal con secuencia lineal o "
         "zeros) usado para derivación de clave · debe ser aleatorio "
@@ -1814,13 +1814,13 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     # Evidencia: amazon-q-rules/global/devops/cdk-rules.md +
     # corporate-solutions/cdk-cfnparameter-token-rules.md +
     # service-catalog-architecture-es.md
-    # Aplicables a: Block 8 infra de SICOFAV · SRG · Robot · NoShow
+    # Aplicables a: Block 8 infra de FLEET_OPS_APP · SRG · Robot · NoShow
     # ═════════════════════════════════════════════════════════════════
     (
         "CWE-1357",
         re.compile(
             # `cdk bootstrap` sin --template custom · viola Rule 1
-            # cdk-rules.md · AMX requiere bootstrap-template.yml AMX.
+            # cdk-rules.md · ACME requiere bootstrap-template.yml ACME.
             # Usa [ \t]* (no \s*) para que el match NO cruce newlines ·
             # evita que los findings caigan en línea shebang tras
             # strip_inline_comments.
@@ -1828,11 +1828,11 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""(?![^\n]*?(?:--template|-t[ \t]+))"""
             r"""[^\n]*"""
         ),
-        "AMX-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN",
+        "ACME-CDK-BOOTSTRAP-DEFAULT-FORBIDDEN",
         "HIGH",
         "cdk bootstrap sin --template custom · amazon-q-rules "
         "cdk-rules Rule 1 · debe usar cdk_bootstraping/bootstrap-"
-        "template.yml con policy AMX-P-DVPS-CDK-TOOLKIT",
+        "template.yml con policy ACME-P-DVPS-CDK-TOOLKIT",
         frozenset({".sh", ".yaml", ".yml", ".md", ".bash"}),
     ),
     (
@@ -1845,11 +1845,11 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""iam\.ManagedPolicy\.from_aws_managed_policy_name\(\s*["'])"""
             r"""AdministratorAccess"""
         ),
-        "AMX-CDK-ADMIN-ACCESS-POLICY",
+        "ACME-CDK-ADMIN-ACCESS-POLICY",
         "HIGH",
         "AdministratorAccess attached · viola Rule 2 "
-        "cdk-rules least-privilege · usar AMX-P-DVPS-CDK-TOOLKIT "
-        "scoped policy (arn:aws:iam::*:policy/AMX-P-DVPS-*)",
+        "cdk-rules least-privilege · usar ACME-P-DVPS-CDK-TOOLKIT "
+        "scoped policy (arn:aws:iam::*:policy/ACME-P-DVPS-*)",
         frozenset({".py", ".ts", ".json", ".yaml", ".yml"}),
     ),
     (
@@ -1860,7 +1860,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # Pattern Python: f"...{X.value_as_string}..." o similar.
             r"""\bf["'][^"']*\{\s*\w+\.value_as_(?:string|number|list)"""
         ),
-        "AMX-CDK-FSTRING-WITH-TOKEN",
+        "ACME-CDK-FSTRING-WITH-TOKEN",
         "HIGH",
         "f-string envuelve CfnParameter.value_as_* · Token CFN no se "
         "resuelve en build-time · usar Fn.join / Fn.sub · "
@@ -1879,7 +1879,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""format|split|join)\s*\()|"""
             r"""\bstr\s*\(\s*\w+\.value_as_(?:string|number|list)\s*\)"""
         ),
-        "AMX-CDK-STR-CONCAT-TOKEN",
+        "ACME-CDK-STR-CONCAT-TOKEN",
         "HIGH",
         "Token CfnParameter manipulado con operador Python (+, str(), "
         ".lower/.upper/.replace) · build-time resolution forzada · "
@@ -1898,7 +1898,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""[\s\S]{0,500}?super\(\)\.__init__\("""
             r"""(?:(?!validate_template)[\s\S]){0,400}?\)"""
         ),
-        "AMX-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE",
+        "ACME-SC-PRODUCTSTACK-MISSING-VALIDATE-FALSE",
         "MEDIUM",
         "ProductStack sin validate_template=False en super().__init__ · "
         "previene despliegue accidental en cuenta CTDO · "
@@ -1914,7 +1914,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""class\s+\w+\s*\(\s*(?:aws_cdk\.)?[Cc]onstruct\s*\)\s*:"""
             r"""[\s\S]{0,1500}?\bCfnParameter\s*\("""
         ),
-        "AMX-SC-CONSTRUCT-WITH-CFN-PARAMETER",
+        "ACME-SC-CONSTRUCT-WITH-CFN-PARAMETER",
         "MEDIUM",
         "CfnParameter dentro de clase Construct (capa L3 templates/) · "
         "viola service-catalog-architecture Capa 2 · CfnParameter solo "
@@ -1923,7 +1923,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     ),
 
     # ═════════════════════════════════════════════════════════════════
-    # v3.6.3 · Sprint 3 · 5 detectores P2 · cierre alineación AMX
+    # v3.6.3 · Sprint 3 · 5 detectores P2 · cierre alineación ACME
     # (24-abr-2026 · scope eTribe ~92% → ~98%)
     # Evidencia concreta:
     #   G-08    · SRG Program.cs:42 `Password.RequiredLength = 1`
@@ -1931,7 +1931,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     #   G-NEW-DPAPI · Robot rob_cambio_status/AEP/app.config:15
     #     `configProtectionProvider="DPAPIProtection"` (no portable EKS)
     #   G-10    · SRG frontend/package.json `"@angular/core": "^15.0.0"`
-    #   G-NEW-1 · SRG/SICOFAV controllers sin [ApiController] attribute
+    #   G-NEW-1 · SRG/FLEET_OPS_APP controllers sin [ApiController] attribute
     # ═════════════════════════════════════════════════════════════════
     (
         "CWE-521",
@@ -1947,10 +1947,10 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""\s*=\s*false|"""
             r"""RequiredUniqueChars\s*=\s*[0-3]\b(?!\d))"""
         ),
-        "AMX-ASPNET-IDENTITY-WEAK-PASSWORD",
+        "ACME-ASPNET-IDENTITY-WEAK-PASSWORD",
         "HIGH",
         "AspNet Identity PasswordOptions relajada · política débil "
-        "(RequiredLength<8 · Require* desactivado) · viola AMX "
+        "(RequiredLength<8 · Require* desactivado) · viola ACME "
         "password baseline · CWE-521 · usar 8+ chars con mayúscula + "
         "dígito + no-alfanumérico",
         _CS,
@@ -1964,11 +1964,11 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""\bTrustServerCertificate\s*=\s*true\b""",
             re.IGNORECASE,
         ),
-        "AMX-DOTNET-TRUST-SERVER-CERTIFICATE",
+        "ACME-DOTNET-TRUST-SERVER-CERTIFICATE",
         "HIGH",
         "Connection string con TrustServerCertificate=True · "
         "deshabilita validación cert TLS · MITM posible · "
-        "CWE-295 · usar cert válido firmado CA interna AMX o "
+        "CWE-295 · usar cert válido firmado CA interna ACME o "
         "Encrypt=Strict con cert bundle",
         frozenset({".config", ".json", ".cs", ".vb", ".xml"}),
     ),
@@ -1986,7 +1986,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""RsaProtectedConfigurationProvider)["']""",
             re.IGNORECASE,
         ),
-        "AMX-DOTNET-DPAPI-CONFIG-PROVIDER",
+        "ACME-DOTNET-DPAPI-CONFIG-PROVIDER",
         "HIGH",
         "configProtectionProvider Windows-only (DPAPI/RSA) · "
         "NO portable a Linux EKS/Fargate · bloquea Block 8 deploy · "
@@ -2004,7 +2004,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""\s*:\s*["'][~^]?(?:"""
             r"""[0-9]|1[0-6])\.[0-9]+\.[0-9]+(?:-[\w.]+)?["']"""
         ),
-        "AMX-FRONTEND-ANGULAR-EOL",
+        "ACME-FRONTEND-ANGULAR-EOL",
         "HIGH",
         "Angular ≤16 fuera de soporte (LTS 2026-04 = 17+) · deuda "
         "seguridad + ecosistema · amazon-q-rules frontend package "
@@ -2024,7 +2024,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""(?m)^\s*public\s+(?:sealed\s+|abstract\s+|partial\s+)?"""
             r"""class\s+\w+Controller\s*:\s*ControllerBase\b"""
         ),
-        "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER",
+        "ACME-ASPNET-CONTROLLER-MISSING-APICONTROLLER",
         "MEDIUM",
         "Controller hereda ControllerBase sin atributo [ApiController] · "
         "pierde validation automático + ProblemDetails + binding source "
@@ -2038,7 +2038,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     #  G-16a Lambda log retention · G-16b SG open ingress ·
     #  G-16c RDS storage encryption)
     # Evidencia:
-    #   G-14    · patterns AMX `Encrypt=False` / `Encrypt=Optional` SQL Server
+    #   G-14    · patterns ACME `Encrypt=False` / `Encrypt=Optional` SQL Server
     #   G-16a   · CDK Lambda sin log_retention default INFINITE (coste + PII)
     #   G-16b   · CDK SecurityGroup 0.0.0.0/0 ingress (wide open)
     #   G-16c   · CDK RDS sin storage_encryption (at-rest compliance)
@@ -2054,7 +2054,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""\bEncrypt\s*=\s*(?:false|optional|no)\b""",
             re.IGNORECASE,
         ),
-        "AMX-DOTNET-SQL-ENCRYPT-DISABLED",
+        "ACME-DOTNET-SQL-ENCRYPT-DISABLED",
         "HIGH",
         "Connection string SQL Server con Encrypt=False/Optional/No · "
         "deshabilita TLS obligatorio · MITM + captura plaintext · "
@@ -2072,12 +2072,12 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # con kwargs como code=lambda_.Code.from_asset("x")).
             r"""\b(?:lambda_?|aws_lambda)\.Function\s*\("""
         ),
-        "AMX-CDK-LAMBDA-NO-LOG-RETENTION",
+        "ACME-CDK-LAMBDA-NO-LOG-RETENTION",
         "MEDIUM",
         "CDK Lambda Function sin log_retention · default INFINITE · "
         "coste CloudWatch + PII sin política retención · CWE-778 · "
         "añadir log_retention=logs.RetentionDays.THREE_MONTHS (mínimo 90d "
-        "exigido por AMX CS_Scripts/check_f03_compliance.py · alineado "
+        "exigido por ACME CS_Scripts/check_f03_compliance.py · alineado "
         "amazon-q-rules logging-retention)",
         frozenset({".py", ".ts"}),
     ),
@@ -2096,11 +2096,11 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             r"""["']0\.0\.0\.0/0["']"""
             r""")"""
         ),
-        "AMX-CDK-SG-OPEN-INGRESS",
+        "ACME-CDK-SG-OPEN-INGRESS",
         "HIGH",
         "Security Group / ingress rule con 0.0.0.0/0 · exposición "
         "internet total · CWE-284 · restringir a CIDR corporativo "
-        "(AMX bastion / VPN) o ALB con WAF delante · amazon-q-rules "
+        "(ACME bastion / VPN) o ALB con WAF delante · amazon-q-rules "
         "network-security",
         frozenset({".py", ".ts", ".json", ".yaml", ".yml"}),
     ),
@@ -2113,10 +2113,10 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # con engine=rds.DatabaseInstanceEngine.postgres(version=...)).
             r"""\brds\.(?:DatabaseInstance|DatabaseCluster)\s*\("""
         ),
-        "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION",
+        "ACME-CDK-RDS-NO-STORAGE-ENCRYPTION",
         "HIGH",
         "CDK RDS DatabaseInstance/Cluster sin storage_encrypted=True · "
-        "data at-rest sin cifrado · viola compliance SOX + PCI + AMX "
+        "data at-rest sin cifrado · viola compliance SOX + PCI + ACME "
         "baseline · CWE-311 · añadir storage_encrypted=True + "
         "storage_encryption_key=kms.Alias",
         frozenset({".py", ".ts"}),
@@ -2137,11 +2137,11 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # típicamente en linea separada post-ALB creation).
             r"""\belbv2\.ApplicationLoadBalancer\s*\("""
         ),
-        "AMX-CDK-ALB-WITHOUT-WAF",
+        "ACME-CDK-ALB-WITHOUT-WAF",
         "MEDIUM",
         "ApplicationLoadBalancer sin WAF WebACLAssociation · superficie "
         "expuesta sin layer-7 protection · CWE-693 · asociar "
-        "wafv2.CfnWebACLAssociation(...) con policy AMX-P-WAF-baseline",
+        "wafv2.CfnWebACLAssociation(...) con policy ACME-P-WAF-baseline",
         frozenset({".py", ".ts"}),
     ),
     (
@@ -2150,11 +2150,11 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # CloudFront Distribution con OriginAccessIdentity (OAI) ·
             # AWS deprecó OAI en favor de OriginAccessControl (OAC) en
             # 2022 · amazon-q-rules requiere OAC para nuevos buckets.
-            # (detector AMX-CLOUDFRONT-OAI-DEPRECATED ya existe en v3.5
+            # (detector ACME-CLOUDFRONT-OAI-DEPRECATED ya existe en v3.5
             # · este refuerza en CDK app-level sin cfn_ prefix).
             r"""\bOriginAccessIdentity\s*\("""
         ),
-        "AMX-CDK-CLOUDFRONT-NO-OAC",
+        "ACME-CDK-CLOUDFRONT-NO-OAC",
         "MEDIUM",
         "CloudFront usa OriginAccessIdentity (OAI) deprecated · "
         "amazon-q-rules requiere OriginAccessControl (OAC) · "
@@ -2172,7 +2172,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # `_call_body_has_kwarg`.
             r"""\bs3\.Bucket\s*\("""
         ),
-        "AMX-CDK-S3-NO-PUBLIC-ACCESS-BLOCK",
+        "ACME-CDK-S3-NO-PUBLIC-ACCESS-BLOCK",
         "HIGH",
         "S3 Bucket sin block_public_access explícito · potencial "
         "exposición pública · CWE-284 · añadir "
@@ -2182,8 +2182,8 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     ),
 
     # ═════════════════════════════════════════════════════════════════
-    # v3.6.6 · Sprint 6 · 3 detectores enforcement · conformidad AMX
-    # (24-abr-2026) · valida que usamos patterns AMX canónicos vs
+    # v3.6.6 · Sprint 6 · 3 detectores enforcement · conformidad ACME
+    # (24-abr-2026) · valida que usamos patterns ACME canónicos vs
     # reinventar. Evidencia base: dyn-devops-service-catalog + 20+
     # buildspecs analizados en _analogos/.
     # ═════════════════════════════════════════════════════════════════
@@ -2192,32 +2192,32 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
         re.compile(
             # buildspec.yaml con sección `env:` pero sin TZ America/Mexico_City
             # explícito. Pattern de enforcement para uniformar timezone
-            # en todos los pipelines AMX (estándar en Miaeromexico_EKS_CICD ·
+            # en todos los pipelines ACME (estándar en Miacmeair_EKS_CICD ·
             # RevAcc_Praxis_ASIS_CI/CD · todos los *_IaC_CICD).
             # Match heurístico: `env:` + `variables:` sin `TZ:` "America/Mexico_City".
             r"""(?s)\benv\s*:[^\n]*\n(?:[ \t]+[^\n]*\n){0,20}?"""
             r"""[ \t]+variables\s*:(?:(?!America/Mexico_City)[\s\S]){0,400}?"""
             r"""(?:phases\s*:|$)"""
         ),
-        "AMX-CICD-BUILDSPEC-MISSING-TZ",
+        "ACME-CICD-BUILDSPEC-MISSING-TZ",
         "LOW",
         "buildspec.yaml con env.variables SIN TZ: 'America/Mexico_City' · "
-        "estándar AMX · genera logs con hora inconsistente · añadir "
+        "estándar ACME · genera logs con hora inconsistente · añadir "
         "TZ: America/Mexico_City bajo env.variables · CWE-1188",
         frozenset({".yaml", ".yml"}),
     ),
     (
         "CWE-1104",
         re.compile(
-            # runtime-versions.python con versión != 3.12 · estándar AMX
+            # runtime-versions.python con versión != 3.12 · estándar ACME
             # consolidado en todos los buildspecs analizados. Detecta
             # explícitamente: python: 3.9 / 3.10 / 3.11 / 3.13
             r"""\bruntime-versions\s*:[^\n]*\n(?:[ \t]+[^\n]*\n){0,3}?"""
             r"""[ \t]+python\s*:\s*["']?(?:3\.(?:[0-9]|1[013])|2\.\d)["']?(?:\s|$)"""
         ),
-        "AMX-CICD-BUILDSPEC-PYTHON-NOT-3-12",
+        "ACME-CICD-BUILDSPEC-PYTHON-NOT-3-12",
         "LOW",
-        "buildspec runtime-versions.python != 3.12 · estándar AMX "
+        "buildspec runtime-versions.python != 3.12 · estándar ACME "
         "consolidado en todos los pipelines · CWE-1104 · actualizar "
         "a python: 3.12",
         frozenset({".yaml", ".yml"}),
@@ -2232,7 +2232,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # acompañado de contexto de CDK stack (import `aws_cdk`).
             r"""(?:\baws_eks|\beks)\.Cluster\s*\("""
         ),
-        "AMX-CDK-EKS-RAW-BYPASS-SC-PRODUCT",
+        "ACME-CDK-EKS-RAW-BYPASS-SC-PRODUCT",
         "MEDIUM",
         "CDK crea EKS Cluster raw · existe producto Service Catalog "
         "`eks_cluster_product` en dyn-devops-service-catalog · "
@@ -2246,7 +2246,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # Idem para ECR: existe `ecr_product.py` aprobado
             r"""(?:\baws_ecr|\becr)\.Repository\s*\("""
         ),
-        "AMX-CDK-ECR-RAW-BYPASS-SC-PRODUCT",
+        "ACME-CDK-ECR-RAW-BYPASS-SC-PRODUCT",
         "LOW",
         "CDK crea ECR Repository raw · existe producto Service Catalog "
         "`ecr_product` · reutilizar para compliance (scan on push + "
@@ -2344,7 +2344,7 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
     """Scan `root` con detectores embedded + forbidden literals.
 
     v1.8.0 · RFC-003 Nivel 1 · si existe ontology (policy dir o
-    amx-domain-ontology.yaml en root), cada finding emitido queda
+    acme-domain-ontology.yaml en root), cada finding emitido queda
     clasificado (bug · business_rule · migration_candidate · unclear)
     y con accion recomendada (auto_fix · pause_for_review · skip · warn).
 
@@ -2426,27 +2426,27 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
                         continue
                 # v3.6.3 · skip ApiController controllers que SÍ tienen
                 # el atributo [ApiController] 1-8 líneas arriba.
-                if rule_id == "AMX-ASPNET-CONTROLLER-MISSING-APICONTROLLER" \
+                if rule_id == "ACME-ASPNET-CONTROLLER-MISSING-APICONTROLLER" \
                         and _class_has_apicontroller_attr(scan_content,
                                                            m.start()):
                     continue
                 # v3.6.4 · skip CDK Lambda con log_retention · parens balanceados
-                if rule_id == "AMX-CDK-LAMBDA-NO-LOG-RETENTION" and \
+                if rule_id == "ACME-CDK-LAMBDA-NO-LOG-RETENTION" and \
                         _call_body_has_kwarg(scan_content, m.end() - 1,
                                               "log_retention"):
                     continue
                 # v3.6.4 · skip CDK RDS con storage_encrypted · parens balanceados
-                if rule_id == "AMX-CDK-RDS-NO-STORAGE-ENCRYPTION" and \
+                if rule_id == "ACME-CDK-RDS-NO-STORAGE-ENCRYPTION" and \
                         _call_body_has_kwarg(scan_content, m.end() - 1,
                                               "storage_encrypted"):
                     continue
                 # v3.6.5 · skip ALB si WAF WebACLAssociation existe en el archivo
-                if rule_id == "AMX-CDK-ALB-WITHOUT-WAF" and \
+                if rule_id == "ACME-CDK-ALB-WITHOUT-WAF" and \
                         re.search(r"\b(?:wafv2\.CfnWebACLAssociation|"
                                   r"WebACLAssociation)\b", scan_content):
                     continue
                 # v3.6.5 · skip S3 Bucket con block_public_access explícito
-                if rule_id == "AMX-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" and \
+                if rule_id == "ACME-CDK-S3-NO-PUBLIC-ACCESS-BLOCK" and \
                         _call_body_has_kwarg(scan_content, m.end() - 1,
                                               "block_public_access"):
                     continue
@@ -2475,7 +2475,7 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
 # ---------------------------------------------------------------------------
 
 def _load_ontology_for_scan(root: Path, cfg: dict) -> dict:
-    """Busca ontology en orden: cfg['ontology_path'] · root/amx-domain-ontology.yaml
+    """Busca ontology en orden: cfg['ontology_path'] · root/acme-domain-ontology.yaml
     · policies/<policy>/ontology.yaml. Retorna dict vacio si no hay.
     """
     try:
@@ -2492,12 +2492,12 @@ def _load_ontology_for_scan(root: Path, cfg: dict) -> dict:
         return load_ontology(p)
 
     # 2. Root-level convention
-    convention = root / "amx-domain-ontology.yaml"
+    convention = root / "acme-domain-ontology.yaml"
     if convention.exists():
         return load_ontology(convention)
 
     # 3. Policy-scoped ontology
-    policy_name = cfg.get("policy", "amx-revenue-accounting")
+    policy_name = cfg.get("policy", "acme-finance_operations")
     # Buscar en el package instalado (aios/policies/<policy>/ontology.yaml)
     try:
         import aios.policies as _ap
@@ -2688,7 +2688,7 @@ def _run_mythos_cli(root: Path, cfg: dict) -> Optional[list[Finding]]:
 
     Solo se usa cuando `use_mythos_cli: true` en config. Util para
     usuarios que ya operan el framework completo (Mythos + catalogos
-    AMX-patterns) y quieren reusar ese scan en `aios release`.
+    ACME-patterns) y quieren reusar ese scan en `aios release`.
     """
     cli = shutil.which("mythos")
     if cli is None:

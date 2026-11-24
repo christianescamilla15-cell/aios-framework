@@ -253,3 +253,59 @@ def test_generate_request_id_format():
     rid = generate_request_id(resource_type="bd-access", app="billing")
     assert rid.startswith("GOV-BILLING-BD-")
     assert len(rid.split("-")) == 5  # GOV-APP-TYPE-DATE-NNN
+
+
+# ── Máquina de estados completa contra un oráculo escrito a mano ─────
+# Fuente del oráculo: docs/GOVERNANCE_GUIDE.md §3 (no se lee de VALID_TRANSITIONS).
+_ORACULO = {
+    "draft": {"requested", "cancelled"},
+    "requested": {"in-review", "rejected", "cancelled"},
+    "in-review": {"partially-approved", "approved", "rejected", "expired"},
+    "partially-approved": {"approved", "expired", "rejected"},
+    "approved": {"provisioned", "expired"},
+    "provisioned": {"renewed", "expired", "revoked"},
+    "renewed": {"provisioned", "expired", "revoked"},
+    "expired": {"renewed"},
+    "rejected": set(),
+    "cancelled": set(),
+    "revoked": set(),
+}
+_PARES = [(a, b) for a in _ORACULO for b in _ORACULO]
+
+
+@pytest.mark.parametrize("origen,destino", _PARES)
+def test_every_transition_matches_the_oracle(origen, destino):
+    esperado = destino in _ORACULO[origen]
+    assert AuditTrail.is_valid_transition(AuditState(origen), AuditState(destino)) is esperado
+
+
+@pytest.mark.parametrize("destino", list(_ORACULO))
+def test_first_entry_only_draft_or_requested(destino):
+    assert AuditTrail.is_valid_transition(None, AuditState(destino)) is (destino in {"draft", "requested"})
+
+
+def test_terminal_states_have_no_exit():
+    for terminal in ("rejected", "cancelled", "revoked"):
+        assert not any(AuditTrail.is_valid_transition(AuditState(terminal), AuditState(d)) for d in _ORACULO)
+
+
+def test_approvals_yaml_documents_the_same_state_machine():
+    """El YAML que leen las personas y el código que valida dicen lo mismo."""
+    from aios.governance.loader import load_rules
+
+    documentado = {
+        s["state"]: set(s["next_states"])
+        for s in load_rules(force_reload=True).approvals["audit_states"]
+    }
+    assert documentado == _ORACULO
+    assert {k.value: {v.value for v in vs} for k, vs in VALID_TRANSITIONS.items()} == _ORACULO
+
+
+@pytest.mark.parametrize("dias,severidad", [
+    (2, None), (3, "warn"), (4, "warn"), (5, "escalate"), (9, "escalate"), (10, "emergency"),
+])
+def test_slippage_severity_boundaries(trail, dias, severidad):
+    """Umbrales por omisión 3/5/10 días: el borde inferior ya pertenece al nivel."""
+    _seed_old_entry(trail, "GOV-BILLING-BD-001", "billing", days_ago=dias)
+    slips = trail.detect_slippage(warn_after_days=3, escalate_after_days=5, emergency_after_days=10)
+    assert [s["severity"] for s in slips] == ([] if severidad is None else [severidad])

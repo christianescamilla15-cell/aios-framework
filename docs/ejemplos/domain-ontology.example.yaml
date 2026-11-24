@@ -39,4 +39,4 @@ patterns:
     classification: "skip"
     skip: true
     matches:
-      - regex: "(^|/)tests?/fixtures/"
+      - regex: "(?m)(^|/)tests?/fixtures/"

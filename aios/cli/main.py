@@ -596,7 +596,7 @@ def cmd_compliance_report(args):
     print(f"{'='*60}")
 
     findings = _scan_directory(root)
-    # v3.7.4 G-SUPPRESSIONS-COMPLIANCE · compliance-report consume
+    # v3.7.4 · compliance-report consume
     # `aios-suppressions.json` igual que `aios release` y `aios iterate`.
     # Antes (≤v3.7.3) sólo `release` aplicaba suppressions, lo que causaba
     # divergencia: una FP suppressed por release seguía apareciendo en
@@ -627,7 +627,7 @@ def cmd_compliance_report(args):
             print("  [!!] --format pdf requires --output <file.pdf>")
             print(f"{'='*60}\n")
             return
-        # v3.7.5 T8-N2 fix · --output relativo se resuelve desde CWD del usuario,
+        # v3.7.5 · --output relativo se resuelve desde CWD del usuario,
         # NO desde --root. Antes (≤v3.7.4) `--root src --output reports/x.md`
         # escribía a `src/reports/x.md` (mensaje engañoso). Ahora respeta
         # expectation Unix estándar: relative paths from CWD.
@@ -645,7 +645,7 @@ def cmd_compliance_report(args):
         ext = ".md"
 
     if args.output:
-        # v3.7.5 T8-N2 fix · --output relativo desde CWD (no desde --root)
+        # v3.7.5 · --output relativo desde CWD (no desde --root)
         dest = Path(args.output)
         if not dest.is_absolute():
             dest = Path.cwd() / dest

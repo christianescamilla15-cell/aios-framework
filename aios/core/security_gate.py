@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Optional
 
 
-# v3.7.5 G-REGEX-TIMEOUT (T8-N3) · per-regex timeout para evitar catastrophic
+# v3.7.5 · per-regex timeout para evitar catastrophic
 # backtracking sobre archivos largos (k8s YAML manifests · large config files).
 # Override via env var: AIOS_REGEX_TIMEOUT_SECONDS (default 2s).
 _REGEX_TIMEOUT_SECONDS = int(os.environ.get("AIOS_REGEX_TIMEOUT_SECONDS", "2"))
@@ -45,7 +45,7 @@ _logger = logging.getLogger(__name__)
 
 
 def _safe_finditer(pattern: re.Pattern, content: str, file_path: str = "") -> list:
-    """v3.7.5 G-REGEX-TIMEOUT (T8-N3) · regex con timeout per-call.
+    """v3.7.5 · regex con timeout per-call.
 
     Si SIGALRM interrumpe (catastrophic backtracking) · retorna [] + log warning ·
     scan continúa con próximos detectores · NO crash + NO hang.
@@ -408,7 +408,7 @@ def _method_has_authorize_attr_inline(matched_span: str) -> bool:
 
 def _catch_has_when_filter(content: str, catch_match_end: int,
                             max_span: int = 200) -> bool:
-    """v3.7.4 G-EXCEPTION-WHEN-FILTER · True si el `catch (...)` tiene
+    """v3.7.4 · True si el `catch (...)` tiene
     una cláusula `when (...)` antes del bloque `{`.
 
     Indica que el catch filtra explícitamente el subset de excepciones
@@ -2331,7 +2331,7 @@ def scan_directory(root: Path, config: Optional[dict] = None) -> list[Finding]:
                 if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
                         _catch_block_has_logging(scan_content, m.end()):
                     eff_severity = "LOW"
-                # v3.7.4 G-EXCEPTION-WHEN-FILTER · degradar catch genérico
+                # v3.7.4 · degradar catch genérico
                 # a LOW si tiene cláusula `when (...)` (intent específico
                 # de filtro · no es catch-all sloppy).
                 if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
@@ -2580,7 +2580,7 @@ def scan_files(
                 if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
                         _catch_block_has_logging(scan_content, m.end()):
                     eff_severity = "LOW"
-                # v3.7.4 G-EXCEPTION-WHEN-FILTER · degrade if `when` filter
+                # v3.7.4 · degrade if `when` filter
                 if rule_id == "STATIC-GENERIC-EXCEPTION-CATCH-CSHARP" and \
                         _catch_has_when_filter(scan_content, m.end()):
                     eff_severity = "LOW"

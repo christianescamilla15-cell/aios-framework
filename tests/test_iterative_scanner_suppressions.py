@@ -1,6 +1,6 @@
 """Tests · iterative_scanner suppressions integration (v3.7.4).
 
-Cierra G-SUPPRESSIONS-ITERATE: hasta v3.7.3 el subcommand `aios iterate`
+Hasta v3.7.3 el subcommand `aios iterate`
 NO consumía `aios-suppressions.json`, mientras que `aios release` sí lo
 hacía vía security_gate. Esto causaba que FPs documentadas reaparecieran
 en cada run del scanner iterative.

@@ -41,7 +41,7 @@ _SUPPRESSIONS_FILE = "aios-suppressions.json"
 
 
 def _paths_match(suppression_file: str, finding_file: str) -> bool:
-    """v3.7.5 G-PATH-NORMALIZATION (T8-N1) · match tolerante a scope-reduced paths.
+    """v3.7.5 · match tolerante a scope-reduced paths.
 
     Caso: `aios-suppressions.json` declara `file: "infra/cdk-pipeline/stacks/x.py"`
     (repo-root path) pero `aios iterate --root infra/cdk-pipeline` emite finding con
@@ -85,7 +85,7 @@ class Suppression:
     expires_at: str = ""  # ISO date · vacio = no expira
 
     def matches(self, finding: Finding) -> bool:
-        # v3.7.4 G-RULE-ID-UNIFY · si el usuario puso un valor en rule_id que
+        # v3.7.4 · si el usuario puso un valor en rule_id que
         # parece una referencia CWE (ej. "CWE-547") y no matchea el rule_id
         # del finding, intentar match contra finding.cwe. Esto permite que
         # una suppression escrita con rule_id="CWE-547" cubra todos los
@@ -104,7 +104,7 @@ class Suppression:
             if not finding.cwe or self.cwe.upper() != finding.cwe.upper():
                 return False
         # v3.3.2 · file field soporta globs (fnmatch-style): archive/** · *.generated.*
-        # v3.7.5 G-PATH-NORMALIZATION (T8-N1) · soporta scope-reduced paths:
+        # v3.7.5 · soporta scope-reduced paths:
         #   suppression "infra/cdk-pipeline/stacks/x.py" matchea finding "stacks/x.py"
         #   cuando `aios iterate --root infra/cdk-pipeline` produce paths relativos a --root.
         if self.file:

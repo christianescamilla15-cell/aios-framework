@@ -257,14 +257,14 @@ def test_load_legacy_entry_with_rule_alias_and_cwe_field(tmp_path):
 
 
 def test_paths_match_helper_exact():
-    """v3.7.5 G-PATH-NORMALIZATION T8-N1 · _paths_match helper · exact match"""
+    """v3.7.5 · _paths_match helper · exact match"""
     from aios.core.suppressions import _paths_match
     assert _paths_match("src/x.cs", "src/x.cs") is True
     assert _paths_match("x.py", "x.py") is True
 
 
 def test_paths_match_helper_scope_reduced():
-    """v3.7.5 G-PATH-NORMALIZATION T8-N1 · scope-reduced match.
+    """v3.7.5 · scope-reduced match.
     Caso real: suppression con repo-root path + finding con --root subdir path."""
     from aios.core.suppressions import _paths_match
     # suppression repo-root, finding scope-reduced
@@ -280,7 +280,7 @@ def test_paths_match_helper_scope_reduced():
 
 
 def test_paths_match_helper_separator_aware():
-    """v3.7.5 G-PATH-NORMALIZATION T8-N1 · separator-aware · NO false positives"""
+    """v3.7.5 · separator-aware · NO false positives"""
     from aios.core.suppressions import _paths_match
     # NO match · 'admin-x.py' termina con 'x.py' pero sin separator
     assert _paths_match("stacks/admin-x.py", "x.py") is False
@@ -299,8 +299,8 @@ def test_paths_match_helper_windows_paths():
     ) is True
 
 
-def test_t8_n1_e2e_suppression_matches_with_scope_reduced_finding():
-    """T8-N1 e2e · suppression repo-root path matchea finding emitido con --root subdir."""
+def test_e2e_suppression_matches_with_scope_reduced_finding():
+    """e2e · suppression repo-root path matchea finding emitido con --root subdir."""
     sup = Suppression(
         rule_id="ORG-CDK-STACK-REQUIRES-MANDATORY-TAGS",
         file="infra/cdk-pipeline/stacks/billing_kms_stack.py",
@@ -313,5 +313,5 @@ def test_t8_n1_e2e_suppression_matches_with_scope_reduced_finding():
         31,
     )
     assert sup.matches(finding) is True, (
-        "T8-N1 fix: suppression con repo-root path debe matchear finding scope-reduced"
+        "fix: suppression con repo-root path debe matchear finding scope-reduced"
     )

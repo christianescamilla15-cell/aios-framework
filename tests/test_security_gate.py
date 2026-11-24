@@ -2654,7 +2654,7 @@ def test_generic_catch_without_when_filter_stays_medium(tmp_path):
     assert catches[0].severity == "MEDIUM"
 
 
-# v3.7.5 G-REGEX-TIMEOUT (T8-N3) · regression tests para regex timeout per-file
+# v3.7.5 · regression tests para regex timeout per-file
 
 def test_safe_finditer_normal_match():
     """v3.7.5 · _safe_finditer retorna matches igual que pattern.finditer normal."""

@@ -1,0 +1,162 @@
+# AIOS Governance · Convenciones de nombres · Acme Corp (organización FICTICIA de demostración)
+# Las reglas son ejemplos coherentes entre sí para ejercitar los detectores; no vienen de ninguna
+# organización real.
+
+schema_version: 1
+last_updated: "2026-11-24"
+
+# ---------------------------------------------------------------------------
+# Prefijos oficiales de las 8 aplicaciones ficticias
+# ---------------------------------------------------------------------------
+
+app_prefixes:
+  billing:  { id: "01", canonical: "Billing",  display: "Billing" }
+  orders:   { id: "02", canonical: "Orders",   display: "Orders" }
+  shipping: { id: "03", canonical: "Shipping", display: "Shipping" }
+  faxgw:    { id: "04", canonical: "Faxgw",    display: "FaxGateway" }
+  partners: { id: "05", canonical: "Partners", display: "Partners" }
+  support:  { id: "06", canonical: "Support",  display: "Support" }
+  payments: { id: "07", canonical: "Payments", display: "Payments" }
+  reports:  { id: "08", canonical: "Reports",  display: "Reports" }
+
+# ---------------------------------------------------------------------------
+# 1. Roles IAM · acme-role-{app}-{admin|dev|readonly}
+# ---------------------------------------------------------------------------
+
+iam_role_naming:
+  detector_id: "G-IAM-ROLE-NAMING"
+  severity: "HIGH"
+  pattern_regex: "^acme-role-([a-z][a-z0-9]{1,30})-(admin|dev|readonly)$"
+  description: "Un rol IAM sigue acme-role-{app}-{perfil} con perfil = admin · dev · readonly"
+
+  # Roles de servicio que crea la plataforma con nombre propio: el detector los ignora.
+  reserved_prefixes:
+    - prefix: "acme-role-svc-"
+      reason: "Roles de servicio administrados por la plataforma"
+      examples:
+        - "acme-role-svc-backup"
+        - "acme-role-svc-log-shipper"
+
+  examples_valid:
+    - "acme-role-billing-admin"
+    - "acme-role-billing-dev"
+    - "acme-role-reports-readonly"
+    - "acme-role-svc-backup"
+  examples_invalid:
+    - "ACME-ROLE-BILLING-ADMIN"     # mayúsculas
+    - "acme-role-billing-owner"     # perfil inexistente
+    - "acme-billing-admin"          # falta role-
+
+  profiles:
+    admin:
+      description: "Administración completa · llave de seguridad física obligatoria"
+      hardware_key_required: true
+      max_per_account: 1
+    dev:
+      description: "Desarrollo · sin cambios a IAM ni a la red"
+      hardware_key_required: false
+      max_per_account: 8
+    readonly:
+      description: "Sólo lectura · monitoreo y auditoría"
+      hardware_key_required: false
+      max_per_account: 5
+
+# ---------------------------------------------------------------------------
+# 2. Repositorios · acme-{app}-{tipo}
+# ---------------------------------------------------------------------------
+
+repo_naming:
+  detector_id: "G-REPO-NAMING"
+  severity: "MEDIUM"
+  pattern_regex: "^acme-(billing|orders|shipping|faxgw|partners|support|payments|reports)-(backend|frontend|infra|pipeline|functions)$"
+  description: "Un repositorio sigue acme-{app}-{tipo}"
+  legacy_pattern_regex: "^acme-legacy-.+"
+  examples_valid:
+    - "acme-billing-backend"
+    - "acme-billing-infra"
+    - "acme-reports-functions"
+  examples_invalid:
+    - "acme_billing_backend"        # guion bajo
+    - "Acme-Billing-Backend"        # mayúsculas
+    - "billing-backend"             # falta acme-
+
+# ---------------------------------------------------------------------------
+# 3. Alias de llaves KMS · acme-kms-{app}-{alcance}
+# ---------------------------------------------------------------------------
+
+cmk_naming:
+  detector_id: "G-CMK-NAMING"
+  severity: "MEDIUM"
+  pattern_regex: "^acme-kms-(billing|orders|shipping|faxgw|partners|support|payments|reports|shared)-(secrets|database|storage|logs|volumes|queues)$"
+  description: "Un alias de llave sigue acme-kms-{app}-{alcance}"
+
+  required_5_per_dedicated_account:
+    - "secrets"
+    - "database"
+    - "storage"
+    - "logs"
+    - "volumes"
+
+  examples_valid:
+    - "acme-kms-billing-secrets"
+    - "acme-kms-billing-database"
+    - "acme-kms-shared-logs"
+  examples_invalid:
+    - "alias/aws/s3"                # llave administrada por AWS: prohibida
+    - "ACME-KMS-BILLING-SECRETS"    # mayúsculas
+    - "acme-kms-billing-db"         # alcance inexistente
+
+  prohibited_aws_managed:
+    pattern_regex: "^alias/aws/.+"
+    severity: "CRITICAL"
+    detector_id: "G-KMS-AWS-MANAGED-PROHIBITED"
+    description: "Las llaves administradas por AWS (alias/aws/*) no permiten política ni rotación propias"
+
+  required_properties:
+    enable_key_rotation: true
+    pending_window_days_min: 7
+    removal_policy: "RETAIN"
+
+# ---------------------------------------------------------------------------
+# 4. Secretos · acme/{app}/{nombre}
+# ---------------------------------------------------------------------------
+
+secret_naming:
+  detector_id: "G-SECRET-NAMING"
+  severity: "MEDIUM"
+  pattern_regex: "^acme/(billing|orders|shipping|faxgw|partners|support|payments|reports)/[a-z][a-z0-9-]{1,40}$"
+  description: "Un secreto sigue acme/{app}/{nombre}"
+  examples_valid:
+    - "acme/billing/db"
+    - "acme/payments/acquirer-api"
+  examples_invalid:
+    - "acme/db"                     # falta la app
+    - "acme/Billing/db"             # mayúsculas
+    - "acme/billing/db_password"    # guion bajo
+
+  rotation_policy:
+    rotation_required: true
+    rotation_period_days_default: 365
+    rotation_period_days_pci: 90
+
+# ---------------------------------------------------------------------------
+# 5. Ramas
+# ---------------------------------------------------------------------------
+
+branch_naming:
+  detector_id: "G-BRANCH-NAMING"
+  severity: "LOW"
+  protected_branches:
+    - branch: "main"
+      requires_pr: true
+      requires_approvers: 2
+    - branch: "develop"
+      requires_pr: true
+      requires_approvers: 1
+  allowed_pattern_regex: "^(feature|fix|chore|docs|test|refactor)/[a-z][a-z0-9-]+$"
+  examples_valid:
+    - "feature/billing-invoices"
+    - "fix/audit-chain"
+  examples_invalid:
+    - "Feature/Invoices"
+    - "feat/something"

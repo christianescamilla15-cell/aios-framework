@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "aios": {
+      "command": "aios-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

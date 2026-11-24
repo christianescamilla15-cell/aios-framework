@@ -1,0 +1,41 @@
+{# AIOS Governance · correo de escalamiento por atraso en la cadena de firmas #}
+# Escalamiento · {{ severity_label }} · {{ slippages | length }} solicitud{{ "es" if slippages | length > 1 else "" }} detenida{{ "s" if slippages | length > 1 else "" }}
+
+**Organización:** {{ organization }}{% if app_filter %} · {{ app_filter | upper }}{% endif %} · **Severidad:** `{{ severity }}`
+
+- **De:** {{ requester.name }} · {{ requester.role }} · {{ requester.email }}
+- **Para:** {{ escalation_to.name }} · {{ escalation_to.role }} · {{ escalation_to.email }}
+- **CC:** {{ cc_recipients | join(' · ') }}
+- **Fecha:** {{ generated_at }}
+- **Umbrales:** aviso ≥{{ thresholds.warn }}d · escalamiento ≥{{ thresholds.escalate }}d · emergencia ≥{{ thresholds.emergency }}d
+
+## 1 · Resumen
+
+{% if severity == "emergency" %}Hay solicitudes con más de {{ thresholds.emergency }} días sin avance: el cronograma está en riesgo.
+{% elif severity == "escalate" %}Hay solicitudes sin avance entre {{ thresholds.escalate }} y {{ thresholds.emergency }} días: necesitan intervención.
+{% else %}Hay solicitudes sin avance entre {{ thresholds.warn }} y {{ thresholds.escalate }} días: aviso temprano.
+{% endif %}
+## 2 · Solicitudes detenidas
+
+| # | Request ID | App | Tipo | Estado | Días detenida | Severidad |
+|---|---|---|---|---|---|---|
+{% for s in slippages %}| {{ loop.index }} | `{{ s.request_id }}` | {{ s.app | upper }} | {{ s.resource_type }} | {{ s.state }} | **{{ s.days_in_current_state }}d** | {{ s.severity }} |
+{% endfor %}
+
+## 3 · Acción solicitada
+
+{% if severity == "emergency" %}1. Reunión con los firmantes pendientes el siguiente día hábil.
+2. Confirmar si el bloqueo es de decisión, de capacidad o de información.
+3. Comprometer fecha; si no se libera en 48 h, ajustar el plan.
+{% elif severity == "escalate" %}1. Contacto directo con los firmantes pendientes.
+2. Fecha límite de 48 h; sin respuesta pasa a emergencia.
+{% else %}1. Recordatorio a los firmantes pendientes.
+2. Verificar que tengan la información para firmar.
+{% endif %}
+## 4 · Compromisos
+
+{% for commitment in commitments %}- {{ commitment }}
+{% endfor %}
+---
+
+Correo generado por `aios governance escalate`; cada envío queda en la bitácora encadenada por SHA-256.

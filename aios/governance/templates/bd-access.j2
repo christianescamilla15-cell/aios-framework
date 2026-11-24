@@ -1,0 +1,55 @@
+{# AIOS Governance · solicitud de acceso de lectura a una base de datos heredada #}
+# {{ app_display }} · Solicitud de acceso de lectura a la base de datos heredada
+
+**Organización:** {{ organization }} · **TIER:** {{ tier }} ({{ tier_priority_label }}) · {{ tier_description }}
+
+---
+
+## Datos de la solicitud
+
+- **Aplicación:** {{ app_display }} (#{{ app_id }}) · {{ tier }}
+- **Solicitante:** {{ requester.name }} · {{ requester.role }} · {{ requester.email }}
+{% if co_requester %}- **Co-solicitante (sólo lectura):** {{ co_requester.name }} · {{ co_requester.email }}
+{% endif %}- **Para:** {{ for_recipients | join(' · ') }}
+- **CC:** {{ cc_recipients | join(' · ') }}
+- **Fecha:** {{ request_date }}
+- **Vigencia:** {{ valid_for_days }} días (renovable)
+- **Request ID:** `{{ request_id }}`
+
+## 1 · Contexto
+
+{{ context }}
+
+## 2 · Accesos solicitados
+
+| # | Recurso | Tipo de acceso | Justificación |
+|---|---|---|---|
+{% for resource in resources %}| {{ loop.index }} | {{ resource.name }} | {{ resource.access_type }} | {{ resource.justification }} |
+{% endfor %}
+
+## 3 · Perfiles del equipo
+
+| Persona | Correo | Perfil | Rol IAM |
+|---|---|---|---|
+{% for member in team %}| {{ member.name }} | {{ member.email }} | {{ member.aws_role }} | `{{ member.iam_profile }}` |
+{% endfor %}
+
+## 4 · Compromisos de uso seguro
+
+{% for commitment in compliance_commitments %}- {{ commitment }}
+{% endfor %}
+
+## 5 · Cuenta cloud y llaves
+
+- {{ environments_count }} ambientes · `acme-{{ app }}-{dev,qa,prod}`
+- {{ cmk_count }} llaves KMS administradas por el cliente:
+{% for cmk in cmk_list %}  - `acme-kms-{{ app }}-{{ cmk.scope }}` ({{ cmk.purpose }})
+{% endfor %}{% if multiregion_required %}- Activo-activo en dos regiones (requisito de {{ tier }})
+{% endif %}
+## 6 · Aprobaciones requeridas, en orden
+
+{% for step in approval_chain %}{{ loop.index }}. **{{ step.role }}** · {{ step.name }} · {{ step.action }}
+{% endfor %}
+---
+
+Sin este acceso no puede arrancar {{ blocking_block }}. Respuesta esperada en {{ response_sla_days }} días hábiles.

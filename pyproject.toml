@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aios-kiro"
+version = "4.0.0"
+description = "AIOS — AI Engineering Operating System. Spec-driven development, embedded security gate and governance-as-code."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Christian Hernandez Escamilla", email = "christianescamilla15@gmail.com"},
+]
+keywords = ["ai", "engineering", "agents", "spec-driven", "kiro", "devops"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.scripts]
+aios = "aios.cli.main:main"
+aios-mcp = "aios.mcp_server:main"
+
+[project.urls]
+Homepage = "https://github.com/christianescamilla15-cell/aios-framework"
+Repository = "https://github.com/christianescamilla15-cell/aios-framework"
+
+[tool.setuptools.packages.find]
+include = ["aios*"]
+
+[tool.setuptools.package-data]
+"aios.stacks.multiagent" = ["*.md"]
+"aios.stacks.python" = ["*.md"]
+"aios.stacks.cicd" = ["*.md"]
+"aios.stacks.react" = ["*.md"]
+"aios.stacks.aws" = ["*.md"]
+"aios.stacks.docker" = ["*.md"]
+"aios.policies.default" = ["*.md", "*.yaml"]
+"aios.policies.enterprise" = ["*.md", "*.yaml"]

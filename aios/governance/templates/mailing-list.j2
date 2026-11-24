@@ -1,0 +1,23 @@
+{# AIOS Governance · alta del equipo en la lista de distribución de la plataforma #}
+# Alta en la lista de distribución · {{ recipient.name }}
+
+**Organización:** {{ organization }} · **Request ID:** `{{ request_id }}` · **Fecha:** {{ request_date }}
+
+Hola, equipo de {{ recipient.name }}:
+
+Pedimos dar de alta en `{{ recipient.email }}` a las {{ team | length }} personas del equipo de entrega
+de las {{ total_apps }} aplicaciones en alcance, para recibir avisos de mantenimiento y cambios de la
+plataforma sin depender de reenvíos.
+
+| Persona | Correo | Perfil |
+|---|---|---|
+{% for member in team %}| {{ member.name }} | {{ member.email }} | `{{ member.role_short }}` |
+{% endfor %}
+
+## Aprobaciones requeridas
+
+{% for step in approval_chain %}{{ loop.index }}. **{{ step.role }}** · {{ step.name }} · {{ step.action }}
+{% endfor %}
+Gracias.
+
+{{ requester.name }} · {{ requester.role }} · {{ requester.email }}

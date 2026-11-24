@@ -1,0 +1,42 @@
+# Ontología de dominio de EJEMPLO (organización ficticia Acme Corp).
+# Cópiala a <tu-repo>/domain-ontology.yaml o apúntala con aios-config.json → security_gate.ontology_path.
+#
+# Cada pattern clasifica un hallazgo ANTES de cualquier corrección automática:
+#   bug                 · CWE claro · auto_fix sólo si auto_fix_allowed: true
+#   business_rule       · intención del dominio · se pausa para revisión humana
+#   migration_candidate · migración conocida con plantilla de arreglo
+#   unclear             · requiere revisión humana
+version: "1.0"
+owner: "equipo de plataforma (ejemplo)"
+default_classification: "unclear"
+default_action: "pause_for_review"   # seguro por omisión: nada se corrige solo
+
+patterns:
+  - id: "CWE_798_CREDENTIAL_PLAINTEXT"
+    classification: "bug"
+    auto_fix_allowed: true
+    fix_template: "mover el valor al gestor de secretos y leerlo por referencia"
+    matches:
+      - regex: "(?i)(password|pwd|secret)\\s*[=:]\\s*[\"'][^\"']{4,}[\"']"
+    tags: ["credenciales"]
+
+  - id: "LEGACY_SERVICE_ACCOUNT"
+    classification: "migration_candidate"
+    auto_fix_allowed: false
+    message: "Cuenta de servicio heredada: migrar a un rol con credenciales temporales"
+    matches:
+      - literal: "LegacyAcct"
+    tags: ["heredado"]
+
+  - id: "PROMO_MAX_DISCOUNT"
+    classification: "business_rule"
+    pause_message: "Tope de descuento pactado con Ventas: no es un número mágico, confirmar antes de mover"
+    evidence_required: ["acuerdo comercial vigente"]
+    matches:
+      - regex: "maxDiscountPercent\\s*=\\s*\\d+"
+
+  - id: "TEST_FIXTURES"
+    classification: "skip"
+    skip: true
+    matches:
+      - regex: "(^|/)tests?/fixtures/"

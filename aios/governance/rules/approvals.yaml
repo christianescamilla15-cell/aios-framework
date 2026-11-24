@@ -1,0 +1,167 @@
+# AIOS Governance · Cadena de aprobaciones · Acme Corp (organización FICTICIA de demostración)
+# Las firmas son ROLES con buzones del dominio reservado .example, no personas.
+
+schema_version: 1
+last_updated: "2026-11-24"
+
+# ---------------------------------------------------------------------------
+# Cadena estándar · 5 firmas (cada solicitud usa un subconjunto, en este orden)
+# ---------------------------------------------------------------------------
+
+approval_chain_default:
+  name: "Acme Corp · cadena estándar de 5 firmas"
+  description: "Cadena de aprobación para solicitudes de accesos y recursos cloud"
+
+  steps:
+    - step: 1
+      role: "Oficina de Proyectos"
+      name: "PMO"
+      email: "pmo@acme.example"
+      validates: "Pertinencia al plan · cronograma · presupuesto"
+      typical_sla_days: 1
+      blocking_if_missing: false
+
+    - step: 2
+      role: "Custodio técnico del recurso"
+      name: "Custodio del dato (DBA o proveedor)"
+      email: "dba@acme.example"
+      validates: "Disponibilidad técnica · alta del usuario · entrega segura de credenciales"
+      typical_sla_days: 5
+      blocking_if_missing: true
+
+    - step: 3
+      role: "Seguridad de la información"
+      name: "Oficina de Seguridad"
+      email: "security@acme.example"
+      validates: "Protección de datos personales · auditoría · revocación al vencer"
+      typical_sla_days: 3
+      blocking_if_missing: true
+
+    - step: 4
+      role: "Validación de TIER"
+      name: "Comité de Riesgo Tecnológico"
+      email: "tech-risk@acme.example"
+      validates: "Asignación de TIER · agrupación en cuentas compartidas"
+      typical_sla_days: 5
+      blocking_if_missing: true
+      applies_when:
+        - "Cuenta compartida T2"
+        - "Reclasificación de TIER"
+
+    - step: 5
+      role: "Consejo de Arquitectura"
+      name: "Consejo de Arquitectura"
+      email: "architecture-board@acme.example"
+      validates: "Estándares de arquitectura · firma de ADR"
+      typical_sla_days: 3
+      blocking_if_missing: false
+
+# ---------------------------------------------------------------------------
+# Cadenas por tipo de recurso (pasos requeridos de la cadena estándar)
+# ---------------------------------------------------------------------------
+
+approval_chains_by_resource:
+
+  bd_legacy_access:
+    name: "Acceso de lectura a una base de datos heredada"
+    required_steps: [1, 2, 3, 4]
+    typical_total_sla_days: 14
+
+  aws_account_creation_tier_dedicated:
+    name: "Cuenta cloud dedicada (T0/T1)"
+    required_steps: [1, 5]
+    typical_total_sla_days: 7
+
+  aws_account_creation_tier_shared:
+    name: "Cuenta cloud compartida (T2)"
+    required_steps: [1, 4, 5]
+    typical_total_sla_days: 14
+
+  cmk_request:
+    name: "Llaves KMS administradas por el cliente"
+    required_steps: [1, 3]
+    typical_total_sla_days: 3
+
+  hardware_key_request:
+    name: "Llave de seguridad física para el perfil admin"
+    required_steps: [1, 3]
+    typical_total_sla_days: 14
+
+  mailing_list_inclusion:
+    name: "Alta en lista de distribución de la plataforma"
+    required_steps: [1]
+    typical_total_sla_days: 2
+
+  tier_reclassification:
+    name: "Reclasificación de TIER"
+    required_steps: [1, 4, 5]
+    typical_total_sla_days: 7
+
+# ---------------------------------------------------------------------------
+# Detección de atrasos (slippage) y a quién se escala
+# ---------------------------------------------------------------------------
+
+slippage_thresholds:
+
+  warn_after_days: 3
+  escalate_after_days: 5
+  emergency_after_days: 10
+
+  # Severidad → destinatario por omisión (EscalationEngine). `key` sirve para `--to <key>`.
+  escalation_targets:
+    warn:
+      key: "pmo"
+      name: "Oficina de Proyectos"
+      email: "pmo@acme.example"
+      role: "Seguimiento del plan"
+    escalate:
+      key: "sponsor"
+      name: "Patrocinador del programa"
+      email: "sponsor@acme.example"
+      role: "Patrocinador del programa · desbloqueo"
+    emergency:
+      key: "steering"
+      name: "Comité directivo"
+      email: "steering@acme.example"
+      role: "Comité directivo · cronograma en riesgo"
+
+  # Destinatarios adicionales sólo por `--to <key>`
+  manual_targets:
+    security:
+      key: "security"
+      name: "Oficina de Seguridad"
+      email: "security@acme.example"
+      role: "Seguridad de la información"
+    architecture:
+      key: "architecture"
+      name: "Consejo de Arquitectura"
+      email: "architecture-board@acme.example"
+      role: "Estándares de arquitectura"
+
+# ---------------------------------------------------------------------------
+# Estados de la bitácora (máquina de estados de aios.governance.audit_trail)
+# ---------------------------------------------------------------------------
+
+audit_states:
+  - state: "draft"
+    next_states: ["requested", "cancelled"]
+  - state: "requested"
+    next_states: ["in-review", "rejected", "cancelled"]
+  - state: "in-review"
+    next_states: ["partially-approved", "approved", "rejected", "expired"]
+  - state: "partially-approved"
+    next_states: ["approved", "expired", "rejected"]
+  - state: "approved"
+    next_states: ["provisioned", "expired"]
+  - state: "provisioned"
+    next_states: ["renewed", "expired", "revoked"]
+  - state: "renewed"
+    next_states: ["provisioned", "expired", "revoked"]
+  - state: "expired"
+    next_states: ["renewed"]
+  - state: "rejected"
+    next_states: []
+  - state: "cancelled"
+    next_states: []
+  - state: "revoked"
+    next_states: []

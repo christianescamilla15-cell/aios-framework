@@ -1,0 +1,31 @@
+{# AIOS Governance · solicitud de cuenta cloud dedicada o compartida #}
+# {{ app_display }} · Solicitud de cuenta cloud {{ account_type }}
+
+**Organización:** {{ organization }} · **TIER:** {{ tier }} ({{ tier_priority_label }}) · **Request ID:** `{{ request_id }}`
+
+- **Para:** {{ operator.name }} · {{ operator.email }}
+- **Solicitante:** {{ requester.name }} · {{ requester.role }} · {{ requester.email }}
+- **Fecha:** {{ request_date }}
+
+## 1 · Ambientes
+
+| Cuenta | Descripción |
+|---|---|
+{% for env in environments %}| `{{ env.name }}` | {{ env.description }} |
+{% endfor %}
+
+## 2 · Requisitos del TIER {{ tier }}
+
+- Tipo de cuenta: **{{ account_type }}**
+- Llaves KMS por ambiente: {{ cmk_count }}
+- Multirregión: {{ "sí" if multiregion_required else "no" }}
+{% if apps_consolidated %}- Aplicaciones que comparten la cuenta: {{ apps_consolidated | join(', ') }}
+{% endif %}
+## 3 · Justificación del TIER
+
+{% for line in tier_justification %}- {{ line }}
+{% endfor %}
+## 4 · Aprobaciones requeridas, en orden
+
+{% for step in approval_chain %}{{ loop.index }}. **{{ step.role }}** · {{ step.name }} · {{ step.action }}
+{% endfor %}

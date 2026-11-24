@@ -1,0 +1,77 @@
+# AIOS Governance · Equipo e interesados · Acme Corp (organización FICTICIA de demostración)
+# Personas y correos inventados; el dominio .example está reservado (RFC 2606) y no entrega correo.
+
+schema_version: 1
+last_updated: "2026-11-24"
+
+# ---------------------------------------------------------------------------
+# Equipo de entrega (quien solicita) · perfil IAM admin | dev | readonly
+# ---------------------------------------------------------------------------
+
+delivery_team:
+
+  - name: "Alicia Moreno"
+    email: "alicia.moreno@acme.example"
+    role_team: "Líder técnica · administra las cuentas del programa"
+    role_aws: "Administración completa"
+    iam_profile: "admin"
+    hardware_key_required: true
+    apps_lead: ["billing", "reports"]
+
+  - name: "Bruno Quintana"
+    email: "bruno.quintana@acme.example"
+    role_team: "Desarrollador"
+    role_aws: "Desarrollo"
+    iam_profile: "dev"
+    hardware_key_required: false
+    apps_lead: ["orders", "partners"]
+
+  - name: "Carmen Solís"
+    email: "carmen.solis@acme.example"
+    role_team: "Desarrolladora"
+    role_aws: "Desarrollo"
+    iam_profile: "dev"
+    hardware_key_required: false
+    apps_lead: ["shipping", "support"]
+
+  - name: "Daniel Vega"
+    email: "daniel.vega@acme.example"
+    role_team: "Desarrollador"
+    role_aws: "Desarrollo"
+    iam_profile: "dev"
+    hardware_key_required: false
+    apps_lead: ["payments", "faxgw"]
+
+  - name: "Elena Paredes"
+    email: "elena.paredes@acme.example"
+    role_team: "Patrocinadora de TI · monitoreo"
+    role_aws: "Sólo lectura"
+    iam_profile: "readonly"
+    hardware_key_required: false
+    apps_lead: []
+
+# ---------------------------------------------------------------------------
+# Interesados de la organización · por ROL (buzones de equipo)
+# ---------------------------------------------------------------------------
+
+org_stakeholders:
+
+  - name: "Equipo de Plataforma Cloud"
+    email: "cloud-platform@acme.example"
+    role: "Administración de cuentas cloud"
+    contact_for: ["Alta de cuentas", "Productos del catálogo de servicios"]
+
+  - name: "Administración de llaves"
+    email: "kms-admins@acme.example"
+    role: "Administración de llaves KMS"
+    contact_for: ["Alta de llaves administradas por el cliente"]
+
+  - name: "Arquitectura de soluciones"
+    email: "solution-architects@acme.example"
+    role: "Arquitectura de soluciones · lista de distribución de la plataforma"
+    contact_for: ["Alta en la lista de distribución", "Revisión de despliegues"]
+
+  - name: "Oficina de Seguridad"
+    email: "security@acme.example"
+    role: "Seguridad de la información"
+    contact_for: ["Llaves de seguridad física", "Revisión de accesos a datos personales"]

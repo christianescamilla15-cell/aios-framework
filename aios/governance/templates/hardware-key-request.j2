@@ -1,0 +1,26 @@
+{# AIOS Governance · solicitud de llave de seguridad física para el perfil admin #}
+# Solicitud de llave de seguridad física · perfil admin
+
+**Organización:** {{ organization }} · **Request ID:** `{{ request_id }}` · **Fecha:** {{ request_date }}
+
+- **Solicitante:** {{ requester.name }} · {{ requester.role }} · {{ requester.email }}
+- **Para:** {{ security_office.name }} · {{ security_office.email }}
+
+## 1 · Alcance
+
+- Cuentas cloud que administra: **{{ total_aws_accounts }}** ({{ aws_accounts_breakdown }})
+- Aplicaciones en alcance: {{ total_apps }} · {{ tier_distribution }}
+- Respaldo del equipo (perfil dev, sin llave): {{ team_backup | join(', ') }}
+
+## 2 · Justificación
+
+{% for reason in justification_reasons %}- {{ reason }}
+{% endfor %}
+## 3 · Compromisos de custodia
+
+{% for commitment in custody_commitments %}- {{ commitment }}
+{% endfor %}
+## 4 · Aprobaciones requeridas, en orden
+
+{% for step in approval_chain %}{{ loop.index }}. **{{ step.role }}** · {{ step.name }} · {{ step.action }}
+{% endfor %}

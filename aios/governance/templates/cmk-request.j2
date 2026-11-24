@@ -1,0 +1,28 @@
+{# AIOS Governance · solicitud de llaves KMS administradas por el cliente #}
+# {{ app_display }} · Solicitud de {{ cmk_count }} llaves KMS
+
+**Organización:** {{ organization }} · **TIER:** {{ tier }} · **Request ID:** `{{ request_id }}`
+
+- **Para:** {{ operator.name }} · {{ operator.email }}
+- **Solicitante:** {{ requester.name }} · {{ requester.role }} · {{ requester.email }}
+- **Fecha:** {{ request_date }}
+- **Cálculo:** {{ cmk_count_per_env }} llaves × {{ environments_count }} ambientes
+
+## 1 · Llaves por ambiente
+
+| Alias | Uso | Consumidores | Rotación | Política por etiqueta |
+|---|---|---|---|---|
+{% for cmk in cmk_list %}| `{{ cmk.alias_pattern }}` | {{ cmk.purpose }} | {{ cmk.consumers | join(', ') }} | {{ cmk.rotation }} | {{ "sí" if cmk.tag_deny else "no" }} |
+{% endfor %}
+
+Ambientes: {% for env in environments %}`{{ env.name }}`{% if not loop.last %} · {% endif %}{% endfor %}
+
+## 2 · Justificación
+
+{% for line in tier_justification %}- {{ line }}
+{% endfor %}
+## 3 · Aprobaciones requeridas, en orden
+
+{% for step in approval_chain %}{{ loop.index }}. **{{ step.role }}** · {{ step.name }} · {{ step.action }}
+{% endfor %}
+Tiempo estimado de atención: {{ sla_days_estimated }} días.

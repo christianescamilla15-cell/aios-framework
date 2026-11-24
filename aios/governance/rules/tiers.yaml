@@ -1,0 +1,289 @@
+# AIOS Governance · Clasificación por TIER · Acme Corp (organización FICTICIA de demostración)
+#
+# Todo en este archivo es inventado para ilustrar el motor: la organización, sus aplicaciones,
+# las cifras de disponibilidad y los dueños. Para usar el paquete en una organización real,
+# reemplaza estos YAML por los suyos (mismas llaves).
+
+schema_version: 1
+last_updated: "2026-11-24"
+organization: "Acme Corp (ficticia)"
+
+# ---------------------------------------------------------------------------
+# 4 TIERs · criterios por TIER
+# ---------------------------------------------------------------------------
+
+tiers:
+
+  T0:
+    description_es: "Soporta procesos sin los cuales el negocio se detiene (cobro, pagos)."
+    description_en: "Supports processes without which the business stops (billing, payments)."
+    impact:
+      revenue: "alto"
+      service: "alto"
+      operation: "alto"
+    pci_pii: true
+    vigencia: "permanente"
+    continuity_ha: "Activo-Activo (multirregión)"
+    redundancia: ["Multirregión", "Multizona"]
+    disponibilidad: 0.9995
+    tipo_respaldo: "Respaldo continuo con recuperación a un punto en el tiempo (PITR)"
+    rto_minutes: 15
+    rpo_minutes: 5
+    cuenta_aws_compartida: false
+    cuenta_aws_compartida_max_apps: 1
+    estrategia_migracion: "Refactoring"
+    multiregion_required: true
+    hardware_key_required: true
+    cmk_count: 5
+
+  T1:
+    description_es: "Soporta procesos estratégicos con impacto directo en clientes."
+    description_en: "Supports strategic processes with direct customer impact."
+    impact:
+      revenue: "medio"
+      service: "medio"
+      operation: "medio"
+    pci_pii: true
+    vigencia: "permanente"
+    continuity_ha: "Activo-Pasivo (multirregión)"
+    redundancia: ["Multirregión", "Multizona"]
+    disponibilidad: 0.999
+    tipo_respaldo: "Respaldo continuo con recuperación a un punto en el tiempo (PITR)"
+    rto_minutes: 60
+    rpo_minutes_min: 15
+    rpo_minutes_max: 60
+    cuenta_aws_compartida: false
+    cuenta_aws_compartida_max_apps: 1
+    estrategia_migracion: "Refactoring"
+    multiregion_required: true
+    hardware_key_required: true
+    cmk_count: 5
+
+  T2:
+    description_es: "Soporta procesos tácticos; tolera horas de indisponibilidad."
+    description_en: "Supports tactical processes; tolerates hours of downtime."
+    impact:
+      revenue: "bajo"
+      service: "bajo"
+      operation: "bajo"
+    pci_pii: true
+    vigencia: "permanente"
+    continuity_ha: "Activo-Activo (multizona)"
+    redundancia: ["Una región", "Multizona"]
+    disponibilidad: 0.995
+    tipo_respaldo: "Plan de respaldo diario"
+    rto_hours: 8
+    rpo_days: 1
+    cuenta_aws_compartida: true
+    cuenta_aws_compartida_max_apps: 4
+    estrategia_migracion: "Refactoring (replatform por excepción)"
+    multiregion_required: false
+    hardware_key_required: true
+    cmk_count_per_account: 5
+
+  T3:
+    description_es: "Soporta procesos de apoyo; candidato a retiro."
+    description_en: "Supports back-office processes; retirement candidate."
+    impact:
+      revenue: "muy_bajo"
+      service: "muy_bajo"
+      operation: "muy_bajo"
+    pci_pii: false  # T3 no puede manejar datos personales ni de tarjeta
+    vigencia: "retiro en 18 meses"
+    continuity_ha: "N/A"
+    redundancia: ["Una región", "Una zona"]
+    disponibilidad: 0.95
+    tipo_respaldo: "Plan de respaldo semanal"
+    rto_days: 1
+    rpo_days: 3
+    cuenta_aws_compartida: true
+    cuenta_aws_compartida_max_apps: 4
+    estrategia_migracion: "Replatform · Relocate · retiro"
+    multiregion_required: false
+    hardware_key_required: true
+    cmk_count_per_account: 5
+
+# ---------------------------------------------------------------------------
+# Reglas de validación cruzada · usadas por `aios tier classify` y `aios governance check`
+# ---------------------------------------------------------------------------
+
+validation_rules:
+
+  - id: "TIER_T3_FORBIDS_PII"
+    description: "T3 prohíbe datos personales o de tarjeta: si la app los maneja, debe ser T2 o superior."
+    severity: "HIGH"
+
+  - id: "TIER_T0_T1_NO_SHARED_ACCOUNT"
+    description: "T0 y T1 no comparten cuenta cloud con otras apps."
+    severity: "HIGH"
+
+  - id: "TIER_T2_MAX_APPS_PER_ACCOUNT"
+    description: "Una cuenta T2 compartida admite como máximo `cuenta_aws_compartida_max_apps` apps."
+    severity: "MEDIUM"
+
+  - id: "TIER_T0_REQUIRES_MULTIREGION"
+    description: "T0 exige activo-activo en dos regiones."
+    severity: "HIGH"
+
+  - id: "TIER_T0_T1_REQUIRES_PITR"
+    description: "T0 y T1 exigen respaldo continuo con PITR."
+    severity: "HIGH"
+
+  - id: "TIER_T0_RTO_BIA"
+    description: "El BIA de una app T0 no puede declarar un RTO mayor que `tiers.T0.rto_minutes`."
+    severity: "HIGH"
+
+  - id: "TIER_T3_RETIREMENT"
+    description: "T3 implica retiro en 18 meses: una app T3 permanente es incoherente."
+    severity: "LOW"
+
+# ---------------------------------------------------------------------------
+# Asignación · 8 aplicaciones ficticias de Acme Corp (7 en alcance + 1 fuera)
+# ---------------------------------------------------------------------------
+
+assignments:
+
+  billing:
+    app_id: "01"
+    name: "Billing"
+    description: "Facturación a clientes"
+    tier: "T0"
+    tier_status: "confirmed"
+    rationale:
+      - "Alto impacto ingresos: emite todas las facturas del mes"
+      - "PII Sí: nombre, correo y domicilio fiscal de clientes"
+      - "BIA exige RTO 15m / RPO 5m"
+      - "Multi-región Activo-Activo"
+    owner_team: "Alicia Moreno (líder técnica)"
+    owner_business: "Dirección de Finanzas"
+
+  orders:
+    app_id: "02"
+    name: "Orders"
+    description: "Captura y seguimiento de pedidos"
+    tier: "T1"
+    tier_status: "confirmed"
+    rationale:
+      - "Medio impacto ingresos: canal de venta principal"
+      - "PII Sí: datos de contacto de clientes"
+      - "Activo-Pasivo multi-región · failover sí, no Activo-Activo"
+    owner_team: "Bruno Quintana"
+    owner_business: "Dirección Comercial"
+
+  shipping:
+    app_id: "03"
+    name: "Shipping"
+    description: "Guías y rastreo de envíos"
+    tier: "T1"
+    tier_status: "confirmed"
+    rationale:
+      - "Medio impacto ingresos: retrasa la entrega si falla"
+      - "PII Sí: domicilios de entrega"
+      - "Activo-Pasivo multi-región"
+    owner_team: "Carmen Solís"
+    owner_business: "Dirección de Operaciones"
+
+  faxgw:
+    app_id: "04"
+    name: "FaxGateway"
+    description: "Pasarela de fax heredada"
+    tier: "T1"
+    tier_status: "out_of_scope_2026q3"
+    out_of_scope_reason: "Se retira sin migrar: el proveedor actual la opera tal cual"
+    rationale:
+      - "Medio impacto operación: avisos a socios que aún usan fax"
+      - "PII Sí: números y nombres de contacto"
+    owner_team: "Daniel Vega"
+    owner_business: "Dirección de Operaciones"
+
+  partners:
+    app_id: "05"
+    name: "Partners"
+    description: "Portal de socios comerciales"
+    tier: "T2"
+    tier_status: "promoted_from_T3"
+    tier_pre_promotion: "T3"
+    promotion_reason: "T3 prohíbe PII y el portal guarda datos de contacto de los socios"
+    rationale:
+      - "Medio impacto: alta y consulta de socios"
+      - "PII Sí: datos de contacto de socios"
+      - "Riesgo técnico EOL: framework web sin soporte"
+    owner_team: "Bruno Quintana"
+    owner_business: "Dirección Comercial"
+
+  support:
+    app_id: "06"
+    name: "Support"
+    description: "Mesa de ayuda interna"
+    tier: "T2"
+    tier_status: "confirmed"
+    rationale:
+      - "Bajo-medio impacto: atención interna con alternativa manual"
+      - "PII Sí: datos de empleados en tickets"
+      - "Una región multi-zona · RTO de horas aceptable"
+    owner_team: "Carmen Solís"
+    owner_business: "Dirección de Personas"
+
+  payments:
+    app_id: "07"
+    name: "Payments"
+    description: "Cobro con tarjeta"
+    tier: "T0"
+    tier_status: "confirmed"
+    rationale:
+      - "Alto impacto ingresos: orquestador de cobros"
+      - "Sin cobro no hay ingreso diario"
+      - "Refactoring: servicio heredado a contenedores"
+    owner_team: "Daniel Vega (líder)"
+    owner_business: "Dirección de Finanzas"
+    pci_dss_scope: true
+
+  reports:
+    app_id: "08"
+    name: "Reports"
+    description: "Reportes nocturnos de ventas"
+    tier: "T2"
+    tier_status: "review_T1"
+    rationale:
+      - "Medio impacto ingresos: cierre diario de ventas (no en tiempo real)"
+      - "PII Sí: nombres de clientes en reportes detallados"
+      - "Promoción a T1 en revisión si el cierre se vuelve intradía"
+    owner_team: "Alicia Moreno"
+    owner_business: "Dirección de Finanzas"
+    custody: "proveedor externo"
+
+# ---------------------------------------------------------------------------
+# Modelo de cuentas cloud · derivado de la asignación
+# ---------------------------------------------------------------------------
+
+aws_account_model:
+
+  environments_per_account: 3  # dev + qa + prod
+  total_aws_accounts: 15       # 4 dedicadas × 3 + 1 compartida × 3
+
+  dedicated:
+    - app: "billing"
+      tier: "T0"
+      naming: "acme-billing-{dev/qa/prod}"
+    - app: "payments"
+      tier: "T0"
+      naming: "acme-payments-{dev/qa/prod}"
+    - app: "orders"
+      tier: "T1"
+      naming: "acme-orders-{dev/qa/prod}"
+    - app: "shipping"
+      tier: "T1"
+      naming: "acme-shipping-{dev/qa/prod}"
+
+  shared:
+    - account_naming: "acme-shared-t2-{dev/qa/prod}"
+      tier: "T2"
+      apps_consolidated:
+        - "partners"
+        - "support"
+        - "reports"
+      validation_required:
+        - "Consejo de Arquitectura"
+
+  cmk_per_account: 5
+  cmk_naming_pattern: "acme-kms-{app}-{secrets|database|storage|logs|volumes}"

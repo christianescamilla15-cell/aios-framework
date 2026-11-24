@@ -10,40 +10,40 @@ last_updated: "2026-11-24"
 
 delivery_team:
 
-  - name: "Alicia Moreno"
-    email: "alicia.moreno@acme.example"
+  - name: "Ana Ejemplo"
+    email: "ana.ejemplo@acme.example"
     role_team: "Líder técnica · administra las cuentas del programa"
     role_aws: "Administración completa"
     iam_profile: "admin"
     hardware_key_required: true
     apps_lead: ["billing", "reports"]
 
-  - name: "Bruno Quintana"
-    email: "bruno.quintana@acme.example"
+  - name: "Beto Ficticio"
+    email: "beto.ficticio@acme.example"
     role_team: "Desarrollador"
     role_aws: "Desarrollo"
     iam_profile: "dev"
     hardware_key_required: false
     apps_lead: ["orders", "partners"]
 
-  - name: "Carmen Solís"
-    email: "carmen.solis@acme.example"
+  - name: "Carla Muestra"
+    email: "carla.muestra@acme.example"
     role_team: "Desarrolladora"
     role_aws: "Desarrollo"
     iam_profile: "dev"
     hardware_key_required: false
     apps_lead: ["shipping", "support"]
 
-  - name: "Daniel Vega"
-    email: "daniel.vega@acme.example"
+  - name: "Diego Prueba"
+    email: "diego.prueba@acme.example"
     role_team: "Desarrollador"
     role_aws: "Desarrollo"
     iam_profile: "dev"
     hardware_key_required: false
     apps_lead: ["payments", "faxgw"]
 
-  - name: "Elena Paredes"
-    email: "elena.paredes@acme.example"
+  - name: "Eva Demo"
+    email: "eva.demo@acme.example"
     role_team: "Patrocinadora de TI · monitoreo"
     role_aws: "Sólo lectura"
     iam_profile: "readonly"

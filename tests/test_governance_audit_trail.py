@@ -63,9 +63,9 @@ def test_append_entry_writes_jsonl_with_hash(trail):
         request_id="GOV-BILLING-BD-20260429-001",
         app="billing",
         resource_type="bd-access",
-        requested_by="alicia.moreno@acme.example",
+        requested_by="ana.ejemplo@acme.example",
         state_to=AuditState.REQUESTED,
-        actor="alicia.moreno@acme.example",
+        actor="ana.ejemplo@acme.example",
         actor_role="requester",
     )
     assert entry.entry_hash

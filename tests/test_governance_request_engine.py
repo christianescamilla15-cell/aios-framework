@@ -53,28 +53,28 @@ def test_5_jinja2_templates_present():
 
 
 def test_for_bd_access_context_includes_team_and_resources(builder):
-    ctx = builder.for_bd_access(app="billing", requester_email="alicia.moreno@acme.example")
+    ctx = builder.for_bd_access(app="billing", requester_email="ana.ejemplo@acme.example")
     assert ctx["app"] == "billing"
     assert ctx["app_display"] == "Billing"
     assert ctx["tier"] == "T0"
-    assert ctx["requester"]["email"] == "alicia.moreno@acme.example"
+    assert ctx["requester"]["email"] == "ana.ejemplo@acme.example"
     assert len(ctx["team"]) >= 5  # 5 personas del equipo de entrega
     assert len(ctx["resources"]) >= 3
     assert ctx["multiregion_required"] is True  # T0
 
 
 def test_for_aws_account_t2_marks_shared(builder):
-    ctx = builder.for_aws_account(app="partners", requester_email="alicia.moreno@acme.example")
+    ctx = builder.for_aws_account(app="partners", requester_email="ana.ejemplo@acme.example")
     assert "compartida" in ctx["account_type"]
 
 
 def test_for_aws_account_t0_marks_dedicated(builder):
-    ctx = builder.for_aws_account(app="billing", requester_email="alicia.moreno@acme.example")
+    ctx = builder.for_aws_account(app="billing", requester_email="ana.ejemplo@acme.example")
     assert "dedicada" in ctx["account_type"]
 
 
 def test_for_cmk_returns_5_aliases_per_env(builder):
-    ctx = builder.for_cmk(app="billing", requester_email="alicia.moreno@acme.example")
+    ctx = builder.for_cmk(app="billing", requester_email="ana.ejemplo@acme.example")
     assert ctx["environments_count"] == 3
     assert len(ctx["cmk_list"]) == 5
     aliases = {item["alias_pattern"] for item in ctx["cmk_list"]}
@@ -90,7 +90,7 @@ def test_generate_bd_access_writes_md(tmp_path, engine):
         app="billing",
         resource_type="bd-access",
         output_dir=tmp_path / "out",
-        requester_email="alicia.moreno@acme.example",
+        requester_email="ana.ejemplo@acme.example",
         write_pdf=False,  # PDF requiere weasyprint · keep test fast
         record_audit=True,
         audit_root=tmp_path,
@@ -108,7 +108,7 @@ def test_generate_creates_audit_entry_with_chain(tmp_path, engine):
         app="billing",
         resource_type="bd-access",
         output_dir=tmp_path / "out",
-        requester_email="alicia.moreno@acme.example",
+        requester_email="ana.ejemplo@acme.example",
         write_pdf=False,
         record_audit=True,
         audit_root=tmp_path,
@@ -126,7 +126,7 @@ def test_generate_invalid_resource_type_raises(tmp_path, engine):
             app="billing",
             resource_type="not-a-valid-type",
             output_dir=tmp_path / "out",
-            requester_email="alicia.moreno@acme.example",
+            requester_email="ana.ejemplo@acme.example",
             write_pdf=False,
             record_audit=False,
             audit_root=tmp_path,
@@ -138,7 +138,7 @@ def test_generate_hardware_key_uses_correct_template(tmp_path, engine):
         app="billing",
         resource_type="hardware-key",
         output_dir=tmp_path / "out",
-        requester_email="alicia.moreno@acme.example",
+        requester_email="ana.ejemplo@acme.example",
         write_pdf=False,
         record_audit=False,
         audit_root=tmp_path,
@@ -151,7 +151,7 @@ def test_generate_aws_account_dedicated_for_t0(tmp_path, engine):
         app="billing",
         resource_type="aws-account-dedicated",
         output_dir=tmp_path / "out",
-        requester_email="alicia.moreno@acme.example",
+        requester_email="ana.ejemplo@acme.example",
         write_pdf=False,
         record_audit=False,
         audit_root=tmp_path,
@@ -173,7 +173,7 @@ def test_every_request_type_renders_for_every_app(tmp_path, engine, resource_typ
             app=app,
             resource_type=resource_type,
             output_dir=tmp_path / resource_type / app,
-            requester_email="bruno.quintana@acme.example",
+            requester_email="beto.ficticio@acme.example",
             write_pdf=False,
             record_audit=False,
             audit_root=tmp_path,
@@ -185,10 +185,10 @@ def test_every_request_type_renders_for_every_app(tmp_path, engine, resource_typ
 
 def test_unknown_requester_falls_back_to_admin(builder):
     ctx = builder.for_bd_access(app="billing", requester_email="nadie@otra.example")
-    assert ctx["requester"]["email"] == "alicia.moreno@acme.example"
+    assert ctx["requester"]["email"] == "ana.ejemplo@acme.example"
 
 
 def test_shared_account_lists_only_its_consolidated_apps(builder):
-    ctx = builder.for_aws_account(app="support", requester_email="carmen.solis@acme.example")
+    ctx = builder.for_aws_account(app="support", requester_email="carla.muestra@acme.example")
     assert ctx["apps_consolidated"] == ["partners", "support", "reports"]
     assert ctx["environments"][0]["name"] == "acme-shared-t2-dev"

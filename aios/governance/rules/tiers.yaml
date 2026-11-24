@@ -154,7 +154,7 @@ assignments:
       - "PII Sí: nombre, correo y domicilio fiscal de clientes"
       - "BIA exige RTO 15m / RPO 5m"
       - "Multi-región Activo-Activo"
-    owner_team: "Alicia Moreno (líder técnica)"
+    owner_team: "Ana Ejemplo (líder técnica)"
     owner_business: "Dirección de Finanzas"
 
   orders:
@@ -167,7 +167,7 @@ assignments:
       - "Medio impacto ingresos: canal de venta principal"
       - "PII Sí: datos de contacto de clientes"
       - "Activo-Pasivo multi-región · failover sí, no Activo-Activo"
-    owner_team: "Bruno Quintana"
+    owner_team: "Beto Ficticio"
     owner_business: "Dirección Comercial"
 
   shipping:
@@ -180,7 +180,7 @@ assignments:
       - "Medio impacto ingresos: retrasa la entrega si falla"
       - "PII Sí: domicilios de entrega"
       - "Activo-Pasivo multi-región"
-    owner_team: "Carmen Solís"
+    owner_team: "Carla Muestra"
     owner_business: "Dirección de Operaciones"
 
   faxgw:
@@ -193,7 +193,7 @@ assignments:
     rationale:
       - "Medio impacto operación: avisos a socios que aún usan fax"
       - "PII Sí: números y nombres de contacto"
-    owner_team: "Daniel Vega"
+    owner_team: "Diego Prueba"
     owner_business: "Dirección de Operaciones"
 
   partners:
@@ -208,7 +208,7 @@ assignments:
       - "Medio impacto: alta y consulta de socios"
       - "PII Sí: datos de contacto de socios"
       - "Riesgo técnico EOL: framework web sin soporte"
-    owner_team: "Bruno Quintana"
+    owner_team: "Beto Ficticio"
     owner_business: "Dirección Comercial"
 
   support:
@@ -221,7 +221,7 @@ assignments:
       - "Bajo-medio impacto: atención interna con alternativa manual"
       - "PII Sí: datos de empleados en tickets"
       - "Una región multi-zona · RTO de horas aceptable"
-    owner_team: "Carmen Solís"
+    owner_team: "Carla Muestra"
     owner_business: "Dirección de Personas"
 
   payments:
@@ -234,7 +234,7 @@ assignments:
       - "Alto impacto ingresos: orquestador de cobros"
       - "Sin cobro no hay ingreso diario"
       - "Refactoring: servicio heredado a contenedores"
-    owner_team: "Daniel Vega (líder)"
+    owner_team: "Diego Prueba (líder)"
     owner_business: "Dirección de Finanzas"
     pci_dss_scope: true
 
@@ -248,7 +248,7 @@ assignments:
       - "Medio impacto ingresos: cierre diario de ventas (no en tiempo real)"
       - "PII Sí: nombres de clientes en reportes detallados"
       - "Promoción a T1 en revisión si el cierre se vuelve intradía"
-    owner_team: "Alicia Moreno"
+    owner_team: "Ana Ejemplo"
     owner_business: "Dirección de Finanzas"
     custody: "proveedor externo"
 

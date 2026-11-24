@@ -141,7 +141,7 @@ def cmd_check(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_request(args: argparse.Namespace) -> int:
-    """`aios governance request --type bd-access --app billing --requester alicia.moreno@acme.example`
+    """`aios governance request --type bd-access --app billing --requester ana.ejemplo@acme.example`
 
     Genera PDF + Markdown formal + audit trail entry inicial.
 

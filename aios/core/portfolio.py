@@ -38,7 +38,7 @@ APPS: Dict[str, AppMetadata] = {
         tier="T0", criticality="Crítica · ingresos",
         stack_as_is="C# ASP.NET Framework 4.8 + SQL Server 2016",
         go_live="2027-03-15", arranque_fase1="2026-12-01", duracion_weeks="20-25",
-        owner_funcional="Dirección de Finanzas", owner_tecnico="Alicia Moreno + equipo de entrega",
+        owner_funcional="Dirección de Finanzas", owner_tecnico="Ana Ejemplo + equipo de entrega",
         codigo_disponible=True,
         notas="Cierre mensual: el corte no puede caer en los últimos 3 días hábiles del mes",
     ),
@@ -47,7 +47,7 @@ APPS: Dict[str, AppMetadata] = {
         tier="T1", criticality="Estratégica · canal de venta",
         stack_as_is="VB.NET WinForms + SQL Server",
         go_live="2027-02-01", arranque_fase1="2026-12-01", duracion_weeks="11-14",
-        owner_funcional="Dirección Comercial", owner_tecnico="Bruno Quintana",
+        owner_funcional="Dirección Comercial", owner_tecnico="Beto Ficticio",
         codigo_disponible=True,
     ),
     "shipping": AppMetadata(
@@ -55,7 +55,7 @@ APPS: Dict[str, AppMetadata] = {
         tier="T1", criticality="Estratégica · entrega",
         stack_as_is="Java 8 monolito + Oracle",
         go_live="2027-02-15", arranque_fase1="2026-12-15", duracion_weeks="11-14",
-        owner_funcional="Dirección de Operaciones", owner_tecnico="Carmen Solís",
+        owner_funcional="Dirección de Operaciones", owner_tecnico="Carla Muestra",
         codigo_disponible=False,
     ),
     "faxgw": AppMetadata(
@@ -72,7 +72,7 @@ APPS: Dict[str, AppMetadata] = {
         tier="T2", criticality="Táctica · intranet y extranet 8x5",
         stack_as_is=".NET 7 + Angular 15 + SQL Server",
         go_live="2027-01-20", arranque_fase1="2026-12-01", duracion_weeks="8-10",
-        owner_funcional="Dirección Comercial", owner_tecnico="Bruno Quintana",
+        owner_funcional="Dirección Comercial", owner_tecnico="Beto Ficticio",
         codigo_disponible=True,
     ),
     "support": AppMetadata(
@@ -80,7 +80,7 @@ APPS: Dict[str, AppMetadata] = {
         tier="T2", criticality="Operación continua",
         stack_as_is="PHP 7 + MySQL 5.7",
         go_live="2027-03-01", arranque_fase1="2027-01-10", duracion_weeks="11-14",
-        owner_funcional="Dirección de Personas", owner_tecnico="Carmen Solís",
+        owner_funcional="Dirección de Personas", owner_tecnico="Carla Muestra",
         codigo_disponible=False,
     ),
     "payments": AppMetadata(
@@ -88,7 +88,7 @@ APPS: Dict[str, AppMetadata] = {
         tier="T0", criticality="Crítica · alcance PCI",
         stack_as_is="Java 11 + Spring Boot + PostgreSQL",
         go_live="2027-04-01", arranque_fase1="2026-12-01", duracion_weeks="20-25",
-        owner_funcional="Dirección de Finanzas", owner_tecnico="Daniel Vega",
+        owner_funcional="Dirección de Finanzas", owner_tecnico="Diego Prueba",
         codigo_disponible=True,
     ),
     "reports": AppMetadata(
@@ -96,7 +96,7 @@ APPS: Dict[str, AppMetadata] = {
         tier="T2", criticality="Batch de baja frecuencia",
         stack_as_is="Python 3.8 en cron + PostgreSQL",
         go_live="2027-01-15", arranque_fase1="2026-12-01", duracion_weeks="8-10",
-        owner_funcional="Dirección de Finanzas", owner_tecnico="Alicia Moreno",
+        owner_funcional="Dirección de Finanzas", owner_tecnico="Ana Ejemplo",
         codigo_disponible=True,
     ),
 }

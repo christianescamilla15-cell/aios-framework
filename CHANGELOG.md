@@ -23,6 +23,11 @@ organización ficticia (Acme Corp) y se quita lo que sólo describía un desplie
 - Los identificadores derivados (`FRK-…` de revisiones, huellas de caracterización, llaves de caché del
   clasificador, sufijo de specs largas) pasan de SHA-1 a SHA-256: los de corridas previas no coinciden.
 
+### Arreglado (CLI)
+- `main()` descartaba el código que devuelven `aios governance …` y `aios tier …`: el proceso salía con 0
+  aunque una transición se rechazara o la app no existiera. Ahora el código llega al proceso.
+- `aios release` sale con 1 cuando no está listo (antes imprimía «Ready for release: NO» y salía con 0).
+
 ### Seguridad
 - Extensión de VS Code: la CLI se invoca con `execFile` y argumentos en arreglo; antes el texto del
   usuario pasaba por el shell (CWE-78).

@@ -373,6 +373,8 @@ def cmd_release(args):
                 print(f"[notify] Slack alert enviado · {notif.detail}")
         except Exception:  # noqa: BLE001
             pass
+        # Es una compuerta: un pipeline debe poder detenerse con el código de salida.
+        sys.exit(1)
 
 
 def cmd_arena(args):
@@ -1669,7 +1671,11 @@ def main():
     }
 
     if args.command in commands:
-        commands[args.command](args)
+        rc = commands[args.command](args)
+        # Los subcomandos que devuelven un código (governance, tier) deben llegar al proceso: antes se
+        # descartaba y la CLI salía con 0 aunque el comando reportara fallo.
+        if isinstance(rc, int) and not isinstance(rc, bool) and rc != 0:
+            sys.exit(rc)
     else:
         parser.print_help()
 

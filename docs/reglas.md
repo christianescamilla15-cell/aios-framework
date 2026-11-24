@@ -70,4 +70,13 @@ del CI; la cobertura sólo se reporta. Las reglas de organización usan los dato
 | E2 | XML con entidades se rechaza (cobertura) o cae al parser por regex (configuración) | `tests/test_endurecimiento.py::test_coverage_xml_with_entities_is_rejected` · `tests/test_endurecimiento.py::test_drift_config_with_entities_falls_back_to_regex` |
 | E3 | Webhook y host de Ollama sólo http(s) | `tests/test_endurecimiento.py::test_slack_webhook_must_be_http` · `tests/test_endurecimiento.py::test_ollama_host_must_be_http` |
 | E4 | Sólo se importan stacks de la lista blanca | `tests/test_endurecimiento.py::test_stack_checks_reject_unknown_stack_without_importing` · `tests/test_endurecimiento.py::test_stack_info_for_unknown_stack_is_inert` |
-| E5 | El paquete instalado (wheel) trae sus reglas y plantillas y arranca fuera del árbol | job `paquete` de `.github/workflows/ci.yml` (`herramientas/humo.sh`) |
+| E5 | El paquete instalado (wheel) trae sus reglas y plantillas y arranca fuera del árbol | `tests/test_empaquetado.py::test_package_data_covers_every_runtime_data_file` · `tests/test_empaquetado.py::test_governance_rules_and_templates_are_inside_the_package` · job `paquete` de `.github/workflows/ci.yml` (`herramientas/humo.sh`) |
+
+## CLI (de punta a punta)
+
+| # | Regla | Pruebas |
+|---|---|---|
+| L1 | Solicitud → firma válida → firma inválida rechazada (código 1) → consulta → escalamiento sin atraso (código 1): la bitácora queda con 2 entradas | `tests/test_e2e_cli.py::test_governance_request_audit_and_escalate_flow` |
+| L2 | App desconocida: código 2 y no se escribe nada | `tests/test_e2e_cli.py::test_unknown_app_fails_with_nonzero_exit` |
+| L3 | `aios release` es compuerta: con un hallazgo CRITICAL sale con 1 | `tests/test_e2e_cli.py::test_release_blocks_a_project_with_a_critical_finding` |
+| L4 | `aios tier classify --explain` muestra los criterios | `tests/test_e2e_cli.py::test_tier_classify_explains_the_criteria` |

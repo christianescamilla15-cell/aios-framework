@@ -54,3 +54,13 @@ draft → requested → in-review → partially-approved → approved → provis
 | ≥ `emergency_after_days` (10) | `emergency` | Comité directivo |
 
 `--to <key>` elige cualquier destinatario de `escalation_targets` o `manual_targets`.
+
+## 5 · Códigos de salida
+
+| Comando | 0 | 1 | 2 | 3 |
+|---|---|---|---|---|
+| `governance check` | pasa | WARN con `--strict` | hallazgo FAIL, app desconocida o raíz inválida | hallazgo CRITICAL |
+| `governance request` | solicitud generada | tipo de recurso inválido | app fuera de alcance | — |
+| `governance audit --update` | transición registrada | transición inválida o faltan `--status`/`--signer` | app o solicitud inexistente | cadena de la bitácora corrupta |
+| `governance escalate` | escalamiento enviado | nada que escalar | destinatario `--to` inválido | error inesperado |
+| `release` | listo | no listo (compuerta) | — | — |

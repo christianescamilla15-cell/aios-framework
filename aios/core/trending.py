@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -142,7 +142,7 @@ def build_trending(root: Path) -> dict:
     total_runs = len(points)
     total_findings = sum(p.findings_count for p in points)
     return {
-        "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "root": str(root),
         "total_arena_runs": total_runs,
         "total_findings": total_findings,

@@ -401,7 +401,7 @@ def generate_request_id(
     Formato: GOV-{APP}-{TYPE}-{YYYYMMDD}-{NNN}
     Ejemplo: GOV-BILLING-BD-20261124-001
     """
-    ts = timestamp or datetime.utcnow()
+    ts = timestamp or datetime.now(timezone.utc)
     type_short = {
         "bd-access": "BD",
         "aws-account-dedicated": "AWS",

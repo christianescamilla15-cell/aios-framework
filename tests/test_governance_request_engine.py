@@ -159,3 +159,36 @@ def test_generate_aws_account_dedicated_for_t0(tmp_path, engine):
     md = artifacts.markdown_path.read_text(encoding="utf-8")
     assert "Billing" in md
     assert "dedicada" in md
+
+
+# ── Todas las plantillas renderizan para todas las apps del alcance ──
+
+
+@pytest.mark.parametrize("resource_type", sorted(RequestEngine.TEMPLATE_BY_TYPE))
+def test_every_request_type_renders_for_every_app(tmp_path, engine, resource_type):
+    """Cada tipo de solicitud genera su Markdown para cada app en alcance (sin variables faltantes)."""
+    rules = load_rules()
+    for app in rules.supported_apps:
+        artifacts = engine.generate(
+            app=app,
+            resource_type=resource_type,
+            output_dir=tmp_path / resource_type / app,
+            requester_email="bruno.quintana@acme.example",
+            write_pdf=False,
+            record_audit=False,
+            audit_root=tmp_path,
+        )
+        md = artifacts.markdown_path.read_text(encoding="utf-8")
+        assert artifacts.request_id in md
+        assert "Acme Corp" in md
+
+
+def test_unknown_requester_falls_back_to_admin(builder):
+    ctx = builder.for_bd_access(app="billing", requester_email="nadie@otra.example")
+    assert ctx["requester"]["email"] == "alicia.moreno@acme.example"
+
+
+def test_shared_account_lists_only_its_consolidated_apps(builder):
+    ctx = builder.for_aws_account(app="support", requester_email="carmen.solis@acme.example")
+    assert ctx["apps_consolidated"] == ["partners", "support", "reports"]
+    assert ctx["environments"][0]["name"] == "acme-shared-t2-dev"

@@ -66,6 +66,9 @@ class EscalationEngine:
         }
         for key, t in manual.items():
             self.manual_routing[t.get("key", key)] = dict(t)
+        # Salida Markdown (no HTML servido): escapar HTML la corrompería. Las variables salen de los YAML
+        # versionados del paquete, no de entrada de usuario; el PDF se arma desde ese Markdown.
+        # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2 -- plantillas del paquete, salida Markdown
         self._env = Environment(
             loader=FileSystemLoader(str(TEMPLATES_DIR)),
             keep_trailing_newline=True,
@@ -150,7 +153,7 @@ class EscalationEngine:
 
         # 5 · Render Markdown
         template = self._env.get_template(ESCALATION_TEMPLATE)
-        markdown = template.render(**context)
+        markdown = template.render(**context)  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2 --contexto construido desde los YAML
 
         # 6 · Persistir output · request_id incluye HHMMSS para evitar colisiones
         # cuando se corre escalate múltiples veces en el mismo día (cron + manual)

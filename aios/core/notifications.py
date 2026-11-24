@@ -81,6 +81,9 @@ def send_slack(
         }]
         payload["text"] = title  # fallback para clients que no parsean attachments
 
+    if not webhook_url.lower().startswith(("https://", "http://")):
+        return NotificationResult(sent=False, provider="slack",
+                                  detail="webhook_url debe ser http(s)")
     req = urllib.request.Request(
         webhook_url,
         data=json.dumps(payload).encode("utf-8"),
@@ -88,6 +91,7 @@ def send_slack(
         method="POST",
     )
     try:
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- esquema validado arriba (sólo http/https)
         with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             ok = resp.status < 400

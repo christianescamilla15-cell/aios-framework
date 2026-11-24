@@ -341,6 +341,9 @@ class RequestEngine:
     def __init__(self, rules: GovernanceRules):
         self._rules = rules
         self._builder = ContextBuilder(rules)
+        # Salida Markdown (no HTML servido): escapar HTML la corrompería. Las variables salen de los YAML
+        # versionados del paquete, no de entrada de usuario; el PDF se arma desde ese Markdown.
+        # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2 -- plantillas del paquete, salida Markdown
         self._env = Environment(
             loader=FileSystemLoader(str(TEMPLATES_DIR)),
             keep_trailing_newline=True,
@@ -375,7 +378,7 @@ class RequestEngine:
         # 3 · Render markdown
         template_name = self.TEMPLATE_BY_TYPE[resource_type]
         template = self._env.get_template(template_name)
-        markdown = template.render(**context)
+        markdown = template.render(**context)  # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2 --contexto construido desde los YAML
 
         # 4 · Persistir output_dir/{request_id}.md
         output_dir.mkdir(parents=True, exist_ok=True)

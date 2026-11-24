@@ -477,6 +477,7 @@ class AnthropicProvider(_BaseProvider):
             method="POST",
         )
         try:
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- URL constante https://api.anthropic.com
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.URLError as exc:
@@ -514,6 +515,7 @@ class OpenAIProvider(_BaseProvider):
             method="POST",
         )
         try:
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- URL constante https://api.openai.com
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.URLError as exc:
@@ -527,8 +529,10 @@ class OpenAIProvider(_BaseProvider):
 class OllamaProvider(_BaseProvider):
     """Ollama · local LLM · zero-cost · privacidad."""
     def __init__(self, model: str = "llama3.1", host: str = "http://localhost:11434"):
+        if not host.lower().startswith(("http://", "https://")):
+            raise ValueError(f"Ollama host debe ser http(s): {host!r}")
         self.model = model
-        self.host = host
+        self.host = host.rstrip("/")
 
     def call(self, prompt: str, timeout: int = 60) -> str:
         import urllib.request
@@ -546,6 +550,7 @@ class OllamaProvider(_BaseProvider):
             method="POST",
         )
         try:
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- host validado http(s) en __init__
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.URLError as exc:
@@ -657,7 +662,7 @@ class LLMClassifier:
             f"{context.get('rule_id','')}:"
             f"{commit}"
         )
-        return hashlib.sha1(material.encode("utf-8")).hexdigest()[:16]
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()[:16]
 
     def _load_cache(self, root: Path) -> None:
         if not self.cache_results:

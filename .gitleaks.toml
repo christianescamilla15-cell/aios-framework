@@ -1,0 +1,11 @@
+# gitleaks: reglas por omisión. El escáner de AIOS se prueba con credenciales FALSAS a propósito
+# (fixtures de los detectores de secretos); si gitleaks marca alguna, se agrega aquí con su motivo,
+# por valor exacto y no por archivo, para que un secreto real en el mismo archivo sí se detecte.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Valores sintéticos de las pruebas de detectores"
+regexes = [
+  '''AbCdEf123456''',   # tests/test_security_gate.py · llave maestra de ejemplo (DOTNET-HARDCODED-DECRYPT-KEY)
+]

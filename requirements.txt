@@ -1,0 +1,7 @@
+# Dependencias de ejecución fijadas para CI (pyproject.toml las declara con rango para quien instala
+# el paquete). Con == Trivy las inventaría y Dependabot propone cada subida.
+PyYAML==6.0.4
+Jinja2==3.1.6
+MarkupSafe==3.0.4
+defusedxml==0.7.1
+mcp==1.30.0

@@ -199,7 +199,7 @@ def capture_file(file_path: Path, root: Optional[Path] = None) -> BehaviorFinger
         language=lang,
         captured_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         line_count=len(content.splitlines()),
-        source_hash=hashlib.sha1(content.encode("utf-8")).hexdigest()[:16],
+        source_hash=hashlib.sha256(content.encode("utf-8")).hexdigest()[:16],
     )
     if lang == "python":
         _capture_python(content, fp)

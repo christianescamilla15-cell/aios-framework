@@ -40,7 +40,8 @@ import difflib
 import hashlib
 import json
 import re
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET  # config del repo escaneado = entrada no confiable
+from defusedxml import DefusedXmlException
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Optional
@@ -127,7 +128,7 @@ def _parse_xml_config(path: Path) -> list[KeyValue]:
     lines = content.splitlines()
     try:
         root = ET.fromstring(content)
-    except ET.ParseError:
+    except (ET.ParseError, DefusedXmlException):
         # Parser fallback por line · busca <add key="..." value="..."/>
         return _parse_xml_regex(content, str(path))
 

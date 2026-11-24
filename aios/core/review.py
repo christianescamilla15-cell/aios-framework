@@ -86,7 +86,7 @@ class ReviewDecision:
 def make_finding_id(file: str, line: int, rule_id: str) -> str:
     """ID determinístico · re-scans retornan el mismo hash."""
     material = f"{file}:{line}:{rule_id}".encode("utf-8")
-    return "FRK-" + hashlib.sha1(material).hexdigest()[:10]
+    return "FRK-" + hashlib.sha256(material).hexdigest()[:10]
 
 
 # ---------------------------------------------------------------------------

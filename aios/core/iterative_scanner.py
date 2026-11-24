@@ -247,6 +247,8 @@ Si no encuentras nada · responde `[]`. Max 10 issues."""
 def _call_llm(provider: str, model: str, host: str,
               prompt: str, timeout: int = 120) -> str:
     if provider == "ollama":
+        if not str(host).lower().startswith(("http://", "https://")):
+            return "[]"  # host inválido: sin hallazgos LLM
         try:
             import urllib.request
             req = urllib.request.Request(
@@ -260,6 +262,7 @@ def _call_llm(provider: str, model: str, host: str,
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- host validado http(s) arriba
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             return data.get("response", "")
@@ -287,6 +290,7 @@ def _call_llm(provider: str, model: str, host: str,
                 },
                 method="POST",
             )
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- URL constante https://api.anthropic.com
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             # Anthropic returns: { content: [{type:text, text:...}] }

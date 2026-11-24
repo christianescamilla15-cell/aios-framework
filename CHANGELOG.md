@@ -19,6 +19,20 @@ organización ficticia (Acme Corp) y se quita lo que sólo describía un desplie
   `yubikey-request` y `dl-inclusion` pasan a `hardware-key` y `mailing-list`; `--to` de
   `governance escalate` acepta las llaves de `approvals.yaml` y el enrutamiento por severidad sale del YAML.
 - `aios.core.plan_v5` → `aios.core.portfolio`; `aios.core.acme_catalog` → `aios.core.org_catalog`.
+- `requires-python >= 3.11` (3.10 quedó sin soporte en octubre de 2026); el CI prueba 3.11, 3.12 y 3.13.
+- Los identificadores derivados (`FRK-…` de revisiones, huellas de caracterización, llaves de caché del
+  clasificador, sufijo de specs largas) pasan de SHA-1 a SHA-256: los de corridas previas no coinciden.
+
+### Seguridad
+- Extensión de VS Code: la CLI se invoca con `execFile` y argumentos en arreglo; antes el texto del
+  usuario pasaba por el shell (CWE-78).
+- XML de terceros (cobertura, `.config` del repo escaneado) con `defusedxml`: sin entidades ni DTD.
+- URLs configurables (webhook de Slack, host de Ollama) sólo `http(s)`; los stacks se importan desde una
+  lista blanca.
+
+### Empaquetado
+- Dependencias declaradas (PyYAML, Jinja2, defusedxml; extras `mcp` y `pdf`) y reglas/plantillas dentro
+  del wheel: instalado fuera del árbol, `aios governance` no encontraba sus YAML.
 
 ### Arreglado
 - El umbral de RTO de las reglas T0 se lee de `tiers.yaml` (antes 10 y 15 minutos fijos e incoherentes

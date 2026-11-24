@@ -19,7 +19,7 @@ def slugify(text: str, max_len: int = 40) -> str:
     if len(text) > max_len:
         # Truncate + append short hash for uniqueness
         import hashlib
-        h = hashlib.sha1(text.encode()).hexdigest()[:6]
+        h = hashlib.sha256(text.encode()).hexdigest()[:6]
         text = text[:max_len].rstrip("-") + "-" + h
     return text
 

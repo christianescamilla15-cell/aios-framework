@@ -23,7 +23,10 @@ AVAILABLE_STACKS = [
 
 
 def get_stack_info(stack_id: str) -> Dict:
+    if stack_id not in AVAILABLE_STACKS:
+        return {"id": stack_id, "name": stack_id}
     try:
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import -- stack_id validado contra AVAILABLE_STACKS
         mod = importlib.import_module(f"aios.stacks.{stack_id}")
         return {"id": getattr(mod, "STACK_ID", stack_id), "name": getattr(mod, "STACK_NAME", stack_id)}
     except ImportError:
@@ -41,7 +44,10 @@ def run_stack_checks(stack_id: str, root: Path) -> List[Dict]:
     if cached is not None:
         return cached
 
+    if stack_id not in AVAILABLE_STACKS:
+        return [{"check": f"Stack '{stack_id}'", "status": "fail", "detail": "stack desconocido"}]
     try:
+        # nosemgrep: python.lang.security.audit.non-literal-import.non-literal-import -- stack_id validado contra AVAILABLE_STACKS
         mod = importlib.import_module(f"aios.stacks.{stack_id}.checks")
         result = mod.run_checks(root)
         set_cache(root, cache_key, result)

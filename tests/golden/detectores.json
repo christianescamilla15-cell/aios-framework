@@ -1,0 +1,335 @@
+{
+ "descripcion": "Oráculo escrito a mano: por regla, un fragmento que DEBE dispararla y uno que NO. Código inventado; no proviene de ningún sistema real.",
+ "casos": [
+  {
+   "regla": "STATIC-SQL-CONCAT",
+   "archivo": "repo.py",
+   "positivo": "cursor.execute(\"SELECT * FROM t WHERE id=\" + uid)\n",
+   "negativo": "cursor.execute(\"SELECT * FROM t WHERE id=%s\", (uid,))\n"
+  },
+  {
+   "regla": "STATIC-CMD-SHELL-TRUE",
+   "archivo": "run.py",
+   "positivo": "import subprocess\nsubprocess.run(cmd, shell=True)\n",
+   "negativo": "import subprocess\nsubprocess.run([\"ls\", \"-l\"])\n"
+  },
+  {
+   "regla": "STATIC-XSS-FSTRING-HTML",
+   "archivo": "views.py",
+   "positivo": "def card(name):\n    return f\"<div>{name}</div>\"\n",
+   "negativo": "def card(name):\n    return f\"<div>{html.escape(name)}</div>\"\n"
+  },
+  {
+   "regla": "STATIC-CLEARTEXT-LEGACY-IP",
+   "archivo": "settings.py",
+   "positivo": "LEGACY_URL = \"http://10.0.0.5/api\"\n",
+   "negativo": "LEGACY_URL = \"https://legacy.example.internal/api\"\n"
+  },
+  {
+   "regla": "STATIC-AUTH-BYPASS-NONE",
+   "archivo": "auth.py",
+   "positivo": "def allowed(token):\n    if token is None:\n        return True\n    return check(token)\n",
+   "negativo": "def allowed(token):\n    if token is None:\n        return False\n    return check(token)\n"
+  },
+  {
+   "regla": "STATIC-PATH-TRAVERSAL",
+   "archivo": "files.py",
+   "positivo": "def read(name):\n    return open(f\"/data/{name}\").read()\n",
+   "negativo": "def read():\n    return open(\"/data/fixed.txt\").read()\n"
+  },
+  {
+   "regla": "STATIC-XXE-LXML",
+   "archivo": "xmlio.py",
+   "positivo": "from lxml import etree\nparser = etree.XMLParser(resolve_entities=True)\n",
+   "negativo": "from lxml import etree\nparser = etree.XMLParser(resolve_entities=False)\n"
+  },
+  {
+   "regla": "STATIC-SQL-CSHARP-CONCAT",
+   "archivo": "Repo.cs",
+   "positivo": "cmd.CommandText = \"SELECT * FROM t WHERE id=\" + id;\n",
+   "negativo": "cmd.CommandText = \"SELECT * FROM t WHERE id=@id\";\n"
+  },
+  {
+   "regla": "STATIC-CMD-CSHARP-SHELL-EXECUTE",
+   "archivo": "Runner.cs",
+   "positivo": "var psi = new ProcessStartInfo(cmd) { UseShellExecute = true };\n",
+   "negativo": "var psi = new ProcessStartInfo(cmd) { UseShellExecute = false };\n"
+  },
+  {
+   "regla": "STATIC-XSS-CSHARP-RESPONSE-WRITE",
+   "archivo": "Page.cs",
+   "positivo": "Response.Write(Request.Query[\"q\"]);\n",
+   "negativo": "Response.Write(HttpUtility.HtmlEncode(q));\n"
+  },
+  {
+   "regla": "STATIC-DESERIALIZATION-CSHARP",
+   "archivo": "Cache.cs",
+   "positivo": "var f = new BinaryFormatter();\n",
+   "negativo": "var o = JsonSerializer.Deserialize<Order>(s);\n"
+  },
+  {
+   "regla": "STATIC-XXE-CSHARP-XMLRESOLVER",
+   "archivo": "Xml.cs",
+   "positivo": "doc.XmlResolver = new XmlUrlResolver();\n",
+   "negativo": "doc.XmlResolver = null;\n"
+  },
+  {
+   "regla": "STATIC-PATH-TRAVERSAL-CSHARP",
+   "archivo": "Files.cs",
+   "positivo": "var text = File.ReadAllText(path);\n",
+   "negativo": "var text = File.ReadAllText(\"config.json\");\n"
+  },
+  {
+   "regla": "STATIC-REMOVE-IN-ITERATION-CSHARP",
+   "archivo": "Orders.cs",
+   "positivo": "foreach (var o in orders) { if (o.Cancelled) orders.Remove(o); }\n",
+   "negativo": "orders.RemoveAll(o => o.Cancelled);\n"
+  },
+  {
+   "regla": "STATIC-SINGLETON-NO-THREADSAFETY-CSHARP",
+   "archivo": "Cache2.cs",
+   "positivo": "private static Cache _instance;\n",
+   "negativo": "private static readonly Lazy<Cache> _instance = new Lazy<Cache>(() => new Cache());\n"
+  },
+  {
+   "regla": "STATIC-EXCESSIVE-TOLIST-CSHARP",
+   "archivo": "Query.cs",
+   "positivo": "var xs = q.ToList();\n",
+   "negativo": "var xs = q.Where(x => x.Ok);\n"
+  },
+  {
+   "regla": "STATIC-MISSING-RETRY-EXTERNAL-CALL-CSHARP",
+   "archivo": "Quotes.cs",
+   "positivo": "var r = SoapClient.GetQuote(req);\n",
+   "negativo": "var r = await _policy.ExecuteAsync(() => api.GetQuote(req));\n"
+  },
+  {
+   "regla": "STATIC-SENSITIVE-LOG-CSHARP",
+   "archivo": "Login.cs",
+   "positivo": "_logger.Info(\"login \" + password);\n",
+   "negativo": "_logger.Info(\"login ok\");\n"
+  },
+  {
+   "regla": "STATIC-PII-LOG-CSHARP",
+   "archivo": "Customers.cs",
+   "positivo": "_logger.Info(\"cliente \" + customerName);\n",
+   "negativo": "_logger.Info(\"cliente procesado\");\n"
+  },
+  {
+   "regla": "STATIC-SFTP-NO-HOSTKEY-VERIFICATION-CSHARP",
+   "archivo": "Upload.cs",
+   "positivo": "var c = new SftpClient(host, user, key);\n",
+   "negativo": "var c = new BlobUploader(container);\n"
+  },
+  {
+   "regla": "STATIC-SMTP-NO-TLS-CSHARP",
+   "archivo": "Mail.cs",
+   "positivo": "var smtp = new SmtpClient(\"mail.example.com\");\nsmtp.Send(msg);\n",
+   "negativo": "var smtp = new SmtpClient(\"mail.example.com\");\nsmtp.EnableSsl = true;\nsmtp.Send(msg);\n"
+  },
+  {
+   "regla": "STATIC-EXCEPTION-DETAILS-EXPOSURE-CSHARP",
+   "archivo": "Errors.cs",
+   "positivo": "var body = $\"Error: {ex.StackTrace}\";\n",
+   "negativo": "var body = \"Error interno\";\n"
+  },
+  {
+   "regla": "STATIC-THROW-EX-DESTROYS-STACK-CSHARP",
+   "archivo": "Rethrow.cs",
+   "positivo": "catch (IOException ex) { Log(ex); throw ex; }\n",
+   "negativo": "catch (IOException ex) { Log(ex); throw; }\n"
+  },
+  {
+   "regla": "STATIC-TIMESPAN-HOURS-MISUSE-CSHARP",
+   "archivo": "Window.cs",
+   "positivo": "if (elapsed.Hours > 24) { Expire(); }\n",
+   "negativo": "if (elapsed.TotalHours > 24) { Expire(); }\n"
+  },
+  {
+   "regla": "STATIC-SUBSTRING-NAME-MATCHING-CSHARP",
+   "archivo": "Match.cs",
+   "positivo": "var hit = p.FirstName.Contains(n1) && p.LastName.Contains(n2);\n",
+   "negativo": "var hit = p.Id == id;\n"
+  },
+  {
+   "regla": "STATIC-IP-LITERAL-IN-CONFIG",
+   "archivo": "Web.config",
+   "positivo": "<appSettings><add key=\"Host\" value=\"192.0.2.10\" /></appSettings>\n",
+   "negativo": "<appSettings><add key=\"Host\" value=\"api.example.internal\" /></appSettings>\n"
+  },
+  {
+   "regla": "NETFX-EOL-HIGH",
+   "archivo": "App.csproj",
+   "positivo": "<Project><PropertyGroup><TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion></PropertyGroup></Project>\n",
+   "negativo": "<Project><PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion></PropertyGroup></Project>\n"
+  },
+  {
+   "regla": "APPSETTINGS-CONNSTR-NO-SECRETS-MANAGER",
+   "archivo": "appsettings.json",
+   "positivo": "{\"ConnectionStrings\": {\"Default\": \"Server=db01;Password=demo\"}}\n",
+   "negativo": "{\"ConnectionStrings\": {\"Default\": \"$SECRETSMANAGER-billing-db\"}}\n"
+  },
+  {
+   "regla": "VBNET-HARDCODED-IP-IN-URL",
+   "archivo": "Notify.vb",
+   "positivo": "Dim url As String = \"http://192.0.2.10:8080/notify\"\n",
+   "negativo": "Dim url As String = \"https://api.example.com/notify\"\n"
+  },
+  {
+   "regla": "VBNET-HARDCODED-CONNSTR",
+   "archivo": "Conn.vb",
+   "positivo": "Dim cs As String = \"Server=db01;Database=ventas;User Id=app;Password=demo\"\n",
+   "negativo": "Dim cs As String = \"Server=db01;Database=ventas;Integrated Security=true\"\n"
+  },
+  {
+   "regla": "STATIC-SQL-JAVA-CONCAT",
+   "archivo": "Repo.java",
+   "positivo": "rs = stmt.executeQuery(\"SELECT * FROM t WHERE id=\" + id);\n",
+   "negativo": "rs = ps.executeQuery();\n"
+  },
+  {
+   "regla": "STATIC-CMD-JAVA-RUNTIME-EXEC",
+   "archivo": "Run.java",
+   "positivo": "Runtime.getRuntime().exec(cmd);\n",
+   "negativo": "new ProcessBuilder(List.of(\"ls\")).start();\n"
+  },
+  {
+   "regla": "STATIC-XSS-JAVA-WRITER",
+   "archivo": "Servlet.java",
+   "positivo": "response.getWriter().print(request.getParameter(\"q\"));\n",
+   "negativo": "response.getWriter().print(Encode.forHtml(q));\n"
+  },
+  {
+   "regla": "STATIC-DESERIALIZATION-JAVA-OIS",
+   "archivo": "Load.java",
+   "positivo": "Object o = new ObjectInputStream(in).readObject();\n",
+   "negativo": "Order o = mapper.readValue(in, Order.class);\n"
+  },
+  {
+   "regla": "STATIC-XXE-JAVA-DBF",
+   "archivo": "Parse.java",
+   "positivo": "DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();\n",
+   "negativo": "DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();\ndbf.setFeature(\"http://apache.org/xml/features/disallow-doctype-decl\", true);\n"
+  },
+  {
+   "regla": "STATIC-SQL-COBOL-CONCAT",
+   "archivo": "CONSULTA.cbl",
+   "positivo": "           EXEC SQL\n               PREPARE STMT FROM 'SELECT * FROM T WHERE ID = ' || WS-ID\n           END-EXEC\n",
+   "negativo": "           EXEC SQL\n               SELECT NOMBRE INTO :WS-NOMBRE FROM T WHERE ID = :WS-ID\n           END-EXEC\n"
+  },
+  {
+   "regla": "STATIC-SQL-PHP-CONCAT",
+   "archivo": "repo.php",
+   "positivo": "<?php $db->query(\"SELECT * FROM t WHERE id=\" . $id);\n",
+   "negativo": "<?php $st = $db->prepare(\"SELECT * FROM t WHERE id=?\"); $st->execute([$id]);\n"
+  },
+  {
+   "regla": "STATIC-CMD-PHP-EXEC",
+   "archivo": "run.php",
+   "positivo": "<?php exec($cmd);\n",
+   "negativo": "<?php exec('ls -l');\n"
+  },
+  {
+   "regla": "STATIC-XSS-PHP-ECHO-SUPERGLOBAL",
+   "archivo": "page.php",
+   "positivo": "<?php echo $_GET['q'];\n",
+   "negativo": "<?php echo htmlspecialchars($_GET['q']);\n"
+  },
+  {
+   "regla": "STATIC-DESERIALIZATION-PHP-UNSERIALIZE",
+   "archivo": "load.php",
+   "positivo": "<?php $o = unserialize($data);\n",
+   "negativo": "<?php $o = json_decode($data, true);\n"
+  },
+  {
+   "regla": "STATIC-PATH-TRAVERSAL-PHP",
+   "archivo": "router.php",
+   "positivo": "<?php include($_GET['page']);\n",
+   "negativo": "<?php include('header.php');\n"
+  },
+  {
+   "regla": "STATIC-XXE-PHP-LIBXML-NOENT",
+   "archivo": "xml.php",
+   "positivo": "<?php $x = simplexml_load_string($s, 'SimpleXMLElement', LIBXML_NOENT);\n",
+   "negativo": "<?php $x = simplexml_load_string($s);\n"
+  },
+  {
+   "regla": "STATIC-XSS-REACT-DANGEROUSLYHTML",
+   "archivo": "Card.jsx",
+   "positivo": "export const Card = ({ body }) => <div dangerouslySetInnerHTML={{__html: body}} />;\n",
+   "negativo": "export const Card = ({ body }) => <div>{body}</div>;\n"
+  },
+  {
+   "regla": "STATIC-XSS-DOM-INNERHTML",
+   "archivo": "dom.js",
+   "positivo": "el.innerHTML = userInput;\n",
+   "negativo": "el.textContent = userInput;\n"
+  },
+  {
+   "regla": "STATIC-OPEN-REDIRECT-JS",
+   "archivo": "nav.js",
+   "positivo": "window.location = next;\n",
+   "negativo": "window.location = \"https://example.com/home\";\n"
+  },
+  {
+   "regla": "STATIC-CMD-NODE-CHILDPROCESS",
+   "archivo": "proc.js",
+   "positivo": "child_process.exec(\"ls \" + dir);\n",
+   "negativo": "child_process.execFile(\"ls\", [dir]);\n"
+  },
+  {
+   "regla": "STATIC-PATH-TRAVERSAL-NODE-FS",
+   "archivo": "files.js",
+   "positivo": "fs.readFile(req.query.file, cb);\n",
+   "negativo": "fs.readFile(\"./static/a.txt\", cb);\n"
+  },
+  {
+   "regla": "STATIC-SQL-NODE-CONCAT",
+   "archivo": "db.js",
+   "positivo": "db.query(\"SELECT * FROM t WHERE id=\" + id);\n",
+   "negativo": "db.query(\"SELECT * FROM t WHERE id=$1\", [id]);\n"
+  },
+  {
+   "regla": "AWS-CDK-KMS-AWS-MANAGED-FORBIDDEN",
+   "archivo": "keys.py",
+   "positivo": "KEY = \"alias/aws/s3\"\n",
+   "negativo": "KEY = \"alias/acme-kms-billing-storage\"\n"
+  },
+  {
+   "regla": "AWS-S3-MISSING-KMS-ENCRYPTION",
+   "archivo": "bucket_stack.py",
+   "positivo": "b = s3.Bucket(self, \"B\", encryption=s3.BucketEncryption.S3_MANAGED)\n",
+   "negativo": "b = s3.Bucket(self, \"B\", encryption=s3.BucketEncryption.KMS, encryption_key=key)\n"
+  },
+  {
+   "regla": "ORG-IAM-ROLE-WRONG-PREFIX",
+   "archivo": "roles_stack.py",
+   "positivo": "r = iam.Role(self, \"R\", role_name=\"billing-app-role\", assumed_by=p)\n",
+   "negativo": "r = iam.Role(self, \"R\", role_name=\"acme-role-billing-dev\", assumed_by=p)\n"
+  },
+  {
+   "regla": "ORG-CDK-DIRECT-COMMAND",
+   "archivo": "deploy.sh",
+   "positivo": "#!/bin/sh\ncdk deploy --all\n",
+   "negativo": "#!/bin/sh\npython scripts/cdk-admin.py --env dev\n"
+  },
+  {
+   "regla": "AWS-IAM-WILDCARD-POLICY",
+   "archivo": "policy.json",
+   "positivo": "{\"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"*\", \"Resource\": \"*\"}]}\n",
+   "negativo": "{\"Statement\": [{\"Effect\": \"Allow\", \"Action\": \"s3:GetObject\", \"Resource\": \"arn:aws:s3:::reports/*\"}]}\n"
+  },
+  {
+   "regla": "ORG-RESOURCE-SUFFIX-MISSING",
+   "archivo": "queues_stack.py",
+   "positivo": "q = sqs.Queue(self, \"Q\", queue_name=\"orders-events\")\n",
+   "negativo": "q = sqs.Queue(self, \"Q\", queue_name=f\"orders-events-{env}\")\n"
+  },
+  {
+   "regla": "AWS-CLOUDFRONT-OAI-DEPRECATED",
+   "archivo": "cdn_stack.py",
+   "positivo": "oai = cloudfront.OriginAccessIdentity(self, \"OAI\")\n",
+   "negativo": "oac = cloudfront.S3OriginAccessControl(self, \"OAC\")\n"
+  }
+ ]
+}

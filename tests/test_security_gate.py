@@ -2697,3 +2697,23 @@ def test_safe_finditer_timeout_constant_overridable():
     from aios.core.security_gate import _REGEX_TIMEOUT_SECONDS
     assert isinstance(_REGEX_TIMEOUT_SECONDS, int)
     assert _REGEX_TIMEOUT_SECONDS >= 1
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Regresión: `^\s*` en modo multilínea cruzaba saltos de línea. Tras un comentario (que el
+# escáner deja en blanco) el hallazgo caía en la línea del comentario y se descartaba; tras
+# una línea en blanco se reportaba en la línea equivocada.
+# ─────────────────────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("nombre,texto,regla,linea", [
+    ("settings.py", "# Ajustes de desarrollo\nDEBUG = True\n", "DEBUG-CODE-DJANGO-SETTING", 2),
+    ("settings.py", "X = 1\n\nDEBUG = True\n", "DEBUG-CODE-DJANGO-SETTING", 3),
+    ("worker.py", "try:\n    x()\n# sin manejo\nexcept:\n    pass\n", "BARE-EXCEPT-HANDLER-PY", 4),
+    ("OrdersController.cs", "// controlador\npublic class OrdersController : ControllerBase\n{\n}\n",
+     "ASPNET-CONTROLLER-MISSING-APICONTROLLER", 2),
+    ("deploy.sh", "#!/bin/sh\ncdk deploy --all\n", "ORG-CDK-DIRECT-COMMAND", 2),
+])
+def test_multiline_anchor_does_not_cross_previous_line(tmp_path, nombre, texto, regla, linea):
+    (tmp_path / nombre).write_text(texto)
+    hits = [f for f in scan_directory(tmp_path) if f.rule_id == regla]
+    assert [f.line for f in hits] == [linea]

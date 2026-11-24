@@ -789,7 +789,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     ),
     (
         "CWE-489",
-        re.compile(r"""(?m)^\s*DEBUG\s*=\s*True\b"""),
+        re.compile(r"""(?m)^[ \t]*DEBUG\s*=\s*True\b"""),
         "DEBUG-CODE-DJANGO-SETTING",
         "HIGH",
         "Active debug · Django settings DEBUG=True (info disclosure)",
@@ -1154,7 +1154,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     (
         "CWE-703",
         re.compile(
-            r"""(?m)^\s*except\s*:\s*$|"""
+            r"""(?m)^[ \t]*except[ \t]*:[ \t]*$|"""
             r"""except\s*(?:\([^)]+\)|BaseException|Exception|\w+)?"""
             r"""\s*(?:as\s+\w+)?\s*:\s*\n\s*pass\s*(?:\n|$)"""
         ),
@@ -1586,7 +1586,9 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
     (
         "CWE-710",
         re.compile(
-            r"""^\s*(?:cdk|npx\s+cdk)\s+(?:deploy|bootstrap|synth|destroy|diff)""",
+            # [ \t]* y no \s*: con \s* el match empieza en la línea anterior (p. ej. el shebang,
+            # que strip_inline_comments deja en blanco) y el filtro de comentarios lo descarta.
+            r"""^[ \t]*(?:cdk|npx[ \t]+cdk)[ \t]+(?:deploy|bootstrap|synth|destroy|diff)""",
             re.MULTILINE,
         ),
         "ORG-CDK-DIRECT-COMMAND",
@@ -1966,7 +1968,7 @@ _DETECTORS: list[tuple[str, re.Pattern, str, str, str, frozenset[str] | None]] =
             # `[ApiController]` se hace post-match vía
             # `_class_has_apicontroller_attr` para evitar false-positives
             # por lookbehind variable.
-            r"""(?m)^\s*public\s+(?:sealed\s+|abstract\s+|partial\s+)?"""
+            r"""(?m)^[ \t]*public\s+(?:sealed\s+|abstract\s+|partial\s+)?"""
             r"""class\s+\w+Controller\s*:\s*ControllerBase\b"""
         ),
         "ASPNET-CONTROLLER-MISSING-APICONTROLLER",

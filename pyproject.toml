@@ -31,7 +31,7 @@ classifiers = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.2,<2"]          # servidor MCP (aios-mcp) · la API FastMCP cambió en mcp 2.x
-pdf = ["weasyprint>=60", "markdown>=3.5"]
+pdf = ["weasyprint>=70.0", "markdown>=3.5"]
 
 [project.scripts]
 aios = "aios.cli.main:main"

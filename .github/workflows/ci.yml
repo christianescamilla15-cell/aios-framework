@@ -58,18 +58,14 @@ jobs:
         run: |
           python -m venv /tmp/aios-venv
           /tmp/aios-venv/bin/pip install dist/*.whl
-      - name: arranque y humo desde fuera del árbol
-        working-directory: /tmp
+      - name: arranque y humo desde fuera del árbol (herramientas/humo.sh)
         run: |
-          esperado=$(python3 -c "import tomllib;print(tomllib.load(open('$GITHUB_WORKSPACE/pyproject.toml','rb'))['project']['version'])")
-          /tmp/aios-venv/bin/aios version | tee version.txt
-          grep -q "v${esperado}" version.txt
-          mkdir -p humo && cd humo
-          /tmp/aios-venv/bin/aios tier classify --app partners
-          /tmp/aios-venv/bin/aios governance check --app billing --root .
-          /tmp/aios-venv/bin/aios governance request --type bd-access --app billing --format md --output ./req --audit-root .
-          ls req/*.md
-          /tmp/aios-venv/bin/python -c "import aios.governance.loader as l; l.load_rules()"
+          esperado=$(python3 -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          herramientas/humo.sh /tmp/aios-venv/bin/aios "$esperado"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: wheel
+          path: dist/*.whl
 
   extension:
     name: extensión VS Code (compilación)

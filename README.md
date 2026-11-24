@@ -1,13 +1,19 @@
 # AIOS (Dowser) — AI Engineering Operating System
 
+[![ci](https://github.com/christianescamilla15-cell/aios-framework/actions/workflows/ci.yml/badge.svg)](https://github.com/christianescamilla15-cell/aios-framework/actions/workflows/ci.yml)
+[![seguridad](https://github.com/christianescamilla15-cell/aios-framework/actions/workflows/seguridad.yml/badge.svg)](https://github.com/christianescamilla15-cell/aios-framework/actions/workflows/seguridad.yml)
+[![licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+
 Spec-driven development framework with agent orchestration, modeled after Kiro-style workflows, plus an
 embedded security gate (regex detectors mapped to CWE), governance-as-code and a VS Code extension.
 
 **Versión actual: v4.0.0** — primera versión pública. Las reglas de organización (TIER, nombres, firmas,
-servicios aprobados) son **datos de ejemplo de una organización ficticia, Acme Corp** (ver el encabezado
-de `aios/governance/rules/*.yaml`).
+servicios aprobados) son **datos de ejemplo de una organización ficticia, Acme Corp**; ver
+[ADR 0003](docs/adr/0003-reglas-de-organizacion-como-datos-de-ejemplo.md).
 
-## Install
+## Cómo ejecutar
+
+Requiere Python 3.11 o superior.
 
 ```bash
 git clone https://github.com/christianescamilla15-cell/aios-framework.git
@@ -17,6 +23,9 @@ source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -e ".[mcp]"      # [mcp] agrega el servidor MCP (aios-mcp)
 aios version
 ```
+
+Variables de entorno opcionales en [.env.example](.env.example). Cómo se publica y verifica una versión:
+[RUNBOOK.md](RUNBOOK.md).
 
 ## Quick Start
 
@@ -85,3 +94,30 @@ aws, cicd, cobol, docker, dotnet, java, multiagent, php, python, react — auto-
 - **Kiro**: `.kiro/steering/` y el power `powers/aios-unified/` (steering + `mcp.json`).
 - **MCP**: `aios-mcp` expone el escáner, el release gate y el reporte consolidado.
 - **VS Code**: [vscode-extension/](vscode-extension/) envuelve la CLI (comandos, barra de estado, snippets).
+
+## Arquitectura
+
+C4 en Mermaid (contexto, contenedores y componentes con los módulos reales) en
+[docs/arquitectura/README.md](docs/arquitectura/README.md); decisiones en [docs/adr/](docs/adr/).
+
+## Pruebas
+
+```bash
+pip install -e ".[mcp]" -r requirements.txt -r requirements-dev.txt
+pytest -q                                  # suite completa (sin red ni credenciales)
+pytest tests/test_detectores_golden.py -q  # paridad de detectores contra el oráculo golden
+```
+
+La compuerta es **una prueba por regla**: [docs/reglas.md](docs/reglas.md) enlaza cada regla del dominio
+con sus pruebas y `tests/test_docs.py` falla si alguna referencia deja de existir. El CI corre la suite en
+Python 3.11, 3.12 y 3.13, instala el wheel fuera del árbol y lo arranca (`herramientas/humo.sh`), y compila
+la extensión de VS Code. La cobertura se reporta, no es la compuerta.
+
+## Seguridad
+
+Política y canal de reporte en [SECURITY.md](SECURITY.md). Cada cambio pasa por CodeQL, Semgrep, Trivy,
+gitleaks sobre toda la historia, SBOM y la revisión de confidencialidad (flujo `seguridad`).
+
+## Licencia
+
+[MIT](LICENSE).

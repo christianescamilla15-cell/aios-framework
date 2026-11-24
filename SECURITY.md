@@ -1,54 +1,39 @@
-# Security Policy
+# Seguridad
 
-## Política de Secretos
+## Reportar una vulnerabilidad
 
-Este repositorio sigue prácticas estrictas de manejo de credenciales:
+Escribe a **christianescamilla15@gmail.com** con el asunto «Seguridad: aios-framework». Respondo en 72 horas
+hábiles y publico el arreglo con su aviso. Por favor no abras un issue público para vulnerabilidades.
 
-### ❌ Nunca committear
-- Archivos `.env` con valores reales
-- API keys privadas (OpenAI, Anthropic, Stripe secret, etc.)
-- Credenciales de base de datos con password
-- Tokens de servicio (`service_role`, service accounts)
-- Certificados y llaves privadas (`.pem`, `.key`, `.p12`)
-- Firebase Admin SDK credentials (`firebase-adminsdk-*.json`)
+## Qué revisa cada cambio
 
-### ✅ Seguro de committear
-- `.env.example` con placeholders (ej: `API_KEY=your_key_here`)
-- Firebase client config (`firebase_options.dart`) — Google lo diseñó público
-- Supabase `anon` key — público por diseño, RLS del lado servidor
-- URLs públicas de servicios (Supabase project URL)
+| Revisión | Herramienta | Bloquea |
+|---|---|---|
+| Análisis estático | CodeQL (Python, JS/TS) + Semgrep `p/default` | sí (Semgrep) |
+| Dependencias, configuración e IaC | Trivy | sí, en CRITICAL/HIGH con arreglo publicado |
+| Secretos en toda la historia | gitleaks | sí |
+| Datos de terceros | revisión de confidencialidad | sí |
+| Inventario de componentes | SBOM (syft, SPDX) | no: se publica con cada versión |
 
-## Reportar vulnerabilidades
+Cada revisión debe probar que analizó algo (archivos o paquetes > 0); un reporte vacío cuenta como fallo.
+Las excepciones viven en `.trivyignore` (con fecha de vencimiento y motivo), en `.gitleaks.toml` (por valor
+exacto) y en el código como `nosemgrep: <regla> -- motivo`.
 
-Si encuentras una vulnerabilidad de seguridad, por favor NO abras un issue público.
-Contacta directamente a: **christianescamilla15@gmail.com**
+## Controles del propio producto
 
-## Pre-commit Hook Recomendado
+AIOS analiza código ajeno, así que trata su entrada como no confiable:
 
-Para prevenir commits accidentales de secretos, instala `gitleaks`:
+- **XML de terceros** (cobertura, `.config` del repo escaneado) con `defusedxml`: sin entidades ni DTD.
+- **Expresiones regulares** con tiempo máximo por archivo (`AIOS_REGEX_TIMEOUT_SECONDS`) contra ReDoS.
+- **URLs configurables** (webhook, host de Ollama) sólo `http(s)`; los stacks se importan de una lista blanca.
+- **Extensión de VS Code**: la CLI se invoca con `execFile` y argumentos en arreglo, nunca por shell.
+- **Hallazgos y reportes**: los valores de credenciales se redactan (drift, PII, literales prohibidos); el
+  servidor MCP cuenta los literales prohibidos pero no los devuelve.
+- **Bitácora de firmas** append-only encadenada por SHA-256 (`aios governance audit` detecta ediciones).
+- Pruebas de regresión: `tests/test_endurecimiento.py`, `tests/test_kiro_integration.py`.
 
-```bash
-# Instalar
-brew install gitleaks  # macOS
-scoop install gitleaks # Windows
+## Datos de ejemplo
 
-# Pre-commit hook
-gitleaks install
-```
-
-## Rotación de Secretos
-
-Si se expone accidentalmente un secreto:
-
-1. **Rotar inmediatamente** en el proveedor del servicio
-2. **Actualizar** la variable en el servicio que la usa (Vercel/Render)
-3. **Limpiar el historial** con `git filter-repo --invert-paths --path <archivo>`
-4. **Force push** después de rotar (nunca antes)
-
-## Variables Globales del Proyecto
-
-Ver `.env.example` para la lista completa de variables necesarias.
-Las variables reales deben configurarse en:
-
-- **Desarrollo local:** archivo `.env` (ignorado por git)
-- **Producción:** Dashboard de Vercel/Render/etc.
+Las reglas de organización del repositorio (TIER, nombres, firmas, catálogo) describen a una organización
+ficticia (Acme Corp) con buzones del dominio reservado `.example`. El CI verifica con una lista de términos
+(secreto `CONFIDENCIAL_TERMINOS`) que no entren datos de clientes reales.

@@ -139,3 +139,12 @@ def test_kiro_bridge_module_importable():
     from aios.core.kiro_bridge import generate_kiro_steering, generate_kiro_specs
     assert callable(generate_kiro_steering)
     assert callable(generate_kiro_specs)
+
+
+def test_vscode_extension_never_runs_cli_through_a_shell():
+    """La extensión pasa texto del usuario a la CLI: debe usar execFile con argumentos, nunca exec(cadena)."""
+    src = (_REPO / "vscode-extension" / "src" / "extension.ts").read_text(encoding="utf-8")
+    assert "execFile(" in src
+    assert re.search(r"\bexec\(", src) is None
+    # Ningún argumento se arma con comillas interpoladas para el shell
+    assert re.search(r'`--\w[\w-]*\s+"\$\{', src) is None

@@ -8,7 +8,7 @@
  *  - Output channel for results
  */
 import * as vscode from "vscode";
-import { exec, ExecException } from "child_process";
+import { execFile, ExecFileException } from "child_process";
 
 let statusBarItem: vscode.StatusBarItem;
 let outputChannel: vscode.OutputChannel;
@@ -31,16 +31,18 @@ async function runAios(subcmd: string, extraArgs: string[] = [], showOutput = tr
     if (!cwd) return null;
 
     const cli = getCliPath();
-    const fullCmd = `${cli} ${subcmd} ${extraArgs.join(" ")}`.trim();
+    // execFile + argumentos en arreglo: sin shell, así un texto capturado por el usuario (descripción
+    // de la tarea, resumen, nombre de spec) nunca se interpreta como comando.
+    const args = [subcmd, ...extraArgs];
 
     if (showOutput) {
-        outputChannel.appendLine(`\n[AIOS] $ ${fullCmd}`);
+        outputChannel.appendLine(`\n[AIOS] $ ${cli} ${args.map((a) => JSON.stringify(a)).join(" ")}`);
         outputChannel.show(true);
     }
 
     return new Promise((resolve) => {
-        exec(fullCmd, { cwd, encoding: "utf-8", maxBuffer: 1024 * 1024 * 5 },
-            (err: ExecException | null, stdout: string, stderr: string) => {
+        execFile(cli, args, { cwd, encoding: "utf-8", maxBuffer: 1024 * 1024 * 5 },
+            (err: ExecFileException | null, stdout: string, stderr: string) => {
                 if (stdout && showOutput) outputChannel.append(stdout);
                 if (stderr && showOutput) outputChannel.append(stderr);
                 if (err) {
@@ -100,7 +102,7 @@ async function cmdTask() {
     );
     if (!mode) return;
 
-    const result = await runAios("task", [`--task "${description}"`, `--mode ${mode}`]);
+    const result = await runAios("task", ["--task", description, "--mode", mode]);
     if (result) {
         refreshStatusBar();
         // Auto-sync if enabled
@@ -119,7 +121,7 @@ async function cmdRefresh() {
         prompt: "Next step",
     });
     if (!nextStep) return;
-    await runAios("refresh", [`--summary "${summary}"`, `--next-step "${nextStep}"`]);
+    await runAios("refresh", ["--summary", summary, "--next-step", nextStep]);
     refreshStatusBar();
 }
 
@@ -129,7 +131,7 @@ async function cmdRefine() {
         prompt: "Spec name (e.g. legacy-01-billing)",
     });
     if (!spec) return;
-    await runAios("refine", [`--spec ${spec}`]);
+    await runAios("refine", ["--spec", spec]);
 }
 async function cmdRelease() { await runAios("release"); }
 async function cmdSync() { await runAios("sync"); }
@@ -215,25 +217,37 @@ interface ArenaRunSummary {
     run_dir: string;
 }
 
+/** Une partes de ruta bajo `base` y garantiza que el resultado no se salga de `base`. */
+function within(base: string, ...parts: string[]): string {
+    const path = require("path");
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- base es la raíz del workspace que entrega VS Code
+    const root = path.resolve(base);
+    // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- se verifica abajo que el resultado quede dentro de base
+    const target = path.resolve(root, ...parts);
+    if (target !== root && !target.startsWith(root + path.sep)) {
+        throw new Error(`Ruta fuera del workspace: ${target}`);
+    }
+    return target;
+}
+
 async function collectRuns(cwd: string): Promise<ArenaRunSummary[]> {
     const fs = require("fs");
-    const path = require("path");
     const runsDirs = [
-        path.join(cwd, "arena", "arena-memory", "runs"),
-        path.join(cwd, "arena-memory", "runs"),
+        within(cwd, "arena", "arena-memory", "runs"),
+        within(cwd, "arena-memory", "runs"),
     ];
     const summaries: ArenaRunSummary[] = [];
     for (const runsDir of runsDirs) {
         if (!fs.existsSync(runsDir)) continue;
         const entries = fs.readdirSync(runsDir);
         for (const entry of entries) {
-            const runDir = path.join(runsDir, entry);
-            const metaPath = path.join(runDir, "metadata.json");
+            const runDir = within(runsDir, entry);
+            const metaPath = within(runDir, "metadata.json");
             if (!fs.existsSync(metaPath)) continue;
             try {
                 const meta = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
                 let findingsCount = 0;
-                const sarifPath = path.join(runDir, "findings.sarif");
+                const sarifPath = within(runDir, "findings.sarif");
                 if (fs.existsSync(sarifPath)) {
                     try {
                         const sarif = JSON.parse(fs.readFileSync(sarifPath, "utf-8"));
@@ -401,8 +415,7 @@ interface Suppression {
 
 function loadSuppressions(cwd: string): Suppression[] {
     const fs = require("fs");
-    const path = require("path");
-    const file = path.join(cwd, "aios-suppressions.json");
+    const file = within(cwd, "aios-suppressions.json");
     if (!fs.existsSync(file)) return [];
     try {
         const raw = JSON.parse(fs.readFileSync(file, "utf-8"));
@@ -412,8 +425,7 @@ function loadSuppressions(cwd: string): Suppression[] {
 
 function writeSuppressions(cwd: string, sups: Suppression[]): void {
     const fs = require("fs");
-    const path = require("path");
-    fs.writeFileSync(path.join(cwd, "aios-suppressions.json"),
+    fs.writeFileSync(within(cwd, "aios-suppressions.json"),
         JSON.stringify(sups, null, 2), "utf-8");
 }
 
